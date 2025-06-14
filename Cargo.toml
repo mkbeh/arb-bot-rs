@@ -1,0 +1,10 @@
+[package]
+name = "arb-bot-rs"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "bot"
+path = "src/bin/bot/main.rs"
+
+[dependencies]
