@@ -8,3 +8,10 @@ name = "bot"
 path = "src/bin/bot/main.rs"
 
 [dependencies]
+anyhow = "1.0.98"
+async-trait = { version = "0.1.88" }
+axum = { version = "0.8.4", features = ["http1", "http2", "json", "macros"] }
+tokio = { version = "1.45.1", features = ["rt", "rt-multi-thread", "macros", "net", "signal"] }
+tokio-util = { version = "0.7.15" }
+tracing = { version = "0.1.41", default-features = false }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "registry", "std", "fmt", "json"] }
