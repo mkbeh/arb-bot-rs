@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Check
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: rustfmt
+        run: cargo +nightly fmt --all --check
+
+  build:
+    needs: [ "lint" ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          cargo build --verbose
+
+  test:
+    needs: [ "build" ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Run tests
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          cargo test --verbose
+
+  coverage:
+    needs: [ "build" ]
+    name: coverage
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate code coverage
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120
+
+  security_audit:
+    needs: [ "build" ]
+    name: security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies-are-sorted:
+    needs: [ "build" ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@beta
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install cargo-sort
+        run: |
+          cargo install cargo-sort
+      # Work around cargo-sort not honoring workspace.exclude
+      - name: Remove non-crate folder
+        run: rm -rf examples/async-graphql
+      - name: Check dependency tables
+        run: |
+          cargo sort --workspace --grouped --check
+
+  typos:
+    needs: [ "build" ]
+    name: Spell Check with Typos
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Actions Repository
+        uses: actions/checkout@v4
+
+      - name: Check the spelling of the files in our repo
+        uses: crate-ci/typos@v1.29.4
