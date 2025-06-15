@@ -11,7 +11,7 @@ const PROCESS_PRE_RUN_TIMEOUT: Duration = Duration::from_secs(60);
 static SHUTDOWN_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
 
 #[async_trait]
-pub trait Process: Send + Sync {
+pub trait ServerProcess: Send + Sync {
     async fn pre_run(&self) -> anyhow::Result<()>;
     async fn run(&self, token: CancellationToken) -> anyhow::Result<()>;
 }
@@ -19,7 +19,7 @@ pub trait Process: Send + Sync {
 #[derive(Default)]
 pub struct Server<'a> {
     addr: String,
-    processes: Option<&'a Vec<&'static dyn Process>>,
+    processes: Option<&'a Vec<&'static dyn ServerProcess>>,
 }
 
 impl<'a> Server<'a> {
@@ -30,7 +30,7 @@ impl<'a> Server<'a> {
         }
     }
 
-    pub fn with_processes(mut self, processes: &'a Vec<&'static dyn Process>) -> Self {
+    pub fn with_processes(mut self, processes: &'a Vec<&'static dyn ServerProcess>) -> Self {
         self.processes = Some(processes);
         self
     }

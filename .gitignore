@@ -27,3 +27,4 @@ target/
 
 # Custom
 .env
+config.toml
