@@ -1,0 +1,43 @@
+version: 3
+
+vars:
+  RUST_IMAGE: "rustlang/rust:nightly-slim"
+
+tasks:
+  run:
+    desc: "Full cycle"
+    deps:
+      - lint
+      - test
+      - coverage
+
+  lint:
+    desc: "lint"
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo clippy -- -D warnings && cargo +nightly fmt --all --check
+
+  test:
+    desc: "test"
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo test
+
+  coverage:
+    desc: "coverage"
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        --security-opt seccomp=unconfined
+        xd009642/tarpaulin:develop-nightly
+        cargo +nightly tarpaulin --all-features --workspace --timeout 120
