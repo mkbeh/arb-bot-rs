@@ -27,4 +27,5 @@ target/
 
 # Custom
 .env
+tmp
 config.toml

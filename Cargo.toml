@@ -18,3 +18,6 @@ tokio-util = { version = "0.7.15" }
 toml = { version = "0.8.23" }
 tracing = { version = "0.1.41", default-features = false }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "registry", "std", "fmt", "json"] }
+reqwest = {version = "0.12.20", features = ["json"]}
+strum_macros = "0.27.1"
+strum = "0.27.1"

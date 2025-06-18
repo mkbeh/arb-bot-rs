@@ -1,10 +1,13 @@
-use std::{sync::OnceLock, time};
+use std::{
+    sync::{Arc, OnceLock},
+    time,
+};
 
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{error, info};
 
-use crate::libs::http_server::server::ServerProcess;
+use crate::{libs::http_server::server::ServerProcess, services::ExchangeService};
 
 pub struct Config {
     pub delay: u64,
@@ -12,12 +15,16 @@ pub struct Config {
 
 pub struct Process {
     delay: u64,
+    service: Arc<dyn ExchangeService>,
 }
 
 impl Process {
-    pub fn new(cfg: Config) -> &'static Self {
+    pub fn new(cfg: Config, service: Arc<dyn ExchangeService>) -> &'static Self {
         static INSTANCE: OnceLock<Process> = OnceLock::new();
-        INSTANCE.get_or_init(|| Process { delay: cfg.delay })
+        INSTANCE.get_or_init(|| Process {
+            delay: cfg.delay,
+            service,
+        })
     }
 }
 
@@ -36,7 +43,10 @@ impl ServerProcess for Process {
                 return Ok(());
             }
             _ = tokio::time::sleep(time::Duration::from_secs(self.delay)) => {
-                    info!("process delayed");
+                    match self.service.start_arbitrage().await {
+                        Ok(_) => info!(count = "process complete successfully"),
+                        Err(e) => error!(error = ?e, "error during working process"),
+                    };
             }
             }
         }

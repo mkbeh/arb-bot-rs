@@ -26,6 +26,7 @@ pub fn setup_opentelemetry(name: &'static str) {
         .add_directive("tokio_postgres=error".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap());
     let fmt_layer = tracing_subscriber::fmt::layer()
+        .compact()
         .with_span_events(FmtSpan::CLOSE)
         .with_thread_names(true)
         .json()
