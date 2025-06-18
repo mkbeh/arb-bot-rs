@@ -11,7 +11,7 @@ use tracing::error;
 async fn main() {
     setup_application(env!("CARGO_PKG_NAME"));
 
-    let entry = Entrypoint::new();
+    let entry = Entrypoint;
 
     match entry.run().await {
         Ok(_) => std::process::exit(0),

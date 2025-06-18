@@ -1,7 +1,7 @@
 version: 3
 
 vars:
-  RUST_IMAGE: "rustlang/rust:nightly-slim"
+  RUST_IMAGE: "rustlang/rust:nightly"
 
 tasks:
   run:
