@@ -1,12 +1,12 @@
 # Binance
 
-[API documentation](https://developers.binance.com/docs/binance-spot-api-docs)
+[Binance API documentation](https://developers.binance.com/docs/binance-spot-api-docs)
 
-## Алгоритм арбитража
+## Алгоритм
 
 * [Получить список доступных тикеров](#получить-список-доступных-тикеров)
 
-* [**[Опционально]** Отфильтровать тикеры по объемам за последние 24ч](#опционально-отфильтровать-тикеры-по-объемам-за-последние-24ч)
+* [**(Опционально)** Отфильтровать тикеры по объемам за последние 24ч](#опционально-отфильтровать-тикеры-по-объемам-за-последние-24ч)
 
 * [Сформировать цепочки тикеров на основе списка базовых валют](#сформировать-цепочки-тикеров-на-основе-списка-базовых-валют)
 
@@ -20,11 +20,11 @@
 
 [Exchange information API](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints#exchange-information)
 
-    ```shell
-    curl -X GET "https://api.binance.com/api/v3/exchangeInfo?symbolStatus=TRADING&showPermissionSets=false&permissions=\[\"SPOT\"\]" | jq | > symbols.json
-    ```
+```shell
+curl -X GET "https://api.binance.com/api/v3/exchangeInfo?symbolStatus=TRADING&showPermissionSets=false&permissions=\[\"SPOT\"\]" | jq | > symbols.json
+```
 
-### [Опционально] Отфильтровать тикеры по объемам за последние 24ч
+### (Опционально) Отфильтровать тикеры по объемам за последние 24ч
 
 [24hr ticker price change statistics API](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#24hr-ticker-price-change-statistics)
 

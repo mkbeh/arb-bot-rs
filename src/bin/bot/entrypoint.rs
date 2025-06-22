@@ -43,11 +43,16 @@ impl Entrypoint {
             http_config: binance_api::HttpConfig::default(),
         };
 
-        let client = match Binance::new(cfg) {
+        let account_api = match Binance::new(cfg.clone()) {
             Ok(v) => v,
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        Ok(Arc::new(BinanceService::new(client)))
+        let general_api = match Binance::new(cfg.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        Ok(Arc::new(BinanceService::new(account_api, general_api)))
     }
 }
