@@ -50,7 +50,7 @@ impl Trade {
         }
 
         if let Some(v) = request.strategy_type {
-            params.push(("strategyId".to_owned(), v.to_string()));
+            params.push(("strategyType".to_owned(), v.to_string()));
         }
 
         if let Some(v) = request.stop_price {
@@ -78,7 +78,7 @@ impl Trade {
         }
 
         self.client
-            .get(Api::Spot(Spot::Order), Some(&params), true)
+            .post(Api::Spot(Spot::Order), Some(&params), true)
             .await
     }
 }

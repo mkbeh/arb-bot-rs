@@ -1,4 +1,4 @@
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::libs::binance_api::enums::{
     NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, TimeInForce,
@@ -52,6 +52,7 @@ pub struct SendOrderRequest {
     pub symbol: String,
     pub order_side: OrderSide,
     pub order_type: OrderType,
+    pub time_in_force: Option<TimeInForce>,
     pub quantity: Option<f64>,
     pub quote_order_qty: Option<f64>,
     pub price: Option<f64>,
@@ -74,10 +75,15 @@ pub struct SendOrderResponse {
     pub order_list_id: i64,
     pub client_order_id: String,
     pub transact_time: u64,
+    #[serde(with = "string_or_float")]
     pub price: f64,
+    #[serde(with = "string_or_float")]
     pub orig_qty: f64,
+    #[serde(with = "string_or_float")]
     pub executed_qty: f64,
+    #[serde(with = "string_or_float")]
     pub orig_quote_order_qty: f64,
+    #[serde(with = "string_or_float")]
     pub cummulative_quote_qty: f64,
     pub status: OrderStatus,
     pub time_in_force: TimeInForce,
@@ -93,9 +99,117 @@ pub struct SendOrderResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FillInfo {
+    #[serde(with = "string_or_float")]
     pub price: f64,
+    #[serde(with = "string_or_float")]
     pub qty: f64,
+    #[serde(with = "string_or_float")]
     pub commission: f64,
     pub commission_asset: String,
     pub trade_id: u64,
+}
+
+pub(crate) mod string_or_float {
+    use std::fmt;
+
+    use serde::{Deserialize, Deserializer, Serializer, de};
+
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: fmt::Display,
+        S: Serializer,
+    {
+        serializer.collect_str(value)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<f64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum StringOrFloat {
+            String(String),
+            Float(f64),
+        }
+
+        match StringOrFloat::deserialize(deserializer)? {
+            StringOrFloat::String(s) => {
+                if s == "INF" {
+                    Ok(f64::INFINITY)
+                } else {
+                    s.parse().map_err(de::Error::custom)
+                }
+            }
+            StringOrFloat::Float(i) => Ok(i),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::libs::binance_api::SendOrderResponse;
+
+    #[test]
+    fn test_deserialize() {
+        let data = r#"
+        {
+          "symbol": "BTCUSDT",
+          "orderId": 28,
+          "orderListId": -1,
+          "clientOrderId": "6gCrw2kRUAF9CvJDGP16IP",
+          "transactTime": 1507725176595,
+          "price": "0.00000000",
+          "origQty": "10.00000000",
+          "executedQty": "10.00000000",
+          "origQuoteOrderQty": "0.000000",
+          "cummulativeQuoteQty": "10.00000000",
+          "status": "FILLED",
+          "timeInForce": "GTC",
+          "type": "MARKET",
+          "side": "SELL",
+          "workingTime": 1507725176595,
+          "selfTradePreventionMode": "NONE",
+          "fills": [
+            {
+              "price": "4000.00000000",
+              "qty": "1.00000000",
+              "commission": "4.00000000",
+              "commissionAsset": "USDT",
+              "tradeId": 56
+            },
+            {
+              "price": "3999.00000000",
+              "qty": "5.00000000",
+              "commission": "19.99500000",
+              "commissionAsset": "USDT",
+              "tradeId": 57
+            },
+            {
+              "price": "3998.00000000",
+              "qty": "2.00000000",
+              "commission": "7.99600000",
+              "commissionAsset": "USDT",
+              "tradeId": 58
+            },
+            {
+              "price": "3997.00000000",
+              "qty": "1.00000000",
+              "commission": "3.99700000",
+              "commissionAsset": "USDT",
+              "tradeId": 59
+            },
+            {
+              "price": "3995.00000000",
+              "qty": "1.00000000",
+              "commission": "3.99500000",
+              "commissionAsset": "USDT",
+              "tradeId": 60
+            }
+          ]
+        }
+        "#;
+
+        let deserialized: SendOrderResponse = serde_json::from_str(data).unwrap();
+    }
 }

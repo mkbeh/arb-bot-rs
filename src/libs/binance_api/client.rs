@@ -41,6 +41,46 @@ impl Client {
         query: Option<&Vec<(String, String)>>,
         with_signature: bool,
     ) -> anyhow::Result<T> {
+        let url = self.build_url(path, query, with_signature)?;
+        let request = if with_signature {
+            self.inner_client
+                .get(url)
+                .headers(self.build_headers()?)
+                .build()?
+        } else {
+            self.inner_client.get(url).build()?
+        };
+
+        let response = self.inner_client.execute(request).await?;
+        response_handler(response).await
+    }
+
+    pub async fn post<T: DeserializeOwned>(
+        &self,
+        path: Api,
+        query: Option<&Vec<(String, String)>>,
+        with_signature: bool,
+    ) -> anyhow::Result<T> {
+        let url = self.build_url(path, query, with_signature)?;
+        let request = if with_signature {
+            self.inner_client
+                .post(url)
+                .headers(self.build_headers()?)
+                .build()?
+        } else {
+            self.inner_client.post(url).build()?
+        };
+
+        let response = self.inner_client.execute(request).await?;
+        response_handler(response).await
+    }
+
+    fn build_url(
+        &self,
+        path: Api,
+        query: Option<&Vec<(String, String)>>,
+        with_signature: bool,
+    ) -> anyhow::Result<String> {
         let mut url = format!("{}{}", self.host, String::from(path));
         let mut query_params = String::new();
 
@@ -54,17 +94,7 @@ impl Client {
             url.push_str(format!("?{}", query_params).as_str());
         }
 
-        let request = if with_signature {
-            self.inner_client
-                .get(url)
-                .headers(self.build_headers()?)
-                .build()?
-        } else {
-            self.inner_client.get(url).build()?
-        };
-
-        let response = self.inner_client.execute(request).await?;
-        response_handler(response).await
+        Ok(url)
     }
 
     fn build_signature(&self, query_params: String) -> String {
@@ -95,15 +125,9 @@ impl Client {
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
     match resp.status() {
         StatusCode::OK => resp.json::<T>().await.map_err(|e| anyhow!(e)),
-        StatusCode::INTERNAL_SERVER_ERROR => {
-            bail!("Internal Server Error");
-        }
-        StatusCode::SERVICE_UNAVAILABLE => {
-            bail!("Service Unavailable");
-        }
-        StatusCode::UNAUTHORIZED => {
-            bail!("Unauthorized");
-        }
+        StatusCode::INTERNAL_SERVER_ERROR => bail!("Internal Server Error"),
+        StatusCode::SERVICE_UNAVAILABLE => bail!("Service Unavailable"),
+        StatusCode::UNAUTHORIZED => bail!("Unauthorized"),
         code => {
             bail!(format!(
                 "Received error: code={} msg={}",

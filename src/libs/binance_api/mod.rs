@@ -10,6 +10,7 @@ mod utils;
 pub use account::Account;
 pub use api::Binance;
 pub use client::{Config, HttpConfig};
+pub use enums::*;
 pub use general::General;
 pub use models::*;
 pub use trade::Trade;
