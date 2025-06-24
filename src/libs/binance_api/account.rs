@@ -12,21 +12,29 @@ pub struct Account {
 }
 
 impl Account {
-    pub async fn get_account<S>(&self, recv_window: S) -> anyhow::Result<AccountInformation>
+    pub async fn get_account<S, T>(
+        &self,
+        omit_zero_balances: S,
+        recv_window: T,
+    ) -> anyhow::Result<AccountInformation>
     where
-        S: Into<String>,
+        S: ToString,
+        T: ToString,
     {
-        let recv_window = recv_window.into();
-        let ts = (utils::get_timestamp(SystemTime::now())?).to_string();
+        let recv_window = recv_window.to_string();
+        let ts = utils::get_timestamp(SystemTime::now())?;
 
-        let params = &vec![
-            ("omitZeroBalances", "true"),
-            ("recvWindow", recv_window.as_str()),
-            ("timestamp", ts.as_str()),
+        let params: Vec<(String, String)> = vec![
+            (
+                "omitZeroBalances".to_owned(),
+                omit_zero_balances.to_string(),
+            ),
+            ("recvWindow".to_owned(), recv_window),
+            ("timestamp".to_owned(), ts.to_string()),
         ];
 
         self.client
-            .get(Api::Spot(Spot::Account), Some(params), true)
+            .get(Api::Spot(Spot::Account), Some(&params), true)
             .await
     }
 }

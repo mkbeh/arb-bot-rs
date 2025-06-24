@@ -1,6 +1,7 @@
 pub mod account;
 mod api;
 pub mod client;
+mod enums;
 pub mod general;
 pub mod models;
 pub mod trade;

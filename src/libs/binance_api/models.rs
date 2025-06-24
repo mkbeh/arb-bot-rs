@@ -1,5 +1,9 @@
 use serde_derive::{Deserialize, Serialize};
 
+use crate::libs::binance_api::enums::{
+    NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, TimeInForce,
+};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeInformation {
@@ -42,4 +46,56 @@ pub struct Balance {
     pub asset: String,
     pub free: String,
     pub locked: String,
+}
+
+pub struct SendOrderRequest {
+    pub symbol: String,
+    pub order_side: OrderSide,
+    pub order_type: OrderType,
+    pub quantity: Option<f64>,
+    pub quote_order_qty: Option<f64>,
+    pub price: Option<f64>,
+    pub new_client_order_id: Option<String>,
+    pub strategy_id: Option<i64>,
+    pub strategy_type: Option<i64>,
+    pub stop_price: Option<f64>,
+    pub trailing_delta: Option<f64>,
+    pub iceberg_qty: Option<f64>,
+    pub new_order_resp_type: Option<NewOrderRespType>,
+    pub self_trade_prevention_mode: Option<SelfTradePreventionMode>,
+    pub recv_window: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SendOrderResponse {
+    pub symbol: String,
+    pub order_id: u64,
+    pub order_list_id: i64,
+    pub client_order_id: String,
+    pub transact_time: u64,
+    pub price: f64,
+    pub orig_qty: f64,
+    pub executed_qty: f64,
+    pub orig_quote_order_qty: f64,
+    pub cummulative_quote_qty: f64,
+    pub status: OrderStatus,
+    pub time_in_force: TimeInForce,
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    #[serde(rename = "side")]
+    pub order_side: OrderSide,
+    pub working_time: u64,
+    pub self_trade_prevention_mode: SelfTradePreventionMode,
+    pub fills: Vec<FillInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FillInfo {
+    pub price: f64,
+    pub qty: f64,
+    pub commission: f64,
+    pub commission_asset: String,
+    pub trade_id: u64,
 }

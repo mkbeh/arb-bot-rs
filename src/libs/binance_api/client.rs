@@ -38,7 +38,7 @@ impl Client {
     pub async fn get<T: DeserializeOwned>(
         &self,
         path: Api,
-        query: Option<&Vec<(&str, &str)>>,
+        query: Option<&Vec<(String, String)>>,
         with_signature: bool,
     ) -> anyhow::Result<T> {
         let mut url = format!("{}{}", self.host, String::from(path));
@@ -50,6 +50,8 @@ impl Client {
 
         if with_signature {
             url.push_str(format!("?{}", self.build_signature(query_params)).as_str());
+        } else {
+            url.push_str(format!("?{}", query_params).as_str());
         }
 
         let request = if with_signature {

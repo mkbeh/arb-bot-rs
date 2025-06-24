@@ -11,14 +11,14 @@ pub struct General {
 impl General {
     /// Exchange information.
     pub async fn exchange_info(&self) -> anyhow::Result<ExchangeInformation> {
-        let params = &vec![
-            ("symbolStatus", "TRADING"),
-            ("showPermissionSets", "false"),
-            ("permissions", "[\"SPOT\"]"),
+        let params: Vec<(String, String)> = vec![
+            ("symbolStatus".to_owned(), "TRADING".to_string()),
+            ("showPermissionSets".to_owned(), "false".to_string()),
+            ("permissions".to_owned(), "[\"SPOT\"]".to_string()),
         ];
 
         self.client
-            .get(Api::Spot(Spot::ExchangeInfo), Some(params), false)
+            .get(Api::Spot(Spot::ExchangeInfo), Some(&params), false)
             .await
     }
 }

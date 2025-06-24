@@ -43,10 +43,6 @@ impl ExchangeService for BinanceService {
 
         println!("{:?}", chains);
 
-        let account_info = self.account_api.get_account(3000.to_string()).await?;
-
-        println!("{:?}", account_info);
-
         Ok(())
     }
 }
