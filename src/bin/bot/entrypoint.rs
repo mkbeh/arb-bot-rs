@@ -53,6 +53,11 @@ impl Entrypoint {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
+        let market_api = match Binance::new(cfg.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
         let trade_api = match Binance::new(cfg.clone()) {
             Ok(v) => v,
             Err(e) => bail!("Failed init binance client: {e}"),
@@ -61,6 +66,7 @@ impl Entrypoint {
         Ok(Arc::new(BinanceService::new(
             account_api,
             general_api,
+            market_api,
             trade_api,
         )))
     }

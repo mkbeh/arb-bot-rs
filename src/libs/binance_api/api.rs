@@ -1,5 +1,5 @@
 use crate::libs::binance_api::{
-    Account, General, Trade,
+    Account, General, Market, Trade,
     client::{Client, Config},
 };
 
@@ -191,6 +191,14 @@ impl Binance for Account {
 impl Binance for Trade {
     fn new(cfg: Config) -> anyhow::Result<Trade> {
         Ok(Trade {
+            client: Client::from_config(cfg)?,
+        })
+    }
+}
+
+impl Binance for Market {
+    fn new(cfg: Config) -> anyhow::Result<Market> {
+        Ok(Market {
             client: Client::from_config(cfg)?,
         })
     }

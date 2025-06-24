@@ -2,24 +2,28 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use crate::{
-    libs::{
-        binance_api,
-        binance_api::{General, Trade, account::Account},
-    },
+    libs::binance_api::{General, Market, Trade, account::Account},
     services::ExchangeService,
 };
 
 pub struct BinanceService {
     account_api: Account,
     general_api: General,
+    market_api: Market,
     trade_api: Trade,
 }
 
 impl BinanceService {
-    pub fn new(general_api: General, account_api: Account, trade_api: Trade) -> Self {
+    pub fn new(
+        general_api: General,
+        account_api: Account,
+        market_api: Market,
+        trade_api: Trade,
+    ) -> Self {
         Self {
             account_api,
             general_api,
+            market_api,
             trade_api,
         }
     }

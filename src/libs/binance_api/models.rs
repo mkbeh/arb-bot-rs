@@ -109,6 +109,30 @@ pub struct FillInfo {
     pub trade_id: u64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderBook {
+    pub last_update_id: u64,
+    pub bids: Vec<Bids>,
+    pub asks: Vec<Asks>,
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+pub struct Bids {
+    #[serde(with = "string_or_float")]
+    pub price: f64,
+    #[serde(with = "string_or_float")]
+    pub qty: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Asks {
+    #[serde(with = "string_or_float")]
+    pub price: f64,
+    #[serde(with = "string_or_float")]
+    pub qty: f64,
+}
+
 pub(crate) mod string_or_float {
     use std::fmt;
 
@@ -210,6 +234,6 @@ mod tests {
         }
         "#;
 
-        let deserialized: SendOrderResponse = serde_json::from_str(data).unwrap();
+        serde_json::from_str::<SendOrderResponse>(data).unwrap();
     }
 }
