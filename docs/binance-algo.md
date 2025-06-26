@@ -54,6 +54,12 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
 **Примеры:**
 
+**Пример №0 (ничего не раскручивать):**
+
+> **Оригинал:** BTC:USDT - USDT:ETH - ETH:BTC
+
+> **Требуется:** BTC:USDT - USDT:ETH - ETH:BTC
+
 **Пример №1 (раскручивать только 1 пару):**
 
 > **Оригинал:** **BTC:USDT** - BTC:ETH - ETH:USDT
