@@ -34,7 +34,7 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
 ### Сформировать цепочки тикеров на основе списка базовых валют
 
-**Список базовых валют:**
+**Список базовых активов:**
 
 * BTC
 * ETH
@@ -104,9 +104,9 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
    > **Пример:** ETH:BTC - BTC:ETH - ... - некорректно
 
-2. Раскручивать 3 пару нужно чтобы выход был на базовую валюту из 1 пары.
+2. Выход из 3 пары должен быть на базовый актив 1 пары.
 
-   > **Пример:** **ETH:BTC** - BTC:QTUM - **QTUM:BTC** - некорректно
+   > **Пример:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - некорректно
 
    > **Пример:** **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - корректно
 
