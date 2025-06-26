@@ -104,6 +104,8 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
    > **Пример:** ETH:BTC - BTC:ETH - ... - некорректно
 
+   > **Пример:** ETH:BTC - BTC:QTUM - ... - корректно
+
 2. Выход из 3 пары должен быть на базовый актив 1 пары.
 
    > **Пример:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - некорректно
