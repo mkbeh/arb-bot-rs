@@ -247,11 +247,6 @@ impl ChainsBuilder {
                 e.insert(true);
                 unique_chains.push(chain.clone());
             }
-
-            // if !m.contains_key(&key) {
-            //     m.insert(key, true);
-            //     unique_chains.push(chain.clone());
-            // }
         }
 
         unique_chains
