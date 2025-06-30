@@ -4,6 +4,7 @@ use crate::libs::binance_api::{
     models::ExchangeInformation,
 };
 
+#[derive(Clone)]
 pub struct General {
     pub client: Client,
 }

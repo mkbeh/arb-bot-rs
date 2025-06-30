@@ -50,7 +50,9 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
 #### Алгоритм формирования цепочек
 
-[TODO] описание алгоритма формирования цепочек
+**Цепочка из тикеров:** BTS:CNY | CNY:USD | USD:BTS
+
+**Краткое описание алгоритма:** необходимо продать BTS за CNY, купить за CNY USD и продать USD за BTS.
 
 **Примеры:**
 

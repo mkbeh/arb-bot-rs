@@ -9,6 +9,7 @@ use sha2::Sha256;
 
 use crate::libs::binance_api::{api::Api, utils};
 
+#[derive(Clone)]
 pub struct Client {
     host: String,
     api_key: String,
@@ -91,7 +92,7 @@ impl Client {
         if with_signature {
             url.push_str(format!("?{}", self.build_signature(query_params)).as_str());
         } else {
-            url.push_str(format!("?{}", query_params).as_str());
+            url.push_str(format!("?{query_params}").as_str());
         }
 
         Ok(url)
@@ -102,13 +103,13 @@ impl Client {
             let sign_key = Hmac::<Sha256>::new_from_slice(self.secret_key.as_bytes())
                 .expect("invalid length of secret key");
             let signature = hex::encode(sign_key.finalize().into_bytes());
-            format!("?signature={}", signature)
+            format!("?signature={signature}")
         } else {
             let mut sign_key = Hmac::<Sha256>::new_from_slice(self.secret_key.as_bytes())
                 .expect("invalid length of secret key");
             sign_key.update(query_params.as_bytes());
             let signature = hex::encode(sign_key.finalize().into_bytes());
-            format!("{}&signature={}", query_params, signature)
+            format!("{query_params}&signature={signature}")
         }
     }
 

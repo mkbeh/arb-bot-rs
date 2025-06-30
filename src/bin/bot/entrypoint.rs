@@ -64,6 +64,7 @@ impl Entrypoint {
         };
 
         Ok(Arc::new(BinanceService::new(
+            settings.base_assets,
             account_api,
             general_api,
             market_api,

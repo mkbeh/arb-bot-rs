@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub fn build_query(params: &Vec<(String, String)>) -> String {
     let mut query = String::new();
     for (k, v) in params {
-        query.push_str(&format!("{}={}&", k, v));
+        query.push_str(&format!("{k}={v}&"));
     }
     query.pop();
     query
