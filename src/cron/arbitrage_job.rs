@@ -31,7 +31,7 @@ impl Process {
 #[async_trait]
 impl ServerProcess for Process {
     async fn pre_run(&self) -> anyhow::Result<()> {
-        info!("Starting process");
+        info!("Pre running process");
         Ok(())
     }
 

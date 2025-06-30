@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use strum_macros::EnumString;
 
 use crate::libs::toml;

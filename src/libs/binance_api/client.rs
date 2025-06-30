@@ -1,11 +1,15 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, bail};
+use axum::http::{HeaderMap, HeaderName, HeaderValue};
+use hmac::{Hmac, Mac};
 use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
+use sha2::Sha256;
 
-use crate::libs::binance_api::api::Api;
+use crate::libs::binance_api::{api::Api, utils};
 
+#[derive(Clone)]
 pub struct Client {
     host: String,
     api_key: String,
@@ -35,33 +39,96 @@ impl Client {
     pub async fn get<T: DeserializeOwned>(
         &self,
         path: Api,
-        query: Option<String>,
-        q: &Vec<(&str, &str)>,
+        query: Option<&Vec<(String, String)>>,
+        with_signature: bool,
     ) -> anyhow::Result<T> {
-        let mut url = format!("{}{}", self.host, String::from(path));
-        if let Some(s) = query {
-            if !s.is_empty() {
-                url.push_str(format!("?{}", s).as_str());
-            }
+        let url = self.build_url(path, query, with_signature)?;
+        let request = if with_signature {
+            self.inner_client
+                .get(url)
+                .headers(self.build_headers()?)
+                .build()?
+        } else {
+            self.inner_client.get(url).build()?
         };
 
-        let response = self.inner_client.get(url).query(q).send().await?;
+        let response = self.inner_client.execute(request).await?;
         response_handler(response).await
+    }
+
+    pub async fn post<T: DeserializeOwned>(
+        &self,
+        path: Api,
+        query: Option<&Vec<(String, String)>>,
+        with_signature: bool,
+    ) -> anyhow::Result<T> {
+        let url = self.build_url(path, query, with_signature)?;
+        let request = if with_signature {
+            self.inner_client
+                .post(url)
+                .headers(self.build_headers()?)
+                .build()?
+        } else {
+            self.inner_client.post(url).build()?
+        };
+
+        let response = self.inner_client.execute(request).await?;
+        response_handler(response).await
+    }
+
+    fn build_url(
+        &self,
+        path: Api,
+        query: Option<&Vec<(String, String)>>,
+        with_signature: bool,
+    ) -> anyhow::Result<String> {
+        let mut url = format!("{}{}", self.host, String::from(path));
+        let mut query_params = String::new();
+
+        if let Some(v) = query {
+            query_params.push_str(utils::build_query(v).as_str());
+        }
+
+        if with_signature {
+            url.push_str(format!("?{}", self.build_signature(query_params)).as_str());
+        } else {
+            url.push_str(format!("?{query_params}").as_str());
+        }
+
+        Ok(url)
+    }
+
+    fn build_signature(&self, query_params: String) -> String {
+        if query_params.is_empty() {
+            let sign_key = Hmac::<Sha256>::new_from_slice(self.secret_key.as_bytes())
+                .expect("invalid length of secret key");
+            let signature = hex::encode(sign_key.finalize().into_bytes());
+            format!("?signature={signature}")
+        } else {
+            let mut sign_key = Hmac::<Sha256>::new_from_slice(self.secret_key.as_bytes())
+                .expect("invalid length of secret key");
+            sign_key.update(query_params.as_bytes());
+            let signature = hex::encode(sign_key.finalize().into_bytes());
+            format!("{query_params}&signature={signature}")
+        }
+    }
+
+    fn build_headers(&self) -> anyhow::Result<HeaderMap> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static("x-mbx-apikey"),
+            HeaderValue::from_str(self.api_key.as_str())?,
+        );
+        Ok(headers)
     }
 }
 
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
     match resp.status() {
         StatusCode::OK => resp.json::<T>().await.map_err(|e| anyhow!(e)),
-        StatusCode::INTERNAL_SERVER_ERROR => {
-            bail!("Internal Server Error");
-        }
-        StatusCode::SERVICE_UNAVAILABLE => {
-            bail!("Service Unavailable");
-        }
-        StatusCode::UNAUTHORIZED => {
-            bail!("Unauthorized");
-        }
+        StatusCode::INTERNAL_SERVER_ERROR => bail!("Internal Server Error"),
+        StatusCode::SERVICE_UNAVAILABLE => bail!("Service Unavailable"),
+        StatusCode::UNAUTHORIZED => bail!("Unauthorized"),
         code => {
             bail!(format!(
                 "Received error: code={} msg={}",
@@ -72,6 +139,7 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
     }
 }
 
+#[derive(Clone)]
 pub struct Config {
     pub host: String,
     pub api_key: String,
@@ -79,6 +147,7 @@ pub struct Config {
     pub http_config: HttpConfig,
 }
 
+#[derive(Clone)]
 pub struct HttpConfig {
     pub connect_timeout: Duration,
     pub pool_idle_timeout: Duration,
