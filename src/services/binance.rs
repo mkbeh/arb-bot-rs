@@ -90,27 +90,17 @@ impl ChainsBuilder {
 
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
         // contain 2 basic assets specified in the config at once.
+        let mut chains: Vec<_> = vec![];
         let mut tasks = Vec::with_capacity(SymbolOrder::iter().count());
 
-        tasks.push(tokio::spawn({
-            let s = Arc::clone(&self);
-            let info = Arc::clone(&exchange_info);
-            async move {
-                s.build_chains(info.symbols.clone(), SymbolOrder::Asc)
-                    .await
-            }
-        }));
+        for order in SymbolOrder::iter() {
+            tasks.push(tokio::spawn({
+                let s = Arc::clone(&self);
+                let info = Arc::clone(&exchange_info);
+                async move { s.build_chains(info.symbols.clone(), order).await }
+            }));
+        }
 
-        tasks.push(tokio::spawn({
-            let s = Arc::clone(&self);
-            let info = Arc::clone(&exchange_info);
-            async move {
-                s.build_chains(info.symbols.clone(), SymbolOrder::Desc)
-                    .await
-            }
-        }));
-
-        let mut chains: Vec<_> = vec![];
         for task in tasks {
             chains.extend(task.await?)
         }
