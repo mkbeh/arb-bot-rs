@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, btree_map};
+use std::{
+    collections::{BTreeMap, btree_map},
+    sync::Arc,
+};
 
 use anyhow::bail;
 use async_trait::async_trait;
@@ -38,7 +41,10 @@ impl BinanceService {
 #[async_trait]
 impl ExchangeService for BinanceService {
     async fn start_arbitrage(&self) -> anyhow::Result<()> {
-        let chains_builder = ChainsBuilder::new(self.base_assets.clone(), self.general_api.clone());
+        let chains_builder = Arc::new(ChainsBuilder::new(
+            self.base_assets.clone(),
+            self.general_api.clone(),
+        ));
         let chains = match chains_builder.build_symbols_chains().await {
             Ok(chains) => chains,
             Err(err) => bail!("failed to build symbols chains: {}", err),
@@ -76,60 +82,91 @@ impl ChainsBuilder {
         }
     }
 
-    async fn build_symbols_chains(&self) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
+    async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
-            Ok(exchange_info) => exchange_info,
+            Ok(exchange_info) => Arc::new(exchange_info),
             Err(err) => bail!(err),
         };
 
-        let build_chains = |order: SymbolOrder| -> Vec<[SymbolWrapper; 3]> {
-            let mut chains = Vec::new();
-            for a_symbol in exchange_info.symbols.iter() {
-                let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
-                let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order)
-                {
-                    asset
-                } else {
+        // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
+        // contain 2 basic assets specified in the config at once.
+        let mut tasks = Vec::with_capacity(SymbolOrder::iter().count());
+
+        tasks.push(tokio::spawn({
+            let s = Arc::clone(&self);
+            let info = Arc::clone(&exchange_info);
+            async move {
+                s.build_chains(info.symbols.clone(), SymbolOrder::Asc)
+                    .await
+            }
+        }));
+
+        tasks.push(tokio::spawn({
+            let s = Arc::clone(&self);
+            let info = Arc::clone(&exchange_info);
+            async move {
+                s.build_chains(info.symbols.clone(), SymbolOrder::Desc)
+                    .await
+            }
+        }));
+
+        let mut chains: Vec<_> = vec![];
+        for task in tasks {
+            chains.extend(task.await?)
+        }
+
+        Ok(self.deduplicate_chains(chains))
+    }
+
+    async fn build_chains(
+        &self,
+        symbols: Vec<Symbol>,
+        order: SymbolOrder,
+    ) -> Vec<[SymbolWrapper; 3]> {
+        let mut chains = Vec::new();
+        for a_symbol in &symbols {
+            let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
+            let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order) {
+                asset
+            } else {
+                continue;
+            };
+
+            for b_symbol in &symbols {
+                let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
+
+                // Selection symbol for 1st symbol.
+                if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
                     continue;
-                };
+                }
 
-                for b_symbol in exchange_info.symbols.iter() {
-                    let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
+                for c_symbol in &symbols {
+                    let mut c_wrapper = SymbolWrapper::new(c_symbol.clone(), Default::default());
 
-                    // Selection symbol for 1st symbol.
-                    if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
+                    // Selection symbol for 2nd symbol.
+                    if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
                         continue;
                     }
 
-                    for c_symbol in exchange_info.symbols.iter() {
-                        let mut c_wrapper =
-                            SymbolWrapper::new(c_symbol.clone(), Default::default());
+                    // Define out asset of last symbol.
+                    let out_asset = if c_wrapper.order == SymbolOrder::Desc {
+                        // Ex: BTC:ETH - ETH:USDT - BTC:USDT(reversed) -> base asset of
+                        // last pair because reversed
+                        c_symbol.base_asset.as_str()
+                    } else {
+                        // BTC:ETH - ETH:USDT - USDT:BTC -> quote asset of last pair
+                        c_symbol.quote_asset.as_str()
+                    };
 
-                        // Selection symbol for 2nd symbol.
-                        if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
-                            continue;
-                        }
-
-                        // Define out asset of last symbol.
-                        let out_asset = if c_wrapper.order == SymbolOrder::Desc {
-                            // Ex: BTC:ETH - ETH:USDT - BTC:USDT(reversed) -> base asset of
-                            // last pair because reversed
-                            c_symbol.base_asset.as_str()
-                        } else {
-                            // BTC:ETH - ETH:USDT - USDT:BTC -> quote asset of last pair
-                            c_symbol.quote_asset.as_str()
-                        };
-
-                        // Exit from 3rd symbol must be into base asset from the 1st symbol.
-                        if base_asset != out_asset {
-                            continue;
-                        }
-
-                        chains.push([a_wrapper.clone(), b_wrapper.clone(), c_wrapper.clone()]);
+                    // Exit from 3rd symbol must be into base asset from the 1st symbol.
+                    if base_asset != out_asset {
+                        continue;
                     }
+
+                    chains.push([a_wrapper.clone(), b_wrapper.clone(), c_wrapper.clone()]);
                 }
             }
-            chains
+        chains
         };
 
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
