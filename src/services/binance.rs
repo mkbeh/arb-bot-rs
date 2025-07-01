@@ -82,63 +82,64 @@ impl ChainsBuilder {
             Err(err) => bail!(err),
         };
 
-        let build_chains = |order: SymbolOrder| -> Vec<[SymbolWrapper; 3]> {
-            let mut chains = Vec::new();
-            for a_symbol in &exchange_info.symbols {
-                let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
-                let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order)
-                {
-                    asset
-                } else {
-                    continue;
-                };
-
-                for b_symbol in &exchange_info.symbols {
-                    let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
-
-                    // Selection symbol for 1st symbol.
-                    if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
-                        continue;
-                    }
-
-                    for c_symbol in &exchange_info.symbols {
-                        let mut c_wrapper =
-                            SymbolWrapper::new(c_symbol.clone(), Default::default());
-
-                        // Selection symbol for 2nd symbol.
-                        if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
-                            continue;
-                        }
-
-                        // Define out asset of last symbol.
-                        let out_asset = if c_wrapper.order == SymbolOrder::Desc {
-                            // Ex: BTC:ETH - ETH:USDT - BTC:USDT(reversed) -> base asset of
-                            // last pair because reversed
-                            c_symbol.base_asset.as_str()
-                        } else {
-                            // BTC:ETH - ETH:USDT - USDT:BTC -> quote asset of last pair
-                            c_symbol.quote_asset.as_str()
-                        };
-
-                        // Exit from 3rd symbol must be into base asset from the 1st symbol.
-                        if base_asset != out_asset {
-                            continue;
-                        }
-
-                        chains.push([a_wrapper.clone(), b_wrapper.clone(), c_wrapper.clone()]);
-                    }
-                }
-            }
-            chains
-        };
+        let mut chains = vec![];
 
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
         // contain 2 basic assets specified in the config at once.
-        let mut chains = vec![];
-        SymbolOrder::iter().for_each(|order| chains.extend(build_chains(order)));
+        SymbolOrder::iter().for_each(|order| {
+            chains.extend(self.build_chains(exchange_info.symbols.clone(), order))
+        });
+
         let unique_chains = self.deduplicate_chains(chains);
-        
         Ok(unique_chains)
+    }
+
+    fn build_chains(&self, symbols: Vec<Symbol>, order: SymbolOrder) -> Vec<[SymbolWrapper; 3]> {
+        let mut chains = Vec::new();
+        for a_symbol in &symbols {
+            let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
+            let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order) {
+                asset
+            } else {
+                continue;
+            };
+
+            for b_symbol in &symbols {
+                let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
+
+                // Selection symbol for 1st symbol.
+                if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
+                    continue;
+                }
+
+                for c_symbol in &symbols {
+                    let mut c_wrapper = SymbolWrapper::new(c_symbol.clone(), Default::default());
+
+                    // Selection symbol for 2nd symbol.
+                    if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
+                        continue;
+                    }
+
+                    // Define out asset of last symbol.
+                    let out_asset = if c_wrapper.order == SymbolOrder::Desc {
+                        // Ex: BTC:ETH - ETH:USDT - BTC:USDT(reversed) -> base asset of
+                        // last pair because reversed
+                        c_symbol.base_asset.as_str()
+                    } else {
+                        // BTC:ETH - ETH:USDT - USDT:BTC -> quote asset of last pair
+                        c_symbol.quote_asset.as_str()
+                    };
+
+                    // Exit from 3rd symbol must be into base asset from the 1st symbol.
+                    if base_asset != out_asset {
+                        continue;
+                    }
+
+                    chains.push([a_wrapper.clone(), b_wrapper.clone(), c_wrapper.clone()]);
+                }
+            }
+        }
+        chains
     }
 
     fn define_base_asset(&self, wrapper: &mut SymbolWrapper, order: SymbolOrder) -> Option<String> {
