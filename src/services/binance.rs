@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, btree_map};
+use std::{
+    collections::{BTreeMap, btree_map},
+    sync::Arc,
+};
 
 use anyhow::bail;
 use async_trait::async_trait;
@@ -38,7 +41,10 @@ impl BinanceService {
 #[async_trait]
 impl ExchangeService for BinanceService {
     async fn start_arbitrage(&self) -> anyhow::Result<()> {
-        let chains_builder = ChainsBuilder::new(self.base_assets.clone(), self.general_api.clone());
+        let chains_builder = Arc::new(ChainsBuilder::new(
+            self.base_assets.clone(),
+            self.general_api.clone(),
+        ));
         let chains = match chains_builder.build_symbols_chains().await {
             Ok(chains) => chains,
             Err(err) => bail!("failed to build symbols chains: {}", err),
@@ -76,25 +82,47 @@ impl ChainsBuilder {
         }
     }
 
-    async fn build_symbols_chains(&self) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
+    async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
-            Ok(exchange_info) => exchange_info,
+            Ok(exchange_info) => Arc::new(exchange_info),
             Err(err) => bail!(err),
         };
 
-        let mut chains = vec![];
-
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
         // contain 2 basic assets specified in the config at once.
-        SymbolOrder::iter().for_each(|order| {
-            chains.extend(self.build_chains(exchange_info.symbols.clone(), order))
-        });
+        let mut tasks = Vec::with_capacity(SymbolOrder::iter().count());
 
-        let unique_chains = self.deduplicate_chains(chains);
-        Ok(unique_chains)
+        tasks.push(tokio::spawn({
+            let me = Arc::clone(&self);
+            let info = Arc::clone(&exchange_info);
+            async move {
+                me.build_chains(info.symbols.clone(), SymbolOrder::Asc)
+                    .await
+            }
+        }));
+
+        tasks.push(tokio::spawn({
+            let me = Arc::clone(&self);
+            let info = Arc::clone(&exchange_info);
+            async move {
+                me.build_chains(info.symbols.clone(), SymbolOrder::Desc)
+                    .await
+            }
+        }));
+
+        let mut chains: Vec<_> = vec![];
+        for task in tasks {
+            chains.extend(task.await?)
+        }
+
+        Ok(self.deduplicate_chains(chains))
     }
 
-    fn build_chains(&self, symbols: Vec<Symbol>, order: SymbolOrder) -> Vec<[SymbolWrapper; 3]> {
+    async fn build_chains(
+        &self,
+        symbols: Vec<Symbol>,
+        order: SymbolOrder,
+    ) -> Vec<[SymbolWrapper; 3]> {
         let mut chains = Vec::new();
         for a_symbol in &symbols {
             let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
