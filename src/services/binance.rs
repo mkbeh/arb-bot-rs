@@ -50,8 +50,6 @@ impl ExchangeService for BinanceService {
             Err(err) => bail!("failed to build symbols chains: {}", err),
         };
 
-        println!("{:?}", chains);
-
         Ok(())
     }
 }
