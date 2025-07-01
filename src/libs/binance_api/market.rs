@@ -4,6 +4,7 @@ use crate::libs::binance_api::{
     client::Client,
 };
 
+#[derive(Clone)]
 pub struct Market {
     pub client: Client,
 }

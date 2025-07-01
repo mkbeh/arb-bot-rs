@@ -12,28 +12,35 @@ use crate::{
     services::{ExchangeService, enums::SymbolOrder},
 };
 
+pub struct BinanceConfig {
+    pub account_api: Account,
+    pub general_api: General,
+    pub market_api: Market,
+    pub trade_api: Trade,
+
+    pub base_assets: Vec<String>,
+    pub market_depth_limit: usize,
+}
+
 pub struct BinanceService {
-    base_assets: Vec<String>,
     account_api: Account,
     general_api: General,
     market_api: Market,
     trade_api: Trade,
+
+    base_assets: Vec<String>,
+    market_depth_limit: usize,
 }
 
 impl BinanceService {
-    pub fn new(
-        base_assets: Vec<String>,
-        account_api: Account,
-        general_api: General,
-        market_api: Market,
-        trade_api: Trade,
-    ) -> Self {
+    pub fn new(cfg: BinanceConfig) -> Self {
         Self {
-            base_assets,
-            account_api,
-            general_api,
-            market_api,
-            trade_api,
+            account_api: cfg.account_api,
+            general_api: cfg.general_api,
+            market_api: cfg.market_api,
+            trade_api: cfg.trade_api,
+            base_assets: cfg.base_assets,
+            market_depth_limit: cfg.market_depth_limit,
         }
     }
 }
@@ -41,13 +48,19 @@ impl BinanceService {
 #[async_trait]
 impl ExchangeService for BinanceService {
     async fn start_arbitrage(&self) -> anyhow::Result<()> {
-        let chains_builder = Arc::new(ChainsBuilder::new(
+        let chain_builder = Arc::new(ChainBuilder::new(
             self.base_assets.clone(),
             self.general_api.clone(),
         ));
-        let chains = match chains_builder.build_symbols_chains().await {
+        let chains = match chain_builder.build_symbols_chains().await {
             Ok(chains) => chains,
-            Err(err) => bail!("failed to build symbols chains: {}", err),
+            Err(e) => bail!("failed to build symbols chains: {}", e),
+        };
+
+        let order_builder = OrderBuilder::new(self.market_api.clone(), self.market_depth_limit);
+        let chains_orders = match order_builder.build_chains_orders(chains).await {
+            Ok(chains_orders) => chains_orders,
+            Err(e) => bail!("failed to build chains orders: {}", e),
         };
 
         Ok(())
@@ -67,12 +80,12 @@ impl SymbolWrapper {
 }
 
 #[derive(Clone)]
-struct ChainsBuilder {
+struct ChainBuilder {
     base_assets: Vec<String>,
     general_api: General,
 }
 
-impl ChainsBuilder {
+impl ChainBuilder {
     fn new(base_assets: Vec<String>, general_api: General) -> Self {
         Self {
             base_assets,
@@ -83,7 +96,7 @@ impl ChainsBuilder {
     async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
             Ok(exchange_info) => Arc::new(exchange_info),
-            Err(err) => bail!(err),
+            Err(e) => bail!(e),
         };
 
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
@@ -267,5 +280,38 @@ impl ChainsBuilder {
         }
 
         unique_chains
+    }
+}
+
+struct OrderBuilder {
+    market_api: Market,
+    market_depth_limit: usize,
+}
+
+impl OrderBuilder {
+    fn new(market_api: Market, market_depth_limit: usize) -> Self {
+        Self {
+            market_api,
+            market_depth_limit,
+        }
+    }
+
+    async fn build_chains_orders(&self, chains: Vec<[SymbolWrapper; 3]>) -> anyhow::Result<()> {
+        for chain in &chains {
+            for wrapper in chain {
+                let order_book = match self
+                    .market_api
+                    .get_depth(wrapper.symbol.symbol.clone(), self.market_depth_limit)
+                    .await
+                {
+                    Ok(order_book) => order_book,
+                    Err(e) => bail!(e),
+                };
+
+                println!("{:?}", order_book);
+            }
+        }
+
+        Ok(())
     }
 }

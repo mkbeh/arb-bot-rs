@@ -7,6 +7,7 @@ use crate::libs::binance_api::{
     utils,
 };
 
+#[derive(Clone)]
 pub struct Account {
     pub client: Client,
 }
