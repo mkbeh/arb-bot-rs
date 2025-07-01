@@ -84,7 +84,7 @@ impl ChainsBuilder {
 
         let build_chains = |order: SymbolOrder| -> Vec<[SymbolWrapper; 3]> {
             let mut chains = Vec::new();
-            for a_symbol in exchange_info.symbols.iter() {
+            for a_symbol in &exchange_info.symbols {
                 let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
                 let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order)
                 {
@@ -93,7 +93,7 @@ impl ChainsBuilder {
                     continue;
                 };
 
-                for b_symbol in exchange_info.symbols.iter() {
+                for b_symbol in &exchange_info.symbols {
                     let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
 
                     // Selection symbol for 1st symbol.
@@ -101,7 +101,7 @@ impl ChainsBuilder {
                         continue;
                     }
 
-                    for c_symbol in exchange_info.symbols.iter() {
+                    for c_symbol in &exchange_info.symbols {
                         let mut c_wrapper =
                             SymbolWrapper::new(c_symbol.clone(), Default::default());
 
