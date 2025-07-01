@@ -166,16 +166,8 @@ impl ChainsBuilder {
                     chains.push([a_wrapper.clone(), b_wrapper.clone(), c_wrapper.clone()]);
                 }
             }
+        }
         chains
-        };
-
-        // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
-        // contain 2 basic assets specified in the config at once.
-        let mut chains = vec![];
-        SymbolOrder::iter().for_each(|order| chains.extend(build_chains(order)));
-        let unique_chains = self.deduplicate_chains(chains);
-        
-        Ok(unique_chains)
     }
 
     fn define_base_asset(&self, wrapper: &mut SymbolWrapper, order: SymbolOrder) -> Option<String> {
