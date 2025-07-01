@@ -93,19 +93,19 @@ impl ChainsBuilder {
         let mut tasks = Vec::with_capacity(SymbolOrder::iter().count());
 
         tasks.push(tokio::spawn({
-            let me = Arc::clone(&self);
+            let s = Arc::clone(&self);
             let info = Arc::clone(&exchange_info);
             async move {
-                me.build_chains(info.symbols.clone(), SymbolOrder::Asc)
+                s.build_chains(info.symbols.clone(), SymbolOrder::Asc)
                     .await
             }
         }));
 
         tasks.push(tokio::spawn({
-            let me = Arc::clone(&self);
+            let s = Arc::clone(&self);
             let info = Arc::clone(&exchange_info);
             async move {
-                me.build_chains(info.symbols.clone(), SymbolOrder::Desc)
+                s.build_chains(info.symbols.clone(), SymbolOrder::Desc)
                     .await
             }
         }));
