@@ -4,96 +4,40 @@ use std::{
 };
 
 use anyhow::bail;
-use async_trait::async_trait;
 use strum::IntoEnumIterator;
 
 use crate::{
-    libs::binance_api::{Account, General, Market, Symbol, Trade},
-    services::{ExchangeService, enums::SymbolOrder},
+    libs::binance_api::{General, Symbol},
+    services::enums::SymbolOrder,
 };
 
-pub struct BinanceConfig {
-    pub account_api: Account,
-    pub general_api: General,
-    pub market_api: Market,
-    pub trade_api: Trade,
-
-    pub base_assets: Vec<String>,
-    pub market_depth_limit: usize,
-}
-
-pub struct BinanceService {
-    account_api: Account,
-    general_api: General,
-    market_api: Market,
-    trade_api: Trade,
-
-    base_assets: Vec<String>,
-    market_depth_limit: usize,
-}
-
-impl BinanceService {
-    pub fn new(cfg: BinanceConfig) -> Self {
-        Self {
-            account_api: cfg.account_api,
-            general_api: cfg.general_api,
-            market_api: cfg.market_api,
-            trade_api: cfg.trade_api,
-            base_assets: cfg.base_assets,
-            market_depth_limit: cfg.market_depth_limit,
-        }
-    }
-}
-
-#[async_trait]
-impl ExchangeService for BinanceService {
-    async fn start_arbitrage(&self) -> anyhow::Result<()> {
-        let chain_builder = Arc::new(ChainBuilder::new(
-            self.base_assets.clone(),
-            self.general_api.clone(),
-        ));
-        let chains = match chain_builder.build_symbols_chains().await {
-            Ok(chains) => chains,
-            Err(e) => bail!("failed to build symbols chains: {}", e),
-        };
-
-        let order_builder = OrderBuilder::new(self.market_api.clone(), self.market_depth_limit);
-        let chains_orders = match order_builder.build_chains_orders(chains).await {
-            Ok(chains_orders) => chains_orders,
-            Err(e) => bail!("failed to build chains orders: {}", e),
-        };
-
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug)]
-struct SymbolWrapper {
-    symbol: Symbol,
-    order: SymbolOrder,
+pub struct SymbolWrapper {
+    pub symbol: Symbol,
+    pub order: SymbolOrder,
 }
 
 impl SymbolWrapper {
-    fn new(symbol: Symbol, order: SymbolOrder) -> Self {
+    pub fn new(symbol: Symbol, order: SymbolOrder) -> Self {
         Self { symbol, order }
     }
 }
 
 #[derive(Clone)]
-struct ChainBuilder {
+pub struct ChainBuilder {
     base_assets: Vec<String>,
     general_api: General,
 }
 
 impl ChainBuilder {
-    fn new(base_assets: Vec<String>, general_api: General) -> Self {
+    pub fn new(base_assets: Vec<String>, general_api: General) -> Self {
         Self {
             base_assets,
             general_api,
         }
     }
 
-    async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
+    pub async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
             Ok(exchange_info) => Arc::new(exchange_info),
             Err(e) => bail!(e),
@@ -280,38 +224,5 @@ impl ChainBuilder {
         }
 
         unique_chains
-    }
-}
-
-struct OrderBuilder {
-    market_api: Market,
-    market_depth_limit: usize,
-}
-
-impl OrderBuilder {
-    fn new(market_api: Market, market_depth_limit: usize) -> Self {
-        Self {
-            market_api,
-            market_depth_limit,
-        }
-    }
-
-    async fn build_chains_orders(&self, chains: Vec<[SymbolWrapper; 3]>) -> anyhow::Result<()> {
-        for chain in &chains {
-            for wrapper in chain {
-                let order_book = match self
-                    .market_api
-                    .get_depth(wrapper.symbol.symbol.clone(), self.market_depth_limit)
-                    .await
-                {
-                    Ok(order_book) => order_book,
-                    Err(e) => bail!(e),
-                };
-
-                println!("{:?}", order_book);
-            }
-        }
-
-        Ok(())
     }
 }
