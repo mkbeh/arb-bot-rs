@@ -116,7 +116,7 @@ impl ChainBuilder {
     }
 
     fn define_base_asset(&self, wrapper: &mut SymbolWrapper, order: SymbolOrder) -> Option<String> {
-        let get_base_asset = |wrapper: &SymbolWrapper| -> String {
+        let get_base_asset_fn = |wrapper: &SymbolWrapper| -> String {
             match wrapper.order {
                 // Ex: BTC:TRX
                 SymbolOrder::Asc => wrapper.symbol.base_asset.clone(),
@@ -135,7 +135,7 @@ impl ChainBuilder {
 
         if base_assets_qty == MAX_ASSETS_QTY {
             wrapper.order = order;
-            return Some(get_base_asset(wrapper));
+            return Some(get_base_asset_fn(wrapper));
         }
 
         if self
@@ -144,7 +144,7 @@ impl ChainBuilder {
             .any(|x| x == wrapper.symbol.base_asset.as_str())
         {
             wrapper.order = Default::default();
-            return Some(get_base_asset(wrapper));
+            return Some(get_base_asset_fn(wrapper));
         };
 
         if self
@@ -153,7 +153,7 @@ impl ChainBuilder {
             .any(|x| x == wrapper.symbol.quote_asset.as_str())
         {
             wrapper.order = SymbolOrder::Desc;
-            return Some(get_base_asset(wrapper));
+            return Some(get_base_asset_fn(wrapper));
         };
 
         None
