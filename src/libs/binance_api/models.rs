@@ -12,7 +12,7 @@ pub struct ExchangeInformation {
     pub symbols: Vec<Symbol>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Symbol {
     pub symbol: String,

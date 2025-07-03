@@ -139,7 +139,7 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
     }
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Config {
     pub host: String,
     pub api_key: String,
