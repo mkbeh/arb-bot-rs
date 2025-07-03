@@ -286,7 +286,7 @@ curl -X GET https://api.binance.com/api/v3/depth?symbol=ETHBTC&limit=100 | jq | 
 }
 ```
 
-#### **Расчет профита:**
+#### Расчет профита:
 
 **Volume limit:** 30$
 
