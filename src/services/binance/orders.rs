@@ -67,155 +67,169 @@ mod tests {
     async fn test_build_chains_orders() -> anyhow::Result<()> {
         let mut server = Server::new_async().await;
 
-        let payload_ethbtc = r#"
+        let payload_btcusdt = r#"
         {
-          "lastUpdateId": 8214168081,
+          "lastUpdateId": 72224518924,
           "bids": [
             [
+              "109615.46000000",
+              "7.27795000"
+            ],
+            [
+              "109614.96000000",
+              "0.00046000"
+            ],
+            [
+              "109614.48000000",
+              "0.05832000"
+            ],
+            [
+              "109614.20000000",
+              "0.73748000"
+            ],
+            [
+              "109614.07000000",
+              "0.00068000"
+            ]
+          ],
+          "asks": [
+            [
+              "109615.47000000",
+              "2.22969000"
+            ],
+            [
+              "109615.48000000",
+              "0.00028000"
+            ],
+            [
+              "109615.99000000",
+              "0.00116000"
+            ],
+            [
+              "109616.61000000",
+              "0.00005000"
+            ],
+            [
+              "109617.67000000",
+              "0.00050000"
+            ]
+          ]
+        }
+        "#;
+
+        let payload_ethusdt = r#"
+        {
+          "lastUpdateId": 54622041690,
+          "bids": [
+            [
+              "2585.70000000",
+              "14.64600000"
+            ],
+            [
+              "2585.69000000",
+              "0.00210000"
+            ],
+            [
+              "2585.67000000",
+              "0.00510000"
+            ],
+            [
+              "2585.66000000",
+              "0.00440000"
+            ],
+            [
+              "2585.65000000",
+              "0.00210000"
+            ]
+          ],
+          "asks": [
+            [
+              "2585.71000000",
+              "19.28810000"
+            ],
+            [
+              "2585.72000000",
+              "0.40280000"
+            ],
+            [
+              "2585.73000000",
+              "0.00440000"
+            ],
+            [
+              "2585.77000000",
+              "0.00440000"
+            ],
+            [
+              "2585.79000000",
+              "0.00210000"
+            ]
+          ]
+        }
+        "#;
+
+        let payload_ethbtc = r#"
+        {
+          "lastUpdateId": 8215337504,
+          "bids": [
+            [
+              "0.02358000",
+              "105.74550000"
+            ],
+            [
               "0.02357000",
-              "28.98620000"
+              "57.30640000"
             ],
             [
               "0.02356000",
-              "86.80800000"
+              "96.84260000"
             ],
             [
               "0.02355000",
-              "48.16350000"
+              "93.05990000"
             ],
             [
               "0.02354000",
-              "59.47450000"
-            ],
-            [
-              "0.02353000",
-              "105.40470000"
+              "66.95170000"
             ]
           ],
           "asks": [
             [
-              "0.02358000",
-              "32.64510000"
-            ],
-            [
               "0.02359000",
-              "71.72550000"
+              "25.63400000"
             ],
             [
               "0.02360000",
-              "76.00760000"
+              "53.22680000"
             ],
             [
               "0.02361000",
-              "83.49960000"
+              "81.91300000"
             ],
             [
               "0.02362000",
-              "60.67170000"
+              "59.61190000"
+            ],
+            [
+              "0.02363000",
+              "86.74020000"
             ]
           ]
         }
         "#;
 
-        let payload_ltcbtc = r#"
-        {
-          "lastUpdateId": 2507651521,
-          "bids": [
-            [
-              "0.00080200",
-              "142.91600000"
-            ],
-            [
-              "0.00080100",
-              "576.61000000"
-            ],
-            [
-              "0.00080000",
-              "504.07300000"
-            ],
-            [
-              "0.00079900",
-              "513.68900000"
-            ],
-            [
-              "0.00079800",
-              "517.84700000"
-            ]
-          ],
-          "asks": [
-            [
-              "0.00080300",
-              "246.88800000"
-            ],
-            [
-              "0.00080400",
-              "394.53900000"
-            ],
-            [
-              "0.00080500",
-              "422.10500000"
-            ],
-            [
-              "0.00080600",
-              "247.43700000"
-            ],
-            [
-              "0.00080700",
-              "235.13500000"
-            ]
-          ]
-        }
-        "#;
+        let mock_order_book_btcusdt = server
+            .mock("GET", "/api/v3/depth")
+            .with_header("content-type", "application/json;charset=UTF-8")
+            .match_query(Matcher::Regex("symbol=BTCUSDT&limit=5".into()))
+            .with_body(payload_btcusdt)
+            .create_async();
 
-        let payload_ltceth = r#"
-        {
-          "lastUpdateId": 1149643765,
-          "bids": [
-            [
-              "0.03401000",
-              "2.50800000"
-            ],
-            [
-              "0.03400000",
-              "13.45400000"
-            ],
-            [
-              "0.03399000",
-              "1.92300000"
-            ],
-            [
-              "0.03398000",
-              "86.48200000"
-            ],
-            [
-              "0.03397000",
-              "7.06800000"
-            ]
-          ],
-          "asks": [
-            [
-              "0.03402000",
-              "1.92300000"
-            ],
-            [
-              "0.03403000",
-              "10.53100000"
-            ],
-            [
-              "0.03404000",
-              "6.48900000"
-            ],
-            [
-              "0.03405000",
-              "29.88200000"
-            ],
-            [
-              "0.03406000",
-              "12.65700000"
-            ]
-          ]
-        }
-        "#;
+        let mock_order_book_ethusdt = server
+            .mock("GET", "/api/v3/depth")
+            .with_header("content-type", "application/json;charset=UTF-8")
+            .match_query(Matcher::Regex("symbol=ETHUSDT&limit=5".into()))
+            .with_body(payload_ethusdt)
+            .create_async();
 
         let mock_order_book_ethbtc = server
             .mock("GET", "/api/v3/depth")
@@ -224,34 +238,20 @@ mod tests {
             .with_body(payload_ethbtc)
             .create_async();
 
-        let mock_order_book_ltcbtc = server
-            .mock("GET", "/api/v3/depth")
-            .with_header("content-type", "application/json;charset=UTF-8")
-            .match_query(Matcher::Regex("symbol=LTCBTC&limit=5".into()))
-            .with_body(payload_ltcbtc)
-            .create_async();
-
-        let mock_order_book_ltceth = server
-            .mock("GET", "/api/v3/depth")
-            .with_header("content-type", "application/json;charset=UTF-8")
-            .match_query(Matcher::Regex("symbol=LTCETH&limit=5".into()))
-            .with_body(payload_ltceth)
-            .create_async();
-
         let (mock_order_book_ethbtc, mock_order_book_ltcbtc, mock_order_book_ltceth) = futures::join!(
-            mock_order_book_ethbtc,
-            mock_order_book_ltcbtc,
-            mock_order_book_ltceth
+            mock_order_book_btcusdt,
+            mock_order_book_ethusdt,
+            mock_order_book_ethbtc
         );
 
         let test_chains = vec![[
             SymbolWrapper {
                 symbol: Symbol {
-                    symbol: "ETHBTC".to_owned(),
+                    symbol: "BTCUSDT".to_owned(),
                     status: "TRADING".to_owned(),
-                    base_asset: "ETH".to_owned(),
+                    base_asset: "BTC".to_owned(),
                     base_asset_precision: 8,
-                    quote_asset: "BTC".to_owned(),
+                    quote_asset: "USDT".to_owned(),
                     quote_precision: 8,
                     ..Default::default()
                 },
@@ -259,11 +259,11 @@ mod tests {
             },
             SymbolWrapper {
                 symbol: Symbol {
-                    symbol: "LTCBTC".to_owned(),
+                    symbol: "ETHUSDT".to_owned(),
                     status: "TRADING".to_owned(),
-                    base_asset: "LTC".to_owned(),
+                    base_asset: "ETH".to_owned(),
                     base_asset_precision: 8,
-                    quote_asset: "BTC".to_owned(),
+                    quote_asset: "USDT".to_owned(),
                     quote_precision: 8,
                     ..Default::default()
                 },
@@ -271,11 +271,11 @@ mod tests {
             },
             SymbolWrapper {
                 symbol: Symbol {
-                    symbol: "LTCETH".to_owned(),
+                    symbol: "ETHBTC".to_owned(),
                     status: "TRADING".to_owned(),
-                    base_asset: "LTC".to_owned(),
+                    base_asset: "ETH".to_owned(),
                     base_asset_precision: 8,
-                    quote_asset: "ETH".to_owned(),
+                    quote_asset: "BTC".to_owned(),
                     quote_precision: 8,
                     ..Default::default()
                 },
