@@ -21,6 +21,8 @@ pub struct Symbol {
     pub base_asset_precision: u64,
     pub quote_asset: String,
     pub quote_precision: u64,
+    pub base_commission_precision: u64,
+    pub quote_commission_precision: u64,
     pub order_types: Vec<String>,
     pub iceberg_allowed: bool,
     pub is_spot_trading_allowed: bool,

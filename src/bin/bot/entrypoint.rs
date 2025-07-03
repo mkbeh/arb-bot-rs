@@ -39,9 +39,9 @@ impl Entrypoint {
         settings: BinanceSettings,
     ) -> anyhow::Result<Arc<BinanceService>> {
         let api_config = binance_api::Config {
-            host: settings.exchange_api_url,
-            api_key: settings.exchange_api_token,
-            secret_key: settings.exchange_api_secret_key,
+            api_url: settings.api_url,
+            api_token: settings.api_token,
+            api_secret_key: settings.api_secret_key,
             http_config: binance_api::HttpConfig::default(),
         };
 

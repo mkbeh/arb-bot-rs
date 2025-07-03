@@ -12,12 +12,12 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub struct SymbolWrapper {
+pub struct ChainSymbol {
     pub symbol: Symbol,
     pub order: SymbolOrder,
 }
 
-impl SymbolWrapper {
+impl ChainSymbol {
     pub fn new(symbol: Symbol, order: SymbolOrder) -> Self {
         Self { symbol, order }
     }
@@ -37,7 +37,7 @@ impl ChainBuilder {
         }
     }
 
-    pub async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
+    pub async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
             Ok(exchange_info) => Arc::new(exchange_info),
             Err(e) => bail!(e),
@@ -67,10 +67,10 @@ impl ChainBuilder {
         &self,
         symbols: Vec<Symbol>,
         order: SymbolOrder,
-    ) -> Vec<[SymbolWrapper; 3]> {
+    ) -> Vec<[ChainSymbol; 3]> {
         let mut chains = Vec::new();
         for a_symbol in &symbols {
-            let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
+            let mut a_wrapper = ChainSymbol::new(a_symbol.clone(), Default::default());
             let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order) {
                 asset
             } else {
@@ -78,7 +78,7 @@ impl ChainBuilder {
             };
 
             for b_symbol in &symbols {
-                let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
+                let mut b_wrapper = ChainSymbol::new(b_symbol.clone(), Default::default());
 
                 // Selection symbol for 1st symbol.
                 if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
@@ -86,7 +86,7 @@ impl ChainBuilder {
                 }
 
                 for c_symbol in &symbols {
-                    let mut c_wrapper = SymbolWrapper::new(c_symbol.clone(), Default::default());
+                    let mut c_wrapper = ChainSymbol::new(c_symbol.clone(), Default::default());
 
                     // Selection symbol for 2nd symbol.
                     if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
@@ -115,8 +115,8 @@ impl ChainBuilder {
         chains
     }
 
-    fn define_base_asset(&self, wrapper: &mut SymbolWrapper, order: SymbolOrder) -> Option<String> {
-        let get_base_asset_fn = |wrapper: &SymbolWrapper| -> String {
+    fn define_base_asset(&self, wrapper: &mut ChainSymbol, order: SymbolOrder) -> Option<String> {
+        let get_base_asset_fn = |wrapper: &ChainSymbol| -> String {
             match wrapper.order {
                 // Ex: BTC:TRX
                 SymbolOrder::Asc => wrapper.symbol.base_asset.clone(),
@@ -159,7 +159,7 @@ impl ChainBuilder {
         None
     }
 
-    fn compare_symbols(&self, base: &SymbolWrapper, quote: &mut SymbolWrapper) -> bool {
+    fn compare_symbols(&self, base: &ChainSymbol, quote: &mut ChainSymbol) -> bool {
         if base.symbol.symbol == quote.symbol.symbol {
             // Ex: BTC:USDT - BTC:USDT -> incorrect, must be skipped.
             return false;
@@ -195,11 +195,11 @@ impl ChainBuilder {
         false
     }
 
-    fn deduplicate_chains(&self, chains: Vec<[SymbolWrapper; 3]>) -> Vec<[SymbolWrapper; 3]> {
+    fn deduplicate_chains(&self, chains: Vec<[ChainSymbol; 3]>) -> Vec<[ChainSymbol; 3]> {
         let mut m: BTreeMap<String, bool> = BTreeMap::new();
-        let mut unique_chains: Vec<[SymbolWrapper; 3]> = Vec::new();
+        let mut unique_chains: Vec<[ChainSymbol; 3]> = Vec::new();
 
-        let define_symbol = |x: &SymbolWrapper| -> String {
+        let define_symbol = |x: &ChainSymbol| -> String {
             match x.order {
                 SymbolOrder::Asc => x.symbol.symbol.to_string(),
                 SymbolOrder::Desc => format!("{}{}", x.symbol.quote_asset, x.symbol.base_asset),

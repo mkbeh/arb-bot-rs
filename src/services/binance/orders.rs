@@ -2,8 +2,22 @@ use anyhow::bail;
 
 use crate::{
     libs::binance_api::{Market, OrderBook},
-    services::binance::SymbolWrapper,
+    services::{binance::ChainSymbol, enums::SymbolOrder},
 };
+
+#[derive(Clone, Debug)]
+pub struct OrderSymbol {
+    pub symbol: String,
+    pub status: String,
+    pub base_asset: String,
+    pub base_asset_precision: u64,
+    pub quote_asset: String,
+    pub quote_precision: u64,
+    pub base_commission_precision: u64,
+    pub quote_commission_precision: u64,
+    pub symbol_order: SymbolOrder,
+    pub order_book: OrderBook,
+}
 
 pub struct OrderBuilder {
     market_api: Market,
@@ -18,32 +32,38 @@ impl OrderBuilder {
         }
     }
 
-    pub async fn build_chains_orders(self, chains: Vec<[SymbolWrapper; 3]>) -> anyhow::Result<()> {
-        for chain in chains {
-            let tasks: Vec<_> = chain
-                .into_iter()
-                .map(|wrapper| {
-                    let client = self.market_api.clone();
-                    tokio::spawn(async move {
-                        client
-                            .get_depth(wrapper.symbol.symbol.clone(), &self.market_depth_limit)
-                            .await
-                    })
-                })
-                .collect();
+    pub async fn build_chains_orders(&self, chains: Vec<[ChainSymbol; 3]>) -> anyhow::Result<()> {
+        for chain in &chains {
+            let mut order_symbols = vec![];
 
-            let mut order_books: Vec<OrderBook> = vec![];
-            for task in tasks {
-                match task.await {
-                    Ok(result) => match result {
-                        Ok(order_book) => order_books.push(order_book),
-                        Err(e) => bail!(e),
-                    },
-                    Err(e) => bail!(e),
-                }
+            for wrapper in chain {
+                let order_book = match self
+                    .market_api
+                    .get_depth(wrapper.symbol.symbol.clone(), &self.market_depth_limit)
+                    .await
+                {
+                    Ok(order_book) => order_book,
+                    Err(e) => bail!("failed to get symbol order book: {}", e),
+                };
+
+                let s = &wrapper.symbol;
+                order_symbols.push(OrderSymbol {
+                    symbol: s.symbol.clone(),
+                    status: s.status.clone(),
+                    base_asset: s.base_asset.clone(),
+                    base_asset_precision: s.base_asset_precision,
+                    quote_asset: s.quote_asset.clone(),
+                    quote_precision: s.quote_precision,
+                    base_commission_precision: s.base_commission_precision,
+                    quote_commission_precision: s.quote_commission_precision,
+                    symbol_order: wrapper.order,
+                    order_book,
+                });
             }
 
-            println!("order_books: {order_books:?}");
+            println!("{order_symbols:#?}");
+
+            // todo: add calculation
         }
 
         Ok(())
@@ -245,7 +265,7 @@ mod tests {
         );
 
         let test_chains = vec![[
-            SymbolWrapper {
+            ChainSymbol {
                 symbol: Symbol {
                     symbol: "BTCUSDT".to_owned(),
                     status: "TRADING".to_owned(),
@@ -257,7 +277,7 @@ mod tests {
                 },
                 order: SymbolOrder::Asc,
             },
-            SymbolWrapper {
+            ChainSymbol {
                 symbol: Symbol {
                     symbol: "ETHUSDT".to_owned(),
                     status: "TRADING".to_owned(),
@@ -269,7 +289,7 @@ mod tests {
                 },
                 order: SymbolOrder::Desc,
             },
-            SymbolWrapper {
+            ChainSymbol {
                 symbol: Symbol {
                     symbol: "ETHBTC".to_owned(),
                     status: "TRADING".to_owned(),
@@ -284,7 +304,7 @@ mod tests {
         ]];
 
         let api_config = binance_api::Config {
-            host: server.url(),
+            api_url: server.url(),
             ..Default::default()
         };
 

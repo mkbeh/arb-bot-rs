@@ -30,9 +30,9 @@ pub struct BaseSettings {
 
 #[derive(Deserialize)]
 pub struct BinanceSettings {
-    pub exchange_api_url: String,
-    pub exchange_api_token: String,
-    pub exchange_api_secret_key: String,
+    pub api_url: String,
+    pub api_token: String,
+    pub api_secret_key: String,
     pub base_assets: Vec<String>,
     pub market_depth_limit: usize,
 }

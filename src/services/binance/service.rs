@@ -1,22 +1,31 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::bail;
 use async_trait::async_trait;
 
 use crate::{
-    libs::binance_api::{Account, General, Market, Trade},
+    libs::{
+        binance_api::{Account, General, Market, Trade},
+        utils,
+    },
     services::{
         ExchangeService,
         binance::{ChainBuilder, OrderBuilder},
     },
 };
 
+static REQUEST_WEIGHT: LazyLock<Mutex<RequestWeight>> = LazyLock::new(|| {
+    Mutex::new(RequestWeight {
+        timestamp: utils::time::get_current_timestamp(),
+        weight: 0,
+    })
+});
+
 pub struct BinanceConfig {
     pub account_api: Account,
     pub general_api: General,
     pub market_api: Market,
     pub trade_api: Trade,
-
     pub base_assets: Vec<String>,
     pub market_depth_limit: usize,
 }
@@ -64,4 +73,9 @@ impl ExchangeService for BinanceService {
 
         Ok(())
     }
+}
+
+struct RequestWeight {
+    timestamp: u64,
+    weight: usize,
 }

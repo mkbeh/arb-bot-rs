@@ -4,6 +4,7 @@ pub mod hooks;
 pub mod http_server;
 pub mod observability;
 pub mod toml;
+pub mod utils;
 
 pub fn setup_application(name: &'static str) {
     // Setup custom panic hook
