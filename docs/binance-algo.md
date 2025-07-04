@@ -119,8 +119,6 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
 ## Получение ордеров по тикерам в стакане и расчет возможного профита по алгоритму
 
-[TODO] описание
-
 [Order book API](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#order-book)
 
 ```shell
