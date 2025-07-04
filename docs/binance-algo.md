@@ -2,7 +2,7 @@
 
 [Binance API documentation](https://developers.binance.com/docs/binance-spot-api-docs)
 
-**Содержание:**
+## Content
 
 1. [Получение списка доступных тикеров](#получение-списка-доступных-тикеров)
 
