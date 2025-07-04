@@ -331,5 +331,3 @@ curl -X GET https://api.binance.com/api/v3/depth?symbol=ETHBTC&limit=100 | jq | 
 ## Выставить ордера
 
 [New Order API](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/trading-endpoints#new-order-trade)
-
-[TODO] desc
