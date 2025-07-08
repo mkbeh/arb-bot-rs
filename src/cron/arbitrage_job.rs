@@ -4,17 +4,20 @@ use std::{
 };
 
 use async_trait::async_trait;
+use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::{libs::http_server::server::ServerProcess, services::ExchangeService};
 
 pub struct Config {
-    pub delay: u64,
+    pub timeout: u64,
+    pub error_timeout: u64,
 }
 
 pub struct Process {
-    delay: u64,
+    timeout: u64,
+    error_timeout: u64,
     service: Arc<dyn ExchangeService>,
 }
 
@@ -22,7 +25,8 @@ impl Process {
     pub fn new(cfg: Config, service: Arc<dyn ExchangeService>) -> &'static Self {
         static INSTANCE: OnceLock<Process> = OnceLock::new();
         INSTANCE.get_or_init(|| Process {
-            delay: cfg.delay,
+            timeout: cfg.timeout,
+            error_timeout: cfg.error_timeout,
             service,
         })
     }
@@ -42,10 +46,13 @@ impl ServerProcess for Process {
                 info!("process successfully stopped");
                 return Ok(());
             }
-            _ = tokio::time::sleep(time::Duration::from_secs(self.delay)) => {
+            _ = tokio::time::sleep(time::Duration::from_secs(self.timeout)) => {
                     match self.service.start_arbitrage().await {
                         Ok(_) => info!(count = "process complete successfully"),
-                        Err(e) => error!(error = ?e, "error during working process"),
+                        Err(e) => {
+                            error!(error = ?e, "error during working process");
+                            sleep(time::Duration::from_secs(self.error_timeout)).await;
+                        },
                     };
             }
             }

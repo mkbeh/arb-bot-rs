@@ -1,3 +1,4 @@
+
 use anyhow::bail;
 
 use crate::{
@@ -61,12 +62,14 @@ impl OrderBuilder {
                 });
             }
 
-            println!("{order_symbols:#?}");
-
-            // todo: add calculation
+            self.calculate_chain_profit(&order_symbols)
         }
 
         Ok(())
+    }
+
+    fn calculate_chain_profit(&self, order_symbols: &Vec<OrderSymbol>) {
+        //
     }
 }
 

@@ -7,6 +7,7 @@ use anyhow::bail;
 use strum::IntoEnumIterator;
 
 use crate::{
+    config,
     libs::binance_api::{General, Symbol},
     services::enums::SymbolOrder,
 };
@@ -25,12 +26,12 @@ impl ChainSymbol {
 
 #[derive(Clone)]
 pub struct ChainBuilder {
-    base_assets: Vec<String>,
+    base_assets: Vec<config::Asset>,
     general_api: General,
 }
 
 impl ChainBuilder {
-    pub fn new(base_assets: Vec<String>, general_api: General) -> Self {
+    pub fn new(base_assets: Vec<config::Asset>, general_api: General) -> Self {
         Self {
             base_assets,
             general_api,
@@ -130,7 +131,9 @@ impl ChainBuilder {
         let base_assets_qty = self
             .base_assets
             .iter()
-            .filter(|&x| *x == wrapper.symbol.base_asset || *x == wrapper.symbol.quote_asset)
+            .filter(|&x| {
+                *x.asset == wrapper.symbol.base_asset || *x.asset == wrapper.symbol.quote_asset
+            })
             .count();
 
         if base_assets_qty == MAX_ASSETS_QTY {
@@ -141,7 +144,7 @@ impl ChainBuilder {
         if self
             .base_assets
             .iter()
-            .any(|x| x == wrapper.symbol.base_asset.as_str())
+            .any(|x| x.asset == wrapper.symbol.base_asset.as_str())
         {
             wrapper.order = Default::default();
             return Some(get_base_asset_fn(wrapper));
@@ -150,7 +153,7 @@ impl ChainBuilder {
         if self
             .base_assets
             .iter()
-            .any(|x| x == wrapper.symbol.quote_asset.as_str())
+            .any(|x| x.asset == wrapper.symbol.quote_asset.as_str())
         {
             wrapper.order = SymbolOrder::Desc;
             return Some(get_base_asset_fn(wrapper));
