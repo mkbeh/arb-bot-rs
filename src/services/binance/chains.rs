@@ -7,7 +7,7 @@ use anyhow::bail;
 use strum::IntoEnumIterator;
 
 use crate::{
-    config,
+    config::Asset,
     libs::binance_api::{General, Symbol},
     services::enums::SymbolOrder,
 };
@@ -26,12 +26,12 @@ impl ChainSymbol {
 
 #[derive(Clone)]
 pub struct ChainBuilder {
-    base_assets: Vec<config::Asset>,
+    base_assets: Vec<Asset>,
     general_api: General,
 }
 
 impl ChainBuilder {
-    pub fn new(base_assets: Vec<config::Asset>, general_api: General) -> Self {
+    pub fn new(base_assets: Vec<Asset>, general_api: General) -> Self {
         Self {
             base_assets,
             general_api,

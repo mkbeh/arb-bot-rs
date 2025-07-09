@@ -1,7 +1,8 @@
-
 use anyhow::bail;
+use rust_decimal::Decimal;
 
 use crate::{
+    config::Asset,
     libs::binance_api::{Market, OrderBook},
     services::{binance::ChainSymbol, enums::SymbolOrder},
 };
@@ -17,23 +18,38 @@ pub struct OrderSymbol {
     pub base_commission_precision: u64,
     pub quote_commission_precision: u64,
     pub symbol_order: SymbolOrder,
+    pub min_profit_limit: Decimal,
+    pub min_volume_limit: Decimal,
+    pub max_volume_limit: Decimal,
     pub order_book: OrderBook,
 }
 
 pub struct OrderBuilder {
+    base_assets: Vec<Asset>,
     market_api: Market,
     market_depth_limit: usize,
 }
 
 impl OrderBuilder {
-    pub fn new(market_api: Market, market_depth_limit: usize) -> Self {
+    pub fn new(base_assets: Vec<Asset>, market_api: Market, market_depth_limit: usize) -> Self {
         Self {
+            base_assets,
             market_api,
             market_depth_limit,
         }
     }
 
     pub async fn build_chains_orders(&self, chains: Vec<[ChainSymbol; 3]>) -> anyhow::Result<()> {
+        let find_base_asset_fn = |wrapper: &ChainSymbol| -> Option<&Asset> {
+            self.base_assets.iter().find(|&x| {
+                if wrapper.order == SymbolOrder::Asc {
+                    x.asset == wrapper.symbol.base_asset
+                } else {
+                    x.asset == wrapper.symbol.quote_asset
+                }
+            })
+        };
+
         for chain in &chains {
             let mut order_symbols = vec![];
 
@@ -47,6 +63,14 @@ impl OrderBuilder {
                     Err(e) => bail!("failed to get symbol order book: {}", e),
                 };
 
+                let base_asset = match find_base_asset_fn(wrapper) {
+                    Some(base) => base,
+                    _ => bail!(
+                        "failed to find base asset for symbol {}",
+                        wrapper.symbol.symbol
+                    ),
+                };
+
                 let s = &wrapper.symbol;
                 order_symbols.push(OrderSymbol {
                     symbol: s.symbol.clone(),
@@ -58,6 +82,9 @@ impl OrderBuilder {
                     base_commission_precision: s.base_commission_precision,
                     quote_commission_precision: s.quote_commission_precision,
                     symbol_order: wrapper.order,
+                    min_profit_limit: base_asset.min_profit_limit,
+                    min_volume_limit: base_asset.min_volume_limit,
+                    max_volume_limit: base_asset.max_volume_limit,
                     order_book,
                 });
             }
@@ -69,13 +96,16 @@ impl OrderBuilder {
     }
 
     fn calculate_chain_profit(&self, order_symbols: &Vec<OrderSymbol>) {
-        //
+        for order in order_symbols {
+            // todo
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use mockito::{Matcher, Server};
+    use rust_decimal::prelude::FromPrimitive;
 
     use super::*;
     use crate::{
@@ -306,6 +336,30 @@ mod tests {
             },
         ]];
 
+        let base_assets: Vec<Asset> = vec![
+            Asset {
+                asset: "BTC".to_string(),
+                symbol: Some("BTCUSDT".to_owned()),
+                min_profit_limit: Decimal::from_f64(0.000030).unwrap(),
+                min_volume_limit: Decimal::from_f64(0.000030).unwrap(),
+                max_volume_limit: Decimal::from_f64(0.00030).unwrap(),
+            },
+            Asset {
+                asset: "ETH".to_string(),
+                symbol: Some("ETHUSDT".to_owned()),
+                min_profit_limit: Decimal::from_f64(0.0012).unwrap(),
+                min_volume_limit: Decimal::from_f64(0.0012).unwrap(),
+                max_volume_limit: Decimal::from_f64(0.012).unwrap(),
+            },
+            Asset {
+                asset: "USDT".to_string(),
+                symbol: Some("USDT".to_owned()),
+                min_profit_limit: Decimal::from_f64(3.0).unwrap(),
+                min_volume_limit: Decimal::from_f64(3.0).unwrap(),
+                max_volume_limit: Decimal::from_f64(30.0).unwrap(),
+            },
+        ];
+
         let api_config = binance_api::Config {
             api_url: server.url(),
             ..Default::default()
@@ -316,7 +370,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let orders_builder = OrderBuilder::new(market_api, 5);
+        let orders_builder = OrderBuilder::new(base_assets, market_api, 5);
         let chains_orders = orders_builder.build_chains_orders(test_chains).await;
 
         mock_order_book_ethbtc.assert_async().await;

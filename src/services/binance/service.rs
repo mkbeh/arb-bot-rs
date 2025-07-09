@@ -72,14 +72,21 @@ impl ExchangeService for BinanceService {
         };
 
         // Get all available symbols and build chains.
-        let chain_builder = Arc::new(ChainBuilder::new(base_assets, self.general_api.clone()));
+        let chain_builder = Arc::new(ChainBuilder::new(
+            base_assets.clone(),
+            self.general_api.clone(),
+        ));
         let chains = match chain_builder.build_symbols_chains().await {
             Ok(chains) => chains,
             Err(e) => bail!("failed to build symbols chains: {}", e),
         };
 
         // Get order books per chain and calculate profit.
-        let order_builder = OrderBuilder::new(self.market_api.clone(), self.market_depth_limit);
+        let order_builder = OrderBuilder::new(
+            base_assets.clone(),
+            self.market_api.clone(),
+            self.market_depth_limit,
+        );
         let chains_orders = match order_builder.build_chains_orders(chains).await {
             Ok(chains_orders) => chains_orders,
             Err(e) => bail!("failed to build chains orders: {}", e),
