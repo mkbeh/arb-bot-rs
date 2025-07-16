@@ -258,33 +258,33 @@ curl -X GET https://api.binance.com/api/v3/depth?symbol=ETHBTC&limit=100 | jq | 
 ```json
 // BTC:USDT
 {
-   "lastUpdateId": 72224518924,
-   "bids": [
-      [
-         "109615.46000000",
-         "0.00015"
-      ],
-      [
-         "109614.96000000",
-         "0.00005"
-      ],
-      [
-         "109614.96000000",
-         "0.00030"
-      ],
-      ...
-   ],
-   "asks": [
-      [
-         "109615.47000000",
-         "2.22969000"
-      ],
-      [
-         "109615.48000000",
-         "0.00028000"
-      ],
-      ...
-   ]
+  "lastUpdateId": 72224518924,
+  "bids": [
+    [
+      "109615.46000000",
+      "0.00015"
+    ],
+    [
+      "109614.96000000",
+      "0.00005"
+    ],
+    [
+      "109614.96000000",
+      "0.00030"
+    ],
+    ...
+  ],
+  "asks": [
+    [
+      "109615.47000000",
+      "2.22969000"
+    ],
+    [
+      "109615.48000000",
+      "0.00028000"
+    ],
+    ...
+  ]
 }
 ```
 
@@ -346,6 +346,149 @@ curl -X GET https://api.binance.com/api/v3/depth?symbol=ETHBTC&limit=100 | jq | 
 }
 ```
 
+```text
+// ВОПРОСЫ:
+
+1. Если брать 1й кейс где везде объемов хватает, то как будут расчитываться оставшиеся циклы ??? - см. 4 кейс
+2. Если не хватает объема во 2й паре 1й глубины и у 1й расчитанной пары порядок DESC, то как будут пересчитываться объемы для 1й пары ???
+3. После пересчета объемов на меньшие как поведет себя суммирование объемов??? - по идее будет просто до лимита идти 
+
+// DRAFT:
+
+BTC:USDT | ETH:USD (DESC) | ETH:BTC
+
+limit: 0.0003 BTC
+
+// Кейсы:
+
+// 1. Везде хватает объемов, пересчет объемов не требуется.
+
+BTC:USDT
+
+price: 109615.46 USDT
+volume: 7.27795000 BTC
+
+ETH:USDT
+
+price: 2585.71 USDT
+volume: 19.28810000 ETH
+
+ETH:BTC
+
+price: 0.02358 BTC
+volume: 105.74550000 ETH
+
+Расчет:
+
+1. 0.0003 BTC (volume) * 109615.46 USDT (price) = 32.88 USDT (volume) 
+2. 32.88 USDT (volume) / 2585.71 USDT (price) = 0.012716 ETH (volume)
+3. 0.012716 ETH (volume) * 0.02358 BTC (price) = 0.0002998 BTC (volume)
+
+compare: 0.0002998 BTC (volume) - 0.0003 BTC (volume) = -0.0000002 BTC (profit)
+
+// 2. Не хватает объема до лимита в 1й паре, перерасчет объемов не требуется (просуммируются объемы 1й пары)
+
+BTC:USDT
+
+price: 109615.46 USDT
+volume: 0.0002 BTC
+
+price: 109616.46 USDT
+volume: 1.2 BTC
+
+ETH:USDT
+
+price: 2585.71 USDT
+volume: 19.28810000 ETH
+
+price: 2586.71 USDT
+volume: 10.2 ETH
+
+ETH:BTC
+
+price: 0.02358 BTC
+volume: 105.74550000 ETH
+
+price: 0.02359 BTC
+volume: 205.7 ETH
+
+Расчет:
+
+# cycle #1
+
+1. 0.0002 BTC (volume) * 109615.46 USDT (price) = 21.92 USDT (volume) 
+2. 21.92 USDT (volume) / 2585.71 USDT (price) = 0.00847736 ETH (volume)
+3. 0.00847736 ETH (volume) * 0.02358 BTC (price) = 0.0001998 BTC (volume)
+
+# cycle #2
+
+1. 0.0003 BTC (volume) * 109616.46 (last price) = 32.88 (volume)
+2. 32.88 USDT (volume) / 2585.71 USDT (price) = 0.012716 ETH (volume)
+3. 0.012716 ETH (volume) * 0.02358 BTC (price) = 0.0002998 BTC (volume)
+
+// 3. Не хватает объема до лимита во 2й паре - перерасчет объем 1й пары, на втором цикле объемы проссумируются
+
+BTC:USDT
+
+price: 109615.46 USDT
+volume: 7.27795000 BTC
+
+ETH:USDT
+
+price: 2585.71 USDT
+volume: 0.01 ETH
+
+price: 2586.71 USDT
+volume: 20.2 ETH
+
+ETH:BTC
+
+price: 0.02358 BTC
+volume: 105.74550000 ETH
+
+Расчет:
+
+cycle #1
+
+1. 0.0003 BTC (volume) * 109615.46 USDT (price) = 32.88 USDT (volume)
+2. 32.88 USDT (volume) / 2585.71 USDT (price) = 0.012716 ETH (volume) - доступно только 0.01 ETH
+2.1 Пересчитываем объемы 1й пары с учетом доступного объема во 2й паре.
+0.01 ETH (доступный volume) * 2585.71 USDT (price) = 25.82 USDT (новый quote volume для 1й пары)
+25.82 USDT (новый quote volume для 1й пары) / 109615.46 USDT (price) = 0.00023555 BTC (новый base volume для 1й пары)
+3. 0.01 ETH (volume) * 0.02358 BTC (price) = 0.0002358 BTC (volume)
+
+cycle #2
+
+1. 0.0003 BTC (volume) * 109615.46 USDT (price) = 32.88 USDT (volume)
+2. 32.88 USDT (volume) / 2586.71 USDT (price) = 0.012711 ETH (volume) - оставляем объем если суммы текущего объема ETH и предыдущего объема ETH хватает (считаем по новой цене)
+3. 0.012711 ETH (volume) * 0.02358 BTC (price) = 0.0002997 BTC (volume)
+
+// 4. [TODO] Везде хватает объемов, пересчет объемов не требуется (несколько циклов). - по идее объемы не должны будут суммироваться
+
+BTC:USDT
+
+price: 109615.46 USDT
+volume: 7.27795000 BTC
+
+ETH:USDT
+
+price: 2585.71 USDT
+volume: 19.28810000 ETH
+
+ETH:BTC
+
+price: 0.02358 BTC
+volume: 105.74550000 ETH
+
+Расчет:
+
+1. 0.0003 BTC (volume) * 109615.46 USDT (price) = 32.88 USDT (volume) 
+2. 32.88 USDT (volume) / 2585.71 USDT (price) = 0.012716 ETH (volume)
+3. 0.012716 ETH (volume) * 0.02358 BTC (price) = 0.0002998 BTC (volume)
+
+compare: 0.0002998 BTC (volume) - 0.0003 BTC (volume) = -0.0000002 BTC (profit)
+```
+
 ### FAQ
 
 1. При расчетах не учитываются комиссии, потому что комиссия по стоимости равна пыли
@@ -358,7 +501,8 @@ curl -X GET https://api.binance.com/api/v3/depth?symbol=ETHBTC&limit=100 | jq | 
 
 [New Order API](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/trading-endpoints#new-order-trade)
 
-
 ## Головные мюсли
 
-1. Попробовать немного подкручивать цену вверх перед применением алгоритма???
+1. Попробовать немного подкручивать цену вверх перед применением алгоритма (актуально только для лимитных ордеров) ???
+2. Рассчитывать надо по новой цене если происходит суммирование обьемов и выставлять ордера соответственно , потому что
+   если есть профит по новой цене , со старой ценой будет больше профита просто

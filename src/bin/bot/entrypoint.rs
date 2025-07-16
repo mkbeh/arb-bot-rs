@@ -72,7 +72,6 @@ impl Entrypoint {
             base_assets: config.binance.assets,
             market_depth_limit: config.binance.market_depth_limit,
             default_min_profit_limit: config.settings.min_profit_limit,
-            default_min_volume_limit: config.settings.min_volume_limit,
             default_max_volume_limit: config.settings.max_volume_limit,
         };
 

@@ -19,11 +19,11 @@ pub struct Symbol {
     pub symbol: String,
     pub status: String,
     pub base_asset: String,
-    pub base_asset_precision: u64,
+    pub base_asset_precision: u32,
     pub quote_asset: String,
-    pub quote_precision: u64,
-    pub base_commission_precision: u64,
-    pub quote_commission_precision: u64,
+    pub quote_precision: u32,
+    pub base_commission_precision: u32,
+    pub quote_commission_precision: u32,
     pub order_types: Vec<String>,
     pub iceberg_allowed: bool,
     pub is_spot_trading_allowed: bool,
@@ -123,25 +123,36 @@ pub struct FillInfo {
 #[serde(rename_all = "camelCase")]
 pub struct OrderBook {
     pub last_update_id: u64,
-    pub bids: Vec<Bids>,
-    pub asks: Vec<Asks>,
-}
-
-#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
-pub struct Bids {
-    #[serde(with = "rust_decimal::serde::float")]
-    pub price: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
-    pub qty: Decimal,
+    #[serde(rename = "bids")]
+    pub bids: Vec<OrderBookUnit>,
+    #[serde(rename = "asks")]
+    pub asks: Vec<OrderBookUnit>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Asks {
+#[serde(rename_all = "camelCase")]
+pub struct OrderBookUnit {
     #[serde(with = "rust_decimal::serde::float")]
     pub price: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub qty: Decimal,
 }
+
+// #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+// pub struct Bids {
+//     #[serde(with = "rust_decimal::serde::float")]
+//     pub price: Decimal,
+//     #[serde(with = "rust_decimal::serde::float")]
+//     pub qty: Decimal,
+// }
+//
+// #[derive(Debug, Serialize, Deserialize, Clone)]
+// pub struct Asks {
+//     #[serde(with = "rust_decimal::serde::float")]
+//     pub price: Decimal,
+//     #[serde(with = "rust_decimal::serde::float")]
+//     pub qty: Decimal,
+// }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]

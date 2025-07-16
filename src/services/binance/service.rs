@@ -31,7 +31,6 @@ pub struct BinanceConfig {
     pub base_assets: Vec<Asset>,
     pub market_depth_limit: usize,
     pub default_min_profit_limit: Decimal,
-    pub default_min_volume_limit: Decimal,
     pub default_max_volume_limit: Decimal,
 }
 
@@ -43,7 +42,6 @@ pub struct BinanceService {
     base_assets: Vec<Asset>,
     market_depth_limit: usize,
     default_min_profit_limit: Decimal,
-    default_min_volume_limit: Decimal,
     default_max_volume_limit: Decimal,
 }
 
@@ -57,7 +55,6 @@ impl BinanceService {
             base_assets: cfg.base_assets,
             market_depth_limit: cfg.market_depth_limit,
             default_min_profit_limit: cfg.default_min_profit_limit,
-            default_min_volume_limit: cfg.default_min_volume_limit,
             default_max_volume_limit: cfg.default_max_volume_limit,
         }
     }
@@ -97,18 +94,16 @@ impl ExchangeService for BinanceService {
 }
 
 impl BinanceService {
-    // Get and update base assets volume and profit limits.
+    // Get and update base assets volume and profit limits from api.
     async fn update_base_assets_info(&self) -> anyhow::Result<Vec<Asset>> {
         let set_asset_volumes_fn = |asset: &Asset, stat: &TickerPriceStats| -> Asset {
             let mut new_asset = asset.clone();
 
             if asset.symbol.clone().unwrap().starts_with("USDT") {
                 new_asset.min_profit_limit = self.default_min_profit_limit * stat.last_price;
-                new_asset.min_volume_limit = self.default_min_volume_limit * stat.last_price;
                 new_asset.max_volume_limit = self.default_max_volume_limit * stat.last_price;
             } else {
                 new_asset.min_profit_limit = self.default_min_profit_limit / stat.last_price;
-                new_asset.min_volume_limit = self.default_min_volume_limit / stat.last_price;
                 new_asset.max_volume_limit = self.default_max_volume_limit / stat.last_price;
             }
 

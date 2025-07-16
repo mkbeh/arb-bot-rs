@@ -33,8 +33,6 @@ pub struct Settings {
     #[serde(with = "rust_decimal::serde::float")]
     pub min_profit_limit: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
-    pub min_volume_limit: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
     pub max_volume_limit: Decimal,
 }
 
@@ -54,8 +52,6 @@ pub struct Asset {
     #[serde(with = "rust_decimal::serde::float")]
     pub min_profit_limit: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
-    pub min_volume_limit: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
     pub max_volume_limit: Decimal,
 }
 
@@ -63,7 +59,6 @@ impl Asset {
     fn check(
         &mut self,
         min_profit_limit: Decimal,
-        min_volume_limit: Decimal,
         max_volume_limit: Decimal,
     ) -> anyhow::Result<()> {
         match self.symbol.as_ref() {
@@ -73,12 +68,11 @@ impl Asset {
                 }
             }
             None => {
-                if self.min_volume_limit == Decimal::zero()
-                    && self.max_volume_limit == Decimal::zero()
+                // Set default limits if symbol not present in config.
+                if self.max_volume_limit == Decimal::zero()
                     && self.min_profit_limit == Decimal::zero()
                 {
                     self.min_profit_limit = min_profit_limit;
-                    self.min_volume_limit = min_volume_limit;
                     self.max_volume_limit = max_volume_limit;
                 }
             }
@@ -119,10 +113,6 @@ impl Config {
             bail!("min_profit_limit is greater than 0");
         }
 
-        if self.settings.min_volume_limit <= Decimal::zero() {
-            bail!("min_volume_limit is greater than 0");
-        }
-
         if self.settings.max_volume_limit <= Decimal::zero() {
             bail!("max_volume_limit is greater than 0");
         }
@@ -145,7 +135,6 @@ impl Config {
         for asset in &mut self.binance.assets {
             asset.check(
                 self.settings.min_profit_limit,
-                self.settings.min_volume_limit,
                 self.settings.max_volume_limit,
             )?;
         }
