@@ -4,86 +4,44 @@ use std::{
 };
 
 use anyhow::bail;
-use async_trait::async_trait;
 use strum::IntoEnumIterator;
 
 use crate::{
-    libs::binance_api::{Account, General, Market, Symbol, Trade},
-    services::{ExchangeService, enums::SymbolOrder},
+    config::Asset,
+    libs::binance_api::{General, Symbol},
+    services::enums::SymbolOrder,
 };
 
-pub struct BinanceService {
-    base_assets: Vec<String>,
-    account_api: Account,
-    general_api: General,
-    market_api: Market,
-    trade_api: Trade,
-}
-
-impl BinanceService {
-    pub fn new(
-        base_assets: Vec<String>,
-        account_api: Account,
-        general_api: General,
-        market_api: Market,
-        trade_api: Trade,
-    ) -> Self {
-        Self {
-            base_assets,
-            account_api,
-            general_api,
-            market_api,
-            trade_api,
-        }
-    }
-}
-
-#[async_trait]
-impl ExchangeService for BinanceService {
-    async fn start_arbitrage(&self) -> anyhow::Result<()> {
-        let chains_builder = Arc::new(ChainsBuilder::new(
-            self.base_assets.clone(),
-            self.general_api.clone(),
-        ));
-        let chains = match chains_builder.build_symbols_chains().await {
-            Ok(chains) => chains,
-            Err(err) => bail!("failed to build symbols chains: {}", err),
-        };
-
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug)]
-struct SymbolWrapper {
-    symbol: Symbol,
-    order: SymbolOrder,
+pub struct ChainSymbol {
+    pub symbol: Symbol,
+    pub order: SymbolOrder,
 }
 
-impl SymbolWrapper {
-    fn new(symbol: Symbol, order: SymbolOrder) -> Self {
+impl ChainSymbol {
+    pub fn new(symbol: Symbol, order: SymbolOrder) -> Self {
         Self { symbol, order }
     }
 }
 
 #[derive(Clone)]
-struct ChainsBuilder {
-    base_assets: Vec<String>,
+pub struct ChainBuilder {
+    base_assets: Vec<Asset>,
     general_api: General,
 }
 
-impl ChainsBuilder {
-    fn new(base_assets: Vec<String>, general_api: General) -> Self {
+impl ChainBuilder {
+    pub fn new(base_assets: Vec<Asset>, general_api: General) -> Self {
         Self {
             base_assets,
             general_api,
         }
     }
 
-    async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[SymbolWrapper; 3]>> {
+    pub async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
             Ok(exchange_info) => Arc::new(exchange_info),
-            Err(err) => bail!(err),
+            Err(e) => bail!(e),
         };
 
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
@@ -110,10 +68,10 @@ impl ChainsBuilder {
         &self,
         symbols: Vec<Symbol>,
         order: SymbolOrder,
-    ) -> Vec<[SymbolWrapper; 3]> {
+    ) -> Vec<[ChainSymbol; 3]> {
         let mut chains = Vec::new();
         for a_symbol in &symbols {
-            let mut a_wrapper = SymbolWrapper::new(a_symbol.clone(), Default::default());
+            let mut a_wrapper = ChainSymbol::new(a_symbol.clone(), Default::default());
             let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order) {
                 asset
             } else {
@@ -121,7 +79,7 @@ impl ChainsBuilder {
             };
 
             for b_symbol in &symbols {
-                let mut b_wrapper = SymbolWrapper::new(b_symbol.clone(), Default::default());
+                let mut b_wrapper = ChainSymbol::new(b_symbol.clone(), Default::default());
 
                 // Selection symbol for 1st symbol.
                 if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
@@ -129,7 +87,7 @@ impl ChainsBuilder {
                 }
 
                 for c_symbol in &symbols {
-                    let mut c_wrapper = SymbolWrapper::new(c_symbol.clone(), Default::default());
+                    let mut c_wrapper = ChainSymbol::new(c_symbol.clone(), Default::default());
 
                     // Selection symbol for 2nd symbol.
                     if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
@@ -158,8 +116,8 @@ impl ChainsBuilder {
         chains
     }
 
-    fn define_base_asset(&self, wrapper: &mut SymbolWrapper, order: SymbolOrder) -> Option<String> {
-        let get_base_asset = |wrapper: &SymbolWrapper| -> String {
+    fn define_base_asset(&self, wrapper: &mut ChainSymbol, order: SymbolOrder) -> Option<String> {
+        let get_base_asset_fn = |wrapper: &ChainSymbol| -> String {
             match wrapper.order {
                 // Ex: BTC:TRX
                 SymbolOrder::Asc => wrapper.symbol.base_asset.clone(),
@@ -173,36 +131,38 @@ impl ChainsBuilder {
         let base_assets_qty = self
             .base_assets
             .iter()
-            .filter(|&x| *x == wrapper.symbol.base_asset || *x == wrapper.symbol.quote_asset)
+            .filter(|&x| {
+                *x.asset == wrapper.symbol.base_asset || *x.asset == wrapper.symbol.quote_asset
+            })
             .count();
 
         if base_assets_qty == MAX_ASSETS_QTY {
             wrapper.order = order;
-            return Some(get_base_asset(wrapper));
+            return Some(get_base_asset_fn(wrapper));
         }
 
         if self
             .base_assets
             .iter()
-            .any(|x| x == wrapper.symbol.base_asset.as_str())
+            .any(|x| x.asset == wrapper.symbol.base_asset.as_str())
         {
             wrapper.order = Default::default();
-            return Some(get_base_asset(wrapper));
+            return Some(get_base_asset_fn(wrapper));
         };
 
         if self
             .base_assets
             .iter()
-            .any(|x| x == wrapper.symbol.quote_asset.as_str())
+            .any(|x| x.asset == wrapper.symbol.quote_asset.as_str())
         {
             wrapper.order = SymbolOrder::Desc;
-            return Some(get_base_asset(wrapper));
+            return Some(get_base_asset_fn(wrapper));
         };
 
         None
     }
 
-    fn compare_symbols(&self, base: &SymbolWrapper, quote: &mut SymbolWrapper) -> bool {
+    fn compare_symbols(&self, base: &ChainSymbol, quote: &mut ChainSymbol) -> bool {
         if base.symbol.symbol == quote.symbol.symbol {
             // Ex: BTC:USDT - BTC:USDT -> incorrect, must be skipped.
             return false;
@@ -238,11 +198,11 @@ impl ChainsBuilder {
         false
     }
 
-    fn deduplicate_chains(&self, chains: Vec<[SymbolWrapper; 3]>) -> Vec<[SymbolWrapper; 3]> {
+    fn deduplicate_chains(&self, chains: Vec<[ChainSymbol; 3]>) -> Vec<[ChainSymbol; 3]> {
         let mut m: BTreeMap<String, bool> = BTreeMap::new();
-        let mut unique_chains: Vec<[SymbolWrapper; 3]> = Vec::new();
+        let mut unique_chains: Vec<[ChainSymbol; 3]> = Vec::new();
 
-        let define_symbol = |x: &SymbolWrapper| -> String {
+        let define_symbol = |x: &ChainSymbol| -> String {
             match x.order {
                 SymbolOrder::Asc => x.symbol.symbol.to_string(),
                 SymbolOrder::Desc => format!("{}{}", x.symbol.quote_asset, x.symbol.base_asset),

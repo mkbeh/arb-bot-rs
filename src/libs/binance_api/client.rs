@@ -20,9 +20,9 @@ pub struct Client {
 impl Client {
     pub fn from_config(cfg: Config) -> anyhow::Result<Self, anyhow::Error> {
         let client = Self {
-            host: cfg.host.clone(),
-            api_key: cfg.api_key.clone(),
-            secret_key: cfg.secret_key.clone(),
+            host: cfg.api_url.clone(),
+            api_key: cfg.api_token.clone(),
+            secret_key: cfg.api_secret_key.clone(),
             inner_client: reqwest::Client::builder()
                 .connect_timeout(cfg.http_config.connect_timeout)
                 .pool_idle_timeout(cfg.http_config.pool_idle_timeout)
@@ -139,11 +139,11 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
     }
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Config {
-    pub host: String,
-    pub api_key: String,
-    pub secret_key: String,
+    pub api_url: String,
+    pub api_token: String,
+    pub api_secret_key: String,
     pub http_config: HttpConfig,
 }
 

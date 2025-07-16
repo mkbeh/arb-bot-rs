@@ -119,3 +119,19 @@ impl Display for OrderStatus {
         }
     }
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TickerPriceResponseType {
+    Full,
+    Mini,
+}
+
+impl Display for TickerPriceResponseType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TickerPriceResponseType::Full => write!(f, "FULL"),
+            TickerPriceResponseType::Mini => write!(f, "MINI"),
+        }
+    }
+}

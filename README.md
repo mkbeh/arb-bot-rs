@@ -2,9 +2,9 @@
 
 Cryptocurrency exchanges arbitrage bot.
 
-Documentation of arbitrage algorithm [here](https://github.com/mkbeh/arb-bot-rs/docs).
+Documentation of arbitrage algorithm [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
-**Support exchanges:**
+**Support:**
 
 * [Binance](https://www.binance.com)
 
