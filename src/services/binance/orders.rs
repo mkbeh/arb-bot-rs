@@ -102,7 +102,7 @@ impl OrderBuilder {
                 }
             }
 
-            // todo: desc
+            // Build orders info and calculate profit.
             let mut order_symbols = vec![];
 
             for (i, chain_symbol) in chain.iter().enumerate() {
