@@ -30,3 +30,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter", "registry",
 [dev-dependencies]
 futures = { version = "0.3.31" }
 mockito = { version = "1.7.0" }
+
+[profile.release-lto]
+inherits = "release"
+lto = true

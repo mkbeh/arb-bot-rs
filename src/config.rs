@@ -41,6 +41,7 @@ pub struct BinanceSettings {
     pub api_url: String,
     pub api_token: String,
     pub api_secret_key: String,
+    pub api_weight_limit: usize,
     pub market_depth_limit: usize,
     pub assets: Vec<Asset>,
 }
@@ -48,6 +49,7 @@ pub struct BinanceSettings {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Asset {
     pub asset: String,
+    pub asset_precision: u32,
     pub symbol: Option<String>,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_profit_limit: Decimal,
@@ -130,6 +132,10 @@ impl Config {
                 "market_depth_limit is greater than {}",
                 MAX_MARKET_DEPTH_LIMIT
             );
+        }
+
+        if self.binance.api_weight_limit == 0 {
+            bail!("weight_limit must be greater than 0");
         }
 
         for asset in &mut self.binance.assets {
