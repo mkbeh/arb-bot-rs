@@ -1,4 +1,7 @@
-use std::{ops::Sub, time::Duration};
+use std::{
+    ops::Sub,
+    time::Duration,
+};
 
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
@@ -64,27 +67,45 @@ impl OrderBuilder {
             })
         };
 
-        for (z, chain) in chains.iter().enumerate() {
+        for chain in chains.iter() {
             let mut request_weight = REQUEST_WEIGHT.lock().await;
 
-            // get depth cost 5 weight and send order cost 1 weight - x3 requests.
+            // Calculate request weight, where api method 'get depth' cost 5 weight and api method
+            // 'send order' cost 1 weight - need x3 requests for each symbol.
             let weight = (5 + 1) * 3;
 
             while !request_weight.add(weight) {
                 tokio::time::sleep(Duration::from_secs(60)).await;
             }
 
-            let mut order_symbols = vec![];
-            for (i, chain_symbol) in chain.iter().enumerate() {
-                let order_book = match self
-                    .market_api
-                    .get_depth(chain_symbol.symbol.symbol.clone(), &self.market_depth_limit)
-                    .await
-                {
-                    Ok(order_book) => order_book,
-                    Err(e) => bail!("failed to get symbol order book: {}", e),
-                };
+            // Async get order book for each symbol in chain.
+            let tasks: Vec<_> = chain
+                .clone()
+                .into_iter()
+                .map(|wrapper| {
+                    let client = self.market_api.clone();
+                    let depth_limit = self.market_depth_limit;
+                    tokio::spawn(async move {
+                        client
+                            .get_depth(wrapper.symbol.symbol.clone(), depth_limit)
+                            .await
+                    })
+                })
+                .collect();
 
+            let mut order_books = vec![];
+
+            for task in tasks {
+                match task.await? {
+                    Ok(order_book) => order_books.push(order_book),
+                    Err(e) => bail!("failed to get symbol order book: {}", e),
+                }
+            }
+
+            // Build orders info and calculate profit.
+            let mut order_symbols = vec![];
+
+            for (i, chain_symbol) in chain.iter().enumerate() {
                 let mut min_profit_limit = None;
                 let mut max_volume_limit = None;
 
@@ -112,13 +133,12 @@ impl OrderBuilder {
                     symbol_order: chain_symbol.order,
                     min_profit_limit,
                     max_volume_limit,
-                    order_book,
+                    order_book: order_books[i].clone(),
                 });
             }
 
             let orders = self.calculate_chain_profit(&order_symbols);
             if orders.is_empty() {
-                info_span!("non profit", index = z);
                 request_weight.sub_weight(3);
                 continue;
             }
@@ -272,8 +292,6 @@ impl OrderBuilder {
                 profit_orders.extend_from_slice(&orders[i..=i + 2]);
             }
         }
-
-        info_span!("orders calc", orders=?orders);
 
         // Return 3 last profit orders
         if profit_orders.len() >= order_symbols.len() {
