@@ -1,12 +1,16 @@
-use std::ops::Sub;
+use std::{ops::Sub, time::Duration};
 
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
+use tracing::info_span;
 
 use crate::{
     config::Asset,
     libs::binance_api::{Market, OrderBook, OrderBookUnit},
-    services::{binance::ChainSymbol, enums::SymbolOrder},
+    services::{
+        binance::{ChainSymbol, REQUEST_WEIGHT},
+        enums::SymbolOrder,
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -60,9 +64,17 @@ impl OrderBuilder {
             })
         };
 
-        for chain in &chains {
-            let mut order_symbols = vec![];
+        for (z, chain) in chains.iter().enumerate() {
+            let mut request_weight = REQUEST_WEIGHT.lock().await;
 
+            // get depth cost 5 weight and send order cost 1 weight - x3 requests.
+            let weight = (5 + 1) * 3;
+
+            while !request_weight.add(weight) {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+            }
+
+            let mut order_symbols = vec![];
             for (i, chain_symbol) in chain.iter().enumerate() {
                 let order_book = match self
                     .market_api
@@ -106,11 +118,17 @@ impl OrderBuilder {
 
             let orders = self.calculate_chain_profit(&order_symbols);
             if orders.is_empty() {
+                info_span!("non profit", index = z);
+                request_weight.sub_weight(3);
                 continue;
             }
 
+            info_span!("received profit", orders=?orders, chain = ?chain);
+
             // todo: send orders
         }
+
+        info_span!("all chain have been completed", chains = chains.len());
 
         Ok(())
     }
@@ -155,6 +173,13 @@ impl OrderBuilder {
             }
         };
 
+        let define_precision = |order_symbol: &OrderSymbol| -> u32 {
+            match order_symbol.symbol_order {
+                SymbolOrder::Asc => order_symbol.base_asset_precision,
+                SymbolOrder::Desc => order_symbol.quote_precision,
+            }
+        };
+
         let mut orders: Vec<Order> = vec![];
         let mut depth_limit = 0;
 
@@ -181,7 +206,8 @@ impl OrderBuilder {
                         SymbolOrder::Desc => order_unit.qty * order_unit.price,
                     };
 
-                    base_qty += qty;
+                    base_qty = (base_qty + qty).round_dp(define_precision(order_symbol));
+
                     price = order_unit.price;
                     order_book_units.push(order_unit.clone());
 
@@ -246,6 +272,8 @@ impl OrderBuilder {
                 profit_orders.extend_from_slice(&orders[i..=i + 2]);
             }
         }
+
+        info_span!("orders calc", orders=?orders);
 
         // Return 3 last profit orders
         if profit_orders.len() >= order_symbols.len() {
@@ -494,23 +522,31 @@ mod tests {
         let base_assets: Vec<Asset> = vec![
             Asset {
                 asset: "BTC".to_string(),
+                asset_precision: 8,
                 symbol: Some("BTCUSDT".to_owned()),
                 min_profit_limit: Decimal::from_f64(0.000030).unwrap(),
                 max_volume_limit: Decimal::from_f64(0.00030).unwrap(),
             },
             Asset {
                 asset: "ETH".to_string(),
+                asset_precision: 8,
                 symbol: Some("ETHUSDT".to_owned()),
                 min_profit_limit: Decimal::from_f64(0.0012).unwrap(),
                 max_volume_limit: Decimal::from_f64(0.012).unwrap(),
             },
             Asset {
                 asset: "USDT".to_string(),
+                asset_precision: 8,
                 symbol: Some("USDT".to_owned()),
                 min_profit_limit: Decimal::from_f64(3.0).unwrap(),
                 max_volume_limit: Decimal::from_f64(30.0).unwrap(),
             },
         ];
+
+        {
+            let mut request_weight = REQUEST_WEIGHT.lock().await;
+            request_weight.set_weight_limit(5000);
+        }
 
         let api_config = binance_api::Config {
             api_url: server.url(),

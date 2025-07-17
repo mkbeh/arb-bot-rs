@@ -5,7 +5,7 @@ use app::{
     config::{Config, Exchange},
     cron::arbitrage_job,
     libs::{binance_api, binance_api::Binance, http_server::Server},
-    services::{BinanceConfig, BinanceService, ExchangeService},
+    services::{BinanceConfig, BinanceService, ExchangeService, binance::REQUEST_WEIGHT},
 };
 
 #[derive(Default)]
@@ -22,7 +22,7 @@ impl Entrypoint {
 
         let exchange_service: Arc<dyn ExchangeService> =
             match config.settings.exchange_name.parse()? {
-                Exchange::Binance => self.build_binance_service(config)?,
+                Exchange::Binance => self.build_binance_service(config).await?,
             };
 
         let job_ps = arbitrage_job::Process::new(job_cfg, exchange_service);
@@ -36,7 +36,7 @@ impl Entrypoint {
         Ok(())
     }
 
-    fn build_binance_service(&self, config: Config) -> anyhow::Result<Arc<BinanceService>> {
+    async fn build_binance_service(&self, config: Config) -> anyhow::Result<Arc<BinanceService>> {
         let api_config = binance_api::Config {
             api_url: config.binance.api_url,
             api_token: config.binance.api_token,
@@ -63,6 +63,11 @@ impl Entrypoint {
             Ok(v) => v,
             Err(e) => bail!("Failed init binance client: {e}"),
         };
+
+        {
+            let mut request_weight = REQUEST_WEIGHT.lock().await;
+            request_weight.set_weight_limit(config.binance.api_weight_limit);
+        }
 
         let service_config = BinanceConfig {
             account_api,
