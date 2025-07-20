@@ -1,0 +1,104 @@
+# Toml document of arbitrage bot.
+
+[settings]
+
+# Crypto exchange name (binance).
+exchange_name = "binance"
+
+# Delay seconds between arbitrage cycles. Max: 5000.
+timeout = 10
+# Timeout seconds on error. Max: 5000.
+error_timeout = 120
+
+# Minimal profit limit in USD. Default: 0$.
+min_profit_limit = 0
+# Maximum limit per transaction in USD. Default: 30$.
+max_volume_limit = 30
+
+[binance-settings]
+
+api_url = "https://api.binance.com"
+api_token = "<api_token>"
+api_secret_key = "<api_secret_key>"
+
+# API request weight limit.
+api_weight_limit = 5000
+
+# Limit of order book depth. Max: 20.
+market_depth_limit = 5
+
+# List of base assets from which a chain of pairs can start.
+# Symbol must be specified in relation to the USD. If symbol not specify limit values
+# will be applied if they are greater than 0, otherwise the default limits will be applied.
+[[binance-settings.assets]]
+asset = "BTC"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "BTCUSDT"
+
+[[binance-settings.assets]]
+asset = "ETH"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "ETHUSDT"
+
+[[binance-settings.assets]]
+asset = "LTC"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "LTCUSDT"
+
+[[binance-settings.assets]]
+asset = "BNB"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "BNBUSDT"
+
+[[binance-settings.assets]]
+asset = "USDT"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+
+[[binance-settings.assets]]
+asset = "USDC"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+
+[[binance-settings.assets]]
+asset = "FDUSD"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+
+[[binance-settings.assets]]
+asset = "EUR"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "EURUSDT"
+
+[[binance-settings.assets]]
+asset = "TRY"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "USDTTRY"
+
+[[binance-settings.assets]]
+asset = "BRL"
+asset_precision = 8
+min_profit_limit = 0
+max_volume_limit = 0
+symbol = "USDTBRL"
+
+[[binance-settings.assets]]
+asset = "JPY"
+asset_precision = 8
+min_profit_limit = 400
+max_volume_limit = 4500
