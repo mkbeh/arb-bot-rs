@@ -1,0 +1,81 @@
+use std::sync::Arc;
+
+use anyhow::bail;
+use async_trait::async_trait;
+use rust_decimal::Decimal;
+
+use crate::{
+    config::Asset,
+    libs::binance_api::{General, Market},
+    services::{
+        ExchangeService,
+        binance::exchange::{AssetBuilder, ChainBuilder, OrderBuilder},
+    },
+};
+
+pub struct BinanceExchangeConfig {
+    pub general_api: General,
+    pub market_api: Market,
+    pub base_assets: Vec<Asset>,
+    pub market_depth_limit: usize,
+    pub default_min_profit_limit: Decimal,
+    pub default_max_volume_limit: Decimal,
+}
+
+pub struct BinanceExchangeService {
+    asset_builder: AssetBuilder,
+    chain_builder: Arc<ChainBuilder>,
+    order_builder: OrderBuilder,
+}
+
+impl BinanceExchangeService {
+    pub fn new(config: BinanceExchangeConfig) -> Self {
+        let asset_builder = AssetBuilder::new(
+            config.market_api.clone(),
+            config.base_assets,
+            config.default_min_profit_limit,
+            config.default_max_volume_limit,
+        );
+        let chain_builder = ChainBuilder::new(config.general_api.clone());
+        let order_builder = OrderBuilder::new(config.market_api.clone(), config.market_depth_limit);
+
+        Self {
+            asset_builder,
+            chain_builder: Arc::new(chain_builder),
+            order_builder,
+        }
+    }
+}
+
+#[async_trait]
+impl ExchangeService for BinanceExchangeService {
+    async fn start_arbitrage(&self) -> anyhow::Result<()> {
+        // Get and update base assets limits.
+        let base_assets = match self.asset_builder.update_base_assets_info().await {
+            Ok(assets) => assets,
+            Err(e) => bail!("Failed to update base assets info: {e}"),
+        };
+
+        // Get all available symbols and build chains.
+        let chains = match self
+            .chain_builder
+            .clone()
+            .build_symbols_chains(base_assets.clone())
+            .await
+        {
+            Ok(chains) => chains,
+            Err(e) => bail!("failed to build symbols chains: {}", e),
+        };
+
+        // Get order books per chain and calculate profit.
+        if let Err(e) = self
+            .order_builder
+            .build_chains_orders(chains, base_assets)
+            .await
+        {
+            bail!("Failed to build chains orders: {}", e);
+        }
+
+        Ok(())
+    }
+}

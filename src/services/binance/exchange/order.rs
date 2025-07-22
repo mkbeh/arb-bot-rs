@@ -1,7 +1,4 @@
-use std::{
-    ops::Sub,
-    time::Duration,
-};
+use std::{ops::Sub, time::Duration};
 
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
@@ -9,10 +6,12 @@ use tracing::info_span;
 
 use crate::{
     config::Asset,
-    libs::binance_api::{Market, OrderBook, OrderBookUnit},
+    libs::binance_api::{Market, OrderBook},
     services::{
-        binance::{ChainSymbol, REQUEST_WEIGHT},
+        Order,
+        binance::{REQUEST_WEIGHT, exchange::ChainSymbol},
         enums::SymbolOrder,
+        service::ORDERS_CHANNEL,
     },
 };
 
@@ -29,36 +28,26 @@ pub struct OrderSymbol {
     pub order_book: OrderBook,
 }
 
-#[derive(Clone, Debug)]
-struct Order {
-    symbol: String,
-    symbol_order: SymbolOrder,
-    price: Decimal,
-    base_qty: Decimal,
-    base_precision: u32,
-    quote_qty: Decimal,
-    quote_precision: u32,
-    order_book_units: Vec<OrderBookUnit>,
-}
-
 pub struct OrderBuilder {
-    base_assets: Vec<Asset>,
     market_api: Market,
     market_depth_limit: usize,
 }
 
 impl OrderBuilder {
-    pub fn new(base_assets: Vec<Asset>, market_api: Market, market_depth_limit: usize) -> Self {
+    pub fn new(market_api: Market, market_depth_limit: usize) -> Self {
         Self {
-            base_assets,
             market_api,
             market_depth_limit,
         }
     }
 
-    pub async fn build_chains_orders(&self, chains: Vec<[ChainSymbol; 3]>) -> anyhow::Result<()> {
+    pub async fn build_chains_orders(
+        &self,
+        chains: Vec<[ChainSymbol; 3]>,
+        base_assets: Vec<Asset>,
+    ) -> anyhow::Result<()> {
         let find_base_asset_fn = |chain_symbol: &ChainSymbol| -> Option<&Asset> {
-            self.base_assets.iter().find(|&x| {
+            base_assets.iter().find(|&x| {
                 if chain_symbol.order == SymbolOrder::Asc {
                     x.asset == chain_symbol.symbol.base_asset
                 } else {
@@ -70,9 +59,9 @@ impl OrderBuilder {
         for chain in chains.iter() {
             let mut request_weight = REQUEST_WEIGHT.lock().await;
 
-            // Calculate request weight, where api method 'get depth' cost 5 weight and api method
-            // 'send order' cost 1 weight - need x3 requests for each symbol.
-            let weight = (5 + 1) * 3;
+            // Calculate request weight, where api method 'get depth' cost 5 weight  - need x3
+            // requests for each symbol.
+            let weight = 5 * 3;
 
             while !request_weight.add(weight) {
                 tokio::time::sleep(Duration::from_secs(60)).await;
@@ -139,13 +128,10 @@ impl OrderBuilder {
 
             let orders = self.calculate_chain_profit(&order_symbols);
             if orders.is_empty() {
-                request_weight.sub_weight(3);
                 continue;
             }
 
-            info_span!("received profit", orders=?orders, chain = ?chain);
-
-            // todo: send orders
+            ORDERS_CHANNEL.tx.send(orders).await?
         }
 
         info_span!("all chain have been completed", chains = chains.len());
@@ -253,9 +239,8 @@ impl OrderBuilder {
                     base_precision: order_symbol.base_asset_precision,
                     quote_qty,
                     quote_precision: order_symbol.quote_precision,
-                    order_book_units,
+                    // order_book_units,
                 };
-
                 orders.push(order);
 
                 // If it is not the first symbol and the base quantity does not match the limit qty,
@@ -281,8 +266,8 @@ impl OrderBuilder {
 
         // Iterate over every first order in chain.
         for i in (0..).take(orders.len() - 1).step_by(order_symbols.len()) {
-            // Difference between the outbound volume of the last chain and the inbound volume of
-            // the first chain.
+            // Difference between the outbound volume of the last symbol in chain and the inbound
+            // volume of the first symbol in chain.
             let diff_qty = orders[i + 2].quote_qty - orders[i].base_qty;
 
             if diff_qty >= order_symbols.first().unwrap().min_profit_limit.unwrap()
@@ -576,8 +561,12 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let orders_builder = OrderBuilder::new(base_assets, market_api, 5);
-        let chains_orders = orders_builder.build_chains_orders(test_chains).await;
+        let orders_builder = OrderBuilder::new(market_api, 5);
+        let result = orders_builder
+            .build_chains_orders(test_chains, base_assets)
+            .await;
+
+        assert!(result.is_ok());
 
         mock_order_book_ethbtc.assert_async().await;
         mock_order_book_ltcbtc.assert_async().await;
@@ -595,7 +584,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(vec![], market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3);
 
         let order_symbols = vec![
             OrderSymbol {
@@ -757,7 +746,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(vec![], market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3);
 
         let order_symbols = vec![
             OrderSymbol {
@@ -919,7 +908,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(vec![], market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3);
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1081,7 +1070,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(vec![], market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3);
 
         let order_symbols = vec![
             OrderSymbol {
