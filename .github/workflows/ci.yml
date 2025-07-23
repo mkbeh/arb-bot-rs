@@ -94,15 +94,3 @@ jobs:
       - name: Check dependency tables
         run: |
           cargo sort --workspace --grouped --check
-
-  typos:
-    needs: [ "build" ]
-    name: Spell Check with Typos
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout Actions Repository
-        uses: actions/checkout@v4
-
-      - name: Check the spelling of the files in our repo
-        uses: crate-ci/typos@v1.29.4

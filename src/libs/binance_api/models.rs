@@ -138,22 +138,6 @@ pub struct OrderBookUnit {
     pub qty: Decimal,
 }
 
-// #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
-// pub struct Bids {
-//     #[serde(with = "rust_decimal::serde::float")]
-//     pub price: Decimal,
-//     #[serde(with = "rust_decimal::serde::float")]
-//     pub qty: Decimal,
-// }
-//
-// #[derive(Debug, Serialize, Deserialize, Clone)]
-// pub struct Asks {
-//     #[serde(with = "rust_decimal::serde::float")]
-//     pub price: Decimal,
-//     #[serde(with = "rust_decimal::serde::float")]
-//     pub qty: Decimal,
-// }
-
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]

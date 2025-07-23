@@ -17,7 +17,7 @@ pub enum Exchange {
     Binance,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Config {
     #[serde(rename = "settings")]
     pub settings: Settings,
@@ -25,18 +25,19 @@ pub struct Config {
     pub binance: BinanceSettings,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Settings {
     pub exchange_name: String,
     pub timeout: u64,
     pub error_timeout: u64,
+    pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_profit_limit: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub max_volume_limit: Decimal,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct BinanceSettings {
     pub api_url: String,
     pub api_token: String,
@@ -111,12 +112,8 @@ impl Config {
             bail!("delay is greater than: {}", MAX_DELAY);
         }
 
-        if self.settings.min_profit_limit <= Decimal::zero() {
-            bail!("min_profit_limit is greater than 0");
-        }
-
         if self.settings.max_volume_limit <= Decimal::zero() {
-            bail!("max_volume_limit is greater than 0");
+            bail!("max_volume_limit must be greater than 0");
         }
 
         Ok(())

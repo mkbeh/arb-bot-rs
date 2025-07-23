@@ -5,6 +5,7 @@ ARG RUST_VER=1.88-alpine${ALPINE_VER}
 FROM ${RUST_IMAGE}:${RUST_VER} as builder
 
 ARG SERVICE_NAME
+ARG BUILD_PROFILE
 ARG TARGET="x86_64-unknown-linux-musl"
 
 ENV RUSTFLAGS="-C target-feature=+crt-static"
@@ -16,11 +17,12 @@ COPY . .
 RUN apk add --no-cache musl-dev perl g++ alpine-sdk
 
 RUN rustup target add ${TARGET}
-RUN cargo build --release --target=${TARGET} --bin ${SERVICE_NAME}
+RUN cargo build --profile=${BUILD_PROFILE} --target=${TARGET} --bin ${SERVICE_NAME}
 
 FROM alpine:${ALPINE_VER} as runtime
 
 ARG SERVICE_NAME
+ARG BUILD_PROFILE
 
 RUN addgroup -g 101 app && \
     adduser -H -u 101 -G app -s /bin/sh -D app && \
@@ -29,7 +31,7 @@ RUN addgroup -g 101 app && \
 
 WORKDIR /app/
 
-COPY --from=builder --chown=app:app /src/target/x86_64-unknown-linux-musl/release/${SERVICE_NAME} .
+COPY --from=builder --chown=app:app /src/target/x86_64-unknown-linux-musl/${BUILD_PROFILE}/${SERVICE_NAME} .
 COPY --chown=app:app config.toml config.toml
 
 USER app

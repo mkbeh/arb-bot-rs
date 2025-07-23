@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::bail;
 use strum::IntoEnumIterator;
+use tracing::info_span;
 
 use crate::{
     config::Asset,
@@ -26,21 +27,20 @@ impl ChainSymbol {
 
 #[derive(Clone)]
 pub struct ChainBuilder {
-    base_assets: Vec<Asset>,
     general_api: General,
 }
 
 impl ChainBuilder {
-    pub fn new(base_assets: Vec<Asset>, general_api: General) -> Self {
-        Self {
-            base_assets,
-            general_api,
-        }
+    pub fn new(general_api: General) -> Self {
+        Self { general_api }
     }
 
-    pub async fn build_symbols_chains(self: Arc<Self>) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
+    pub async fn build_symbols_chains(
+        self: Arc<Self>,
+        base_assets: Vec<Asset>,
+    ) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
-            Ok(exchange_info) => Arc::new(exchange_info),
+            Ok(exchange_info) => exchange_info,
             Err(e) => bail!(e),
         };
 
@@ -51,9 +51,10 @@ impl ChainBuilder {
 
         for order in SymbolOrder::iter() {
             tasks.push(tokio::spawn({
-                let s = Arc::clone(&self);
-                let info = Arc::clone(&exchange_info);
-                async move { s.build_chains(info.symbols.clone(), order).await }
+                let order_builder = Arc::clone(&self);
+                let symbols = exchange_info.symbols.clone();
+                let assets = base_assets.clone();
+                async move { order_builder.build_chains(&symbols, order, &assets).await }
             }));
         }
 
@@ -61,24 +62,32 @@ impl ChainBuilder {
             chains.extend(task.await?)
         }
 
-        Ok(self.deduplicate_chains(chains))
+        let unique_chains = self.deduplicate_chains(chains);
+        info_span!(
+            "successfully build chains",
+            chains_num = unique_chains.len()
+        );
+
+        Ok(unique_chains)
     }
 
     async fn build_chains(
         &self,
-        symbols: Vec<Symbol>,
+        symbols: &[Symbol],
         order: SymbolOrder,
+        base_assets: &[Asset],
     ) -> Vec<[ChainSymbol; 3]> {
         let mut chains = Vec::new();
-        for a_symbol in &symbols {
+        for a_symbol in symbols {
             let mut a_wrapper = ChainSymbol::new(a_symbol.clone(), Default::default());
-            let base_asset = if let Some(asset) = self.define_base_asset(&mut a_wrapper, order) {
-                asset
-            } else {
-                continue;
-            };
+            let base_asset =
+                if let Some(asset) = self.define_base_asset(&mut a_wrapper, order, base_assets) {
+                    asset
+                } else {
+                    continue;
+                };
 
-            for b_symbol in &symbols {
+            for b_symbol in symbols {
                 let mut b_wrapper = ChainSymbol::new(b_symbol.clone(), Default::default());
 
                 // Selection symbol for 1st symbol.
@@ -86,7 +95,7 @@ impl ChainBuilder {
                     continue;
                 }
 
-                for c_symbol in &symbols {
+                for c_symbol in symbols {
                     let mut c_wrapper = ChainSymbol::new(c_symbol.clone(), Default::default());
 
                     // Selection symbol for 2nd symbol.
@@ -116,7 +125,12 @@ impl ChainBuilder {
         chains
     }
 
-    fn define_base_asset(&self, wrapper: &mut ChainSymbol, order: SymbolOrder) -> Option<String> {
+    fn define_base_asset(
+        &self,
+        wrapper: &mut ChainSymbol,
+        order: SymbolOrder,
+        base_assets: &[Asset],
+    ) -> Option<String> {
         let get_base_asset_fn = |wrapper: &ChainSymbol| -> String {
             match wrapper.order {
                 // Ex: BTC:TRX
@@ -128,8 +142,7 @@ impl ChainBuilder {
 
         const MAX_ASSETS_QTY: usize = 2;
 
-        let base_assets_qty = self
-            .base_assets
+        let base_assets_qty = base_assets
             .iter()
             .filter(|&x| {
                 *x.asset == wrapper.symbol.base_asset || *x.asset == wrapper.symbol.quote_asset
@@ -141,8 +154,7 @@ impl ChainBuilder {
             return Some(get_base_asset_fn(wrapper));
         }
 
-        if self
-            .base_assets
+        if base_assets
             .iter()
             .any(|x| x.asset == wrapper.symbol.base_asset.as_str())
         {
@@ -150,8 +162,7 @@ impl ChainBuilder {
             return Some(get_base_asset_fn(wrapper));
         };
 
-        if self
-            .base_assets
+        if base_assets
             .iter()
             .any(|x| x.asset == wrapper.symbol.quote_asset.as_str())
         {
