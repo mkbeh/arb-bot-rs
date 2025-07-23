@@ -1,5 +1,7 @@
 # arb-bot-rs
 
+![GitHub CI](https://github.com/mkbeh/arb-bot-rs/actions/workflows/ci.yml/badge.svg)
+
 Cryptocurrency exchanges arbitrage bot.
 
 Documentation of arbitrage algorithm [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
