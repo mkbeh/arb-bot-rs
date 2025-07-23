@@ -114,6 +114,7 @@ impl Entrypoint {
         let service_config = BinanceSenderConfig {
             account_api,
             trade_api,
+            send_orders: config.settings.send_orders,
         };
         let service = Arc::new(BinanceSender::new(service_config));
 

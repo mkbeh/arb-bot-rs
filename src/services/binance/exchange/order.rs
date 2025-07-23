@@ -59,9 +59,9 @@ impl OrderBuilder {
         for chain in chains.iter() {
             let mut request_weight = REQUEST_WEIGHT.lock().await;
 
-            // Calculate request weight, where api method 'get depth' cost 5 weight  - need x3
-            // requests for each symbol.
-            let weight = 5 * 3;
+            // Calculate request weight, where api method 'get depth' cost 5 weight and api method
+            // 'send orders' cost 1 weight - need x3 requests for each symbol.
+            let weight = (5 + 1) * 3;
 
             while !request_weight.add(weight) {
                 tokio::time::sleep(Duration::from_secs(60)).await;
@@ -128,6 +128,8 @@ impl OrderBuilder {
 
             let orders = self.calculate_chain_profit(&order_symbols);
             if orders.is_empty() {
+                // sub reserved 1x3 weight for send orders.
+                request_weight.sub(3);
                 continue;
             }
 
@@ -157,7 +159,6 @@ impl OrderBuilder {
                 let order_b = &orders[order_b_idx];
 
                 if order_a.quote_qty == order_b.base_qty {
-                    // unexpected logic
                     return;
                 }
 
@@ -206,6 +207,7 @@ impl OrderBuilder {
                 let mut price = Decimal::zero();
                 let mut order_book_units = vec![];
 
+                // sum orders qty based on current depth
                 for order_unit in order_units.iter().take(depth_limit + 1) {
                     let qty = match order_symbol.symbol_order {
                         SymbolOrder::Asc => order_unit.qty,
@@ -223,35 +225,41 @@ impl OrderBuilder {
                     }
                 }
 
-                let quote_qty = match order_symbol.symbol_order {
-                    SymbolOrder::Asc => {
-                        (base_qty * price).round_dp(order_symbol.base_asset_precision)
-                    }
-
-                    SymbolOrder::Desc => (base_qty / price).round_dp(order_symbol.quote_precision),
+                let (base_asset, quote_asset, quote_qty) = match order_symbol.symbol_order {
+                    SymbolOrder::Asc => (
+                        order_symbol.base_asset.clone(),
+                        order_symbol.quote_asset.clone(),
+                        (base_qty * price).round_dp(order_symbol.base_asset_precision),
+                    ),
+                    SymbolOrder::Desc => (
+                        order_symbol.quote_asset.clone(),
+                        order_symbol.base_asset.clone(),
+                        (base_qty / price).round_dp(order_symbol.quote_precision),
+                    ),
                 };
 
                 let order = Order {
                     symbol: order_symbol.symbol.clone(),
                     symbol_order: order_symbol.symbol_order,
                     price,
+                    base_asset,
                     base_qty,
                     base_precision: order_symbol.base_asset_precision,
+                    quote_asset,
                     quote_qty,
                     quote_precision: order_symbol.quote_precision,
-                    // order_book_units,
                 };
                 orders.push(order);
 
-                // If it is not the first symbol and the base quantity does not match the limit qty,
-                // then it is necessary to recalculate the volume of previous orders
+                // If it is not the first symbol and the base qty does not match the limit qty,
+                // then it is necessary to recalculate the qty of previous orders
                 if i != 0 && base_qty < base_qty_limit {
                     recalc_orders_qty_fn(&mut orders, i);
                 }
             }
 
-            // Compare first chain order and first chain item volume limit.
-            // If they are equal, there is no point in trying to sum up the volumes, so break.
+            // Compare first chain order qty and first chain item qty limit.
+            // If it is equal, there is no point in trying to sum up the qty, so break.
             if orders[orders.len() - order_symbols.len()].base_qty
                 == order_symbols[0].max_volume_limit.unwrap()
             {
@@ -261,8 +269,9 @@ impl OrderBuilder {
             depth_limit += 1;
         }
 
+        let min_profit_limit = order_symbols.first().unwrap().min_profit_limit.unwrap();
+        let mut last_profit = min_profit_limit;
         let mut profit_orders = vec![];
-        let mut last_profit = Decimal::zero();
 
         // Iterate over every first order in chain.
         for i in (0..).take(orders.len() - 1).step_by(order_symbols.len()) {
@@ -271,7 +280,7 @@ impl OrderBuilder {
             let diff_qty = orders[i + 2].quote_qty - orders[i].base_qty;
 
             if diff_qty >= order_symbols.first().unwrap().min_profit_limit.unwrap()
-                && diff_qty > last_profit
+                && diff_qty >= last_profit
             {
                 last_profit = diff_qty;
                 profit_orders.extend_from_slice(&orders[i..=i + 2]);

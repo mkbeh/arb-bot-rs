@@ -34,9 +34,11 @@ pub struct Order {
     pub symbol: String,
     pub symbol_order: SymbolOrder,
     pub price: Decimal,
+    pub base_asset: String,
     pub base_qty: Decimal,
     pub base_precision: u32,
     pub quote_qty: Decimal,
+    pub quote_asset: String,
     pub quote_precision: u32,
 }
 

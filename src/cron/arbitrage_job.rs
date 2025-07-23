@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::{libs::http_server::ServerProcess, services::ExchangeService};
 
@@ -50,17 +50,14 @@ impl ServerProcess for Process {
     async fn run(&self, token: CancellationToken) -> anyhow::Result<()> {
         loop {
             tokio::select! {
-                _ = token.cancelled() => {
+            _ = token.cancelled() => {
                 return Ok(());
             }
             _ = tokio::time::sleep(self.timeout_secs) => {
-                    match self.service.start_arbitrage().await {
-                        Ok(_) => info!("arbitrage process complete successfully"),
-                        Err(e) => {
-                            error!(error = ?e, "error during arbitrage process");
-                            sleep(self.error_timeout_secs).await;
-                        },
-                    };
+                if let Err(e) = self.service.start_arbitrage().await {
+                    error!(error = ?e, "error during arbitrage process");
+                    sleep(self.error_timeout_secs).await;
+                }
             }
             }
         }

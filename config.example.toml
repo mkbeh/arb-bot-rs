@@ -2,13 +2,17 @@
 
 [settings]
 
-# Crypto exchange name (binance).
+# Current crypto exchange name (binance).
+# The process is launched only for one specific exchange from the available list.
 exchange_name = "binance"
 
 # Delay seconds between arbitrage cycles. Max: 5000.
-timeout = 10
+timeout = 60
 # Timeout seconds on error. Max: 5000.
 error_timeout = 120
+
+# Enable send profit orders.
+send_orders = false
 
 # Minimal profit limit in USD. Default: 0$.
 min_profit_limit = 0

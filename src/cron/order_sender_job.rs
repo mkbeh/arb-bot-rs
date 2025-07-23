@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::{
     libs::http_server::ServerProcess,
@@ -46,22 +46,21 @@ impl ServerProcess for Process {
 
     async fn run(&self, token: CancellationToken) -> anyhow::Result<()> {
         let mut orders_rx = ORDERS_CHANNEL.rx.lock().await;
+
         loop {
             tokio::select! {
-                _ = token.cancelled() => {
-                    // todo: need close orders chan
-                    return Ok(());
-                }
-                Some(msg) = orders_rx.recv() => {
-                    match self.service.send_orders(msg).await {
-                        Ok(_) => info!("orders send process complete successfully"),
-                        Err(e) => {
-                            error!(error = ?e, "error during orders send process");
-                            sleep(self.error_timeout_secs).await;
-                        },
-                    };
+            _ = token.cancelled() => {
+                break;
+            }
+            Some(msg) = orders_rx.recv() => {
+                if let Err(e) = self.service.send_orders(msg).await {
+                   error!(error = ?e, "error during orders send process");
+                   sleep(self.error_timeout_secs).await;
                 }
             }
+            }
         }
+
+        Ok(())
     }
 }

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::bail;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
+use tracing::info_span;
 
 use crate::{
     config::Asset,
@@ -75,6 +76,8 @@ impl ExchangeService for BinanceExchangeService {
         {
             bail!("Failed to build chains orders: {}", e);
         }
+
+        info_span!("all chains successfully passed");
 
         Ok(())
     }
