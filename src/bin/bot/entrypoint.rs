@@ -82,8 +82,8 @@ impl Entrypoint {
             market_api,
             base_assets: config.binance.assets,
             market_depth_limit: config.binance.market_depth_limit,
-            default_min_profit_limit: config.settings.min_profit_limit,
-            default_max_volume_limit: config.settings.max_volume_limit,
+            min_profit_qty: config.settings.min_profit_qty,
+            max_order_qty: config.settings.max_order_qty,
         };
         let service = Arc::new(BinanceExchangeService::new(service_config));
 

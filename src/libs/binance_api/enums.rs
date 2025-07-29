@@ -2,6 +2,27 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SymbolStatus {
+    #[default]
+    Trading,
+    EndOfDay,
+    Halt,
+    Break,
+}
+
+impl Display for SymbolStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SymbolStatus::Trading => write!(f, "TRADING"),
+            SymbolStatus::EndOfDay => write!(f, "END_OF_DAY"),
+            SymbolStatus::Halt => write!(f, "HALT"),
+            SymbolStatus::Break => write!(f, "BREAK"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OrderSide {
@@ -23,7 +44,11 @@ impl Display for OrderSide {
 pub enum OrderType {
     Limit,
     Market,
+    StopLoss,
     StopLossLimit,
+    TakeProfit,
+    TakeProfitLimit,
+    LimitMaker,
 }
 
 impl Display for OrderType {
@@ -31,7 +56,11 @@ impl Display for OrderType {
         match self {
             OrderType::Limit => write!(f, "LIMIT"),
             OrderType::Market => write!(f, "MARKET"),
+            OrderType::StopLoss => write!(f, "STOP_LOSS"),
             OrderType::StopLossLimit => write!(f, "STOP_LOSS_LIMIT"),
+            OrderType::TakeProfit => write!(f, "TAKE_PROFIT"),
+            OrderType::TakeProfitLimit => write!(f, "TAKE_PROFIT_LIMIT"),
+            OrderType::LimitMaker => write!(f, "LIMIT_MAKER"),
         }
     }
 }

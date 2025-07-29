@@ -35,6 +35,7 @@ mockito = { version = "1.7.0" }
 [profile.release-lto]
 inherits = "release"
 lto = true
+strip = true
 
 [lints.rust]
 unsafe_code = "forbid"

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::bail;
 use strum::IntoEnumIterator;
-use tracing::info_span;
+use tracing::info;
 
 use crate::{
     config::Asset,
@@ -63,9 +63,9 @@ impl ChainBuilder {
         }
 
         let unique_chains = self.deduplicate_chains(chains);
-        info_span!(
+        info!(
+            chains_num = unique_chains.len(),
             "successfully build chains",
-            chains_num = unique_chains.len()
         );
 
         Ok(unique_chains)

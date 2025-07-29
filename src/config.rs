@@ -32,9 +32,9 @@ pub struct Settings {
     pub error_timeout: u64,
     pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]
-    pub min_profit_limit: Decimal,
+    pub min_profit_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
-    pub max_volume_limit: Decimal,
+    pub max_order_qty: Decimal,
 }
 
 #[derive(Clone, Deserialize)]
@@ -50,19 +50,18 @@ pub struct BinanceSettings {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Asset {
     pub asset: String,
-    pub asset_precision: u32,
     pub symbol: Option<String>,
     #[serde(with = "rust_decimal::serde::float")]
-    pub min_profit_limit: Decimal,
+    pub min_profit_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
-    pub max_volume_limit: Decimal,
+    pub max_order_qty: Decimal,
 }
 
 impl Asset {
     fn check(
         &mut self,
-        min_profit_limit: Decimal,
-        max_volume_limit: Decimal,
+        min_profit_qty: Decimal,
+        max_order_qty: Decimal,
     ) -> anyhow::Result<()> {
         match self.symbol.as_ref() {
             Some(symbol) => {
@@ -72,11 +71,11 @@ impl Asset {
             }
             None => {
                 // Set default limits if symbol not present in config.
-                if self.max_volume_limit == Decimal::zero()
-                    && self.min_profit_limit == Decimal::zero()
+                if self.max_order_qty == Decimal::zero()
+                    && self.min_profit_qty == Decimal::zero()
                 {
-                    self.min_profit_limit = min_profit_limit;
-                    self.max_volume_limit = max_volume_limit;
+                    self.min_profit_qty = min_profit_qty;
+                    self.max_order_qty = max_order_qty;
                 }
             }
         }
@@ -112,8 +111,8 @@ impl Config {
             bail!("delay is greater than: {}", MAX_DELAY);
         }
 
-        if self.settings.max_volume_limit <= Decimal::zero() {
-            bail!("max_volume_limit must be greater than 0");
+        if self.settings.max_order_qty <= Decimal::zero() {
+            bail!("max_order_qty must be greater than 0");
         }
 
         Ok(())
@@ -137,8 +136,8 @@ impl Config {
 
         for asset in &mut self.binance.assets {
             asset.check(
-                self.settings.min_profit_limit,
-                self.settings.max_volume_limit,
+                self.settings.min_profit_qty,
+                self.settings.max_order_qty,
             )?;
         }
 

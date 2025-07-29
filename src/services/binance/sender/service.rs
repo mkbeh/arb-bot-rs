@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -56,7 +58,7 @@ impl OrderSenderService for BinanceSender {
                         order_side: define_order_side(order),
                         order_type: OrderType::Market,
                         time_in_force: Some(TimeInForce::Fok),
-                        quantity: None,
+                        quantity: Some(order.qty),
                         quote_order_qty: None,
                         price: None,
                         new_client_order_id: None,
@@ -70,10 +72,11 @@ impl OrderSenderService for BinanceSender {
                         recv_window: None,
                     };
 
-                    match order.symbol_order {
-                        SymbolOrder::Asc => request.quantity = Some(order.base_qty),
-                        SymbolOrder::Desc => request.quote_order_qty = Some(order.base_qty),
-                    }
+                    // match order.symbol_order {
+                    //     SymbolOrder::Asc => request.quantity = Some(order.base_qty),
+                    //     // SymbolOrder::Desc => request.quote_order_qty = Some(order.base_qty),
+                    //     SymbolOrder::Desc => request.quantity = Some(order.quote_qty),
+                    // }
 
                     debug!(chain_id = ?chain_id, order = ?order, request = ?request, "sending
         order request");
