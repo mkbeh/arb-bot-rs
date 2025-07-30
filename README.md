@@ -4,43 +4,61 @@
 
 Cryptocurrency exchanges arbitrage bot.
 
-Documentation of arbitrage algorithm [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
+[Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs)
 
-**Support exchanges**
+### Supports
 
-* [Binance](https://www.binance.com)
+List of supported cryptocurrency exchanges.
 
-**Content**
+| Exchange | Status  |
+|:--------:|:-------:|
+| Binance  | &check; |
 
-* [Configuration](#configuration)
+### Content
+
+* [Installation](#installation)
 * [Usage](#usage)
 
-## Configuration
+### Installation
 
-[TODO] config description
+Application is written in Rust, so you'll need to grab a
+[Rust installation](https://www.rust-lang.org/) in order to compile it.
+Application compiles with Rust 1.88.0 (stable) or newer.
 
-## Usage
-
-[TODO] how to
-
-[TODO] from binary
-
-[TODO] docker 
+#### Build from source
 
 ```shell
-docker build --build-arg SERVICE_NAME=bot --build-arg BUILD_PROFILE=release-lto -t arb-bot-rs:latest .
+git clone https://github.com/mkbeh/arb-bot-rs.git
+cd arb-bot-rs
+cargo build --release
 ```
+
+### Usage
+
+[TODO] how to + config
+
+#### Docker
+
+Build image:
+
+```shell
+docker build --build-arg SERVICE_NAME=bot --build-arg BUILD_PROFILE=release -t arb-bot-rs:latest .
+```
+
+Run app:
 
 ```shell
 docker run --cpus=".5" --cpuset-cpus=1 --memory="50m" arb-bot-rs:latest
 ```
 
-## Safety
+### Running tests
 
-This application uses `#![forbid(unsafe_code)]` to ensure everything is implemented in 100% safe Rust.
+Application is relatively well-tested, including both unit tests and integration tests. To run the full test suite, use:
 
-## Roadmap
+> cargo test --all
 
-| Exchange | Status  |
-|:--------:|:-------:|
-| Binance  | &check; |
+### Translations
+
+The following is a list of known translations of application documentation.
+
+* [English]()
