@@ -72,7 +72,7 @@ impl OrderSenderService for BinanceSender {
 
                     match order.symbol_order {
                         SymbolOrder::Asc => request.quantity = Some(order.base_qty),
-                        SymbolOrder::Desc => request.quote_order_qty = Some(order.base_qty),
+                        SymbolOrder::Desc => request.quantity = Some(order.quote_qty),
                     }
 
                     debug!(chain_id = ?chain_id, order = ?order, request = ?request, "sending

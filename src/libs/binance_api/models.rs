@@ -2,7 +2,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::libs::binance_api::enums::{
-    NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, TimeInForce,
+    NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, SymbolStatus,
+    TimeInForce,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -13,21 +14,115 @@ pub struct ExchangeInformation {
     pub symbols: Vec<Symbol>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Symbol {
     pub symbol: String,
-    pub status: String,
+    pub status: SymbolStatus,
     pub base_asset: String,
     pub base_asset_precision: u32,
     pub quote_asset: String,
     pub quote_precision: u32,
     pub base_commission_precision: u32,
     pub quote_commission_precision: u32,
-    pub order_types: Vec<String>,
+    pub order_types: Vec<OrderType>,
     pub iceberg_allowed: bool,
     pub is_spot_trading_allowed: bool,
     pub is_margin_trading_allowed: bool,
+    pub filters: Vec<Filters>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(tag = "filterType")]
+pub enum Filters {
+    #[serde(rename = "PRICE_FILTER")]
+    #[serde(rename_all = "camelCase")]
+    PriceFilter {
+        #[serde(with = "rust_decimal::serde::float")]
+        min_price: Decimal,
+        #[serde(with = "rust_decimal::serde::float")]
+        max_price: Decimal,
+        #[serde(with = "rust_decimal::serde::float")]
+        tick_size: Decimal,
+    },
+    #[serde(rename = "PERCENT_PRICE")]
+    #[serde(rename_all = "camelCase")]
+    PercentPrice {
+        multiplier_up: String,
+        multiplier_down: String,
+        #[serde(with = "rust_decimal::serde::float_option")]
+        avg_price_mins: Option<Decimal>,
+    },
+    #[serde(rename = "PERCENT_PRICE_BY_SIDE")]
+    #[serde(rename_all = "camelCase")]
+    PercentPriceBySide {
+        bid_multiplier_up: String,
+        bid_multiplier_down: String,
+        ask_multiplier_up: String,
+        ask_multiplier_down: String,
+        #[serde(with = "rust_decimal::serde::float_option")]
+        avg_price_mins: Option<Decimal>,
+    },
+    #[serde(rename = "LOT_SIZE")]
+    #[serde(rename_all = "camelCase")]
+    LotSize {
+        min_qty: Decimal,
+        max_qty: Decimal,
+        step_size: Decimal,
+    },
+    #[serde(rename = "MIN_NOTIONAL")]
+    #[serde(rename_all = "camelCase")]
+    MinNotional {
+        #[serde(with = "rust_decimal::serde::float_option")]
+        notional: Option<Decimal>,
+        #[serde(with = "rust_decimal::serde::float_option")]
+        min_notional: Option<Decimal>,
+        apply_to_market: Option<bool>,
+        #[serde(with = "rust_decimal::serde::float_option")]
+        avg_price_mins: Option<Decimal>,
+    },
+    #[serde(rename = "NOTIONAL")]
+    #[serde(rename_all = "camelCase")]
+    Notional {
+        #[serde(with = "rust_decimal::serde::float_option")]
+        min_notional: Option<Decimal>,
+        apply_min_to_market: Option<bool>,
+        #[serde(with = "rust_decimal::serde::float_option")]
+        max_notional: Option<Decimal>,
+        apply_max_to_market: Option<bool>,
+        #[serde(with = "rust_decimal::serde::float_option")]
+        avg_price_mins: Option<Decimal>,
+    },
+    #[serde(rename = "ICEBERG_PARTS")]
+    #[serde(rename_all = "camelCase")]
+    IcebergParts { limit: Option<u16> },
+    #[serde(rename = "MAX_NUM_ORDERS")]
+    #[serde(rename_all = "camelCase")]
+    MaxNumOrders { max_num_orders: Option<u16> },
+    #[serde(rename = "MAX_NUM_ALGO_ORDERS")]
+    #[serde(rename_all = "camelCase")]
+    MaxNumAlgoOrders { max_num_algo_orders: Option<u16> },
+    #[serde(rename = "MAX_NUM_ICEBERG_ORDERS")]
+    #[serde(rename_all = "camelCase")]
+    MaxNumIcebergOrders { max_num_iceberg_orders: u16 },
+    #[serde(rename = "MAX_POSITION")]
+    #[serde(rename_all = "camelCase")]
+    MaxPosition { max_position: String },
+    #[serde(rename = "MARKET_LOT_SIZE")]
+    #[serde(rename_all = "camelCase")]
+    MarketLotSize {
+        min_qty: String,
+        max_qty: String,
+        step_size: String,
+    },
+    #[serde(rename = "TRAILING_DELTA")]
+    #[serde(rename_all = "camelCase")]
+    TrailingData {
+        min_trailing_above_delta: Option<u16>,
+        max_trailing_above_delta: Option<u16>,
+        min_trailing_below_delta: Option<u16>,
+        max_trailing_below_delta: Option<u16>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -182,7 +277,147 @@ pub struct TickerPriceStats {
 
 #[cfg(test)]
 mod tests {
-    use crate::libs::binance_api::{SendOrderResponse, TickerPriceStats};
+    use crate::libs::binance_api::{ExchangeInformation, SendOrderResponse, TickerPriceStats};
+
+    #[test]
+    fn test_deserialize_exchange_information() {
+        let data = r#"
+        {
+           "timezone":"UTC",
+           "serverTime":1753314650438,
+           "rateLimits":[
+              {
+                 "rateLimitType":"REQUEST_WEIGHT",
+                 "interval":"MINUTE",
+                 "intervalNum":1,
+                 "limit":6000
+              },
+              {
+                 "rateLimitType":"ORDERS",
+                 "interval":"SECOND",
+                 "intervalNum":10,
+                 "limit":100
+              },
+              {
+                 "rateLimitType":"ORDERS",
+                 "interval":"DAY",
+                 "intervalNum":1,
+                 "limit":200000
+              },
+              {
+                 "rateLimitType":"RAW_REQUESTS",
+                 "interval":"MINUTE",
+                 "intervalNum":5,
+                 "limit":61000
+              }
+           ],
+           "exchangeFilters":[
+
+           ],
+           "symbols":[
+              {
+                 "symbol":"BTCUSDT",
+                 "status":"TRADING",
+                 "baseAsset":"BTC",
+                 "baseAssetPrecision":8,
+                 "quoteAsset":"USDT",
+                 "quotePrecision":8,
+                 "quoteAssetPrecision":8,
+                 "baseCommissionPrecision":8,
+                 "quoteCommissionPrecision":8,
+                 "orderTypes":[
+                    "LIMIT",
+                    "LIMIT_MAKER",
+                    "MARKET",
+                    "STOP_LOSS",
+                    "STOP_LOSS_LIMIT",
+                    "TAKE_PROFIT",
+                    "TAKE_PROFIT_LIMIT"
+                 ],
+                 "icebergAllowed":true,
+                 "ocoAllowed":true,
+                 "otoAllowed":true,
+                 "quoteOrderQtyMarketAllowed":true,
+                 "allowTrailingStop":true,
+                 "cancelReplaceAllowed":true,
+                 "amendAllowed":true,
+                 "isSpotTradingAllowed":true,
+                 "isMarginTradingAllowed":true,
+                 "filters":[
+                    {
+                       "filterType":"PRICE_FILTER",
+                       "minPrice":"0.01000000",
+                       "maxPrice":"1000000.00000000",
+                       "tickSize":"0.01000000"
+                    },
+                    {
+                       "filterType":"LOT_SIZE",
+                       "minQty":"0.00001000",
+                       "maxQty":"9000.00000000",
+                       "stepSize":"0.00001000"
+                    },
+                    {
+                       "filterType":"ICEBERG_PARTS",
+                       "limit":10
+                    },
+                    {
+                       "filterType":"MARKET_LOT_SIZE",
+                       "minQty":"0.00000000",
+                       "maxQty":"77.94145208",
+                       "stepSize":"0.00000000"
+                    },
+                    {
+                       "filterType":"TRAILING_DELTA",
+                       "minTrailingAboveDelta":10,
+                       "maxTrailingAboveDelta":2000,
+                       "minTrailingBelowDelta":10,
+                       "maxTrailingBelowDelta":2000
+                    },
+                    {
+                       "filterType":"PERCENT_PRICE_BY_SIDE",
+                       "bidMultiplierUp":"5",
+                       "bidMultiplierDown":"0.2",
+                       "askMultiplierUp":"5",
+                       "askMultiplierDown":"0.2",
+                       "avgPriceMins":5
+                    },
+                    {
+                       "filterType":"NOTIONAL",
+                       "minNotional":"5.00000000",
+                       "applyMinToMarket":true,
+                       "maxNotional":"9000000.00000000",
+                       "applyMaxToMarket":false,
+                       "avgPriceMins":5
+                    },
+                    {
+                       "filterType":"MAX_NUM_ORDERS",
+                       "maxNumOrders":200
+                    },
+                    {
+                       "filterType":"MAX_NUM_ALGO_ORDERS",
+                       "maxNumAlgoOrders":5
+                    }
+                 ],
+                 "permissions":[
+
+                 ],
+                 "permissionSets":[
+
+                 ],
+                 "defaultSelfTradePreventionMode":"EXPIRE_MAKER",
+                 "allowedSelfTradePreventionModes":[
+                    "EXPIRE_TAKER",
+                    "EXPIRE_MAKER",
+                    "EXPIRE_BOTH",
+                    "DECREMENT"
+                 ]
+              }
+           ]
+        }
+        "#;
+
+        serde_json::from_str::<ExchangeInformation>(data).unwrap();
+    }
 
     #[test]
     fn test_deserialize_send_order_response() {

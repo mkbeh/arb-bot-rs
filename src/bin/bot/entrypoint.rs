@@ -21,6 +21,7 @@ pub struct Entrypoint;
 impl Entrypoint {
     pub async fn run(&self) -> anyhow::Result<()> {
         let config = Config::parse().map_err(|e| anyhow!("Failed to parse config file: {e}"))?;
+        let settings = &config.settings;
 
         let exchange_service: Arc<dyn ExchangeService> =
             match config.settings.exchange_name.parse()? {
@@ -32,15 +33,13 @@ impl Entrypoint {
                 Exchange::Binance => self.build_binance_sender_service(config.clone()).await?,
             };
 
-        let arbitrage_config =
-            arbitrage_job::Config::new(config.settings.timeout, config.settings.error_timeout);
+        let arbitrage_config = arbitrage_job::Config::new(settings.timeout, settings.error_timeout);
         let arbitrage_ps = arbitrage_job::Process::new(arbitrage_config, exchange_service);
 
-        let order_sender_config = order_sender_job::Config::new(config.settings.error_timeout);
-        let order_sender_ps =
-            order_sender_job::Process::new(order_sender_config, order_sender_service);
+        let sender_config = order_sender_job::Config::new(settings.error_timeout);
+        let sender_ps = order_sender_job::Process::new(sender_config, order_sender_service);
 
-        let processes: Vec<&dyn ServerProcess> = vec![arbitrage_ps, order_sender_ps];
+        let processes: Vec<&dyn ServerProcess> = vec![arbitrage_ps, sender_ps];
 
         Server::new()
             .with_processes(&processes)
@@ -82,8 +81,8 @@ impl Entrypoint {
             market_api,
             base_assets: config.binance.assets,
             market_depth_limit: config.binance.market_depth_limit,
-            default_min_profit_limit: config.settings.min_profit_limit,
-            default_max_volume_limit: config.settings.max_volume_limit,
+            min_profit_qty: config.settings.min_profit_qty,
+            max_order_qty: config.settings.max_order_qty,
         };
         let service = Arc::new(BinanceExchangeService::new(service_config));
 

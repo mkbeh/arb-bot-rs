@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::bail;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
-use tracing::info_span;
+use tracing::info;
 
 use crate::{
     config::Asset,
@@ -19,8 +19,8 @@ pub struct BinanceExchangeConfig {
     pub market_api: Market,
     pub base_assets: Vec<Asset>,
     pub market_depth_limit: usize,
-    pub default_min_profit_limit: Decimal,
-    pub default_max_volume_limit: Decimal,
+    pub min_profit_qty: Decimal,
+    pub max_order_qty: Decimal,
 }
 
 pub struct BinanceExchangeService {
@@ -34,11 +34,11 @@ impl BinanceExchangeService {
         let asset_builder = AssetBuilder::new(
             config.market_api.clone(),
             config.base_assets,
-            config.default_min_profit_limit,
-            config.default_max_volume_limit,
+            config.min_profit_qty,
+            config.max_order_qty,
         );
-        let chain_builder = ChainBuilder::new(config.general_api.clone());
-        let order_builder = OrderBuilder::new(config.market_api.clone(), config.market_depth_limit);
+        let chain_builder = ChainBuilder::new(config.general_api);
+        let order_builder = OrderBuilder::new(config.market_api, config.market_depth_limit);
 
         Self {
             asset_builder,
@@ -77,7 +77,7 @@ impl ExchangeService for BinanceExchangeService {
             bail!("Failed to build chains orders: {}", e);
         }
 
-        info_span!("all chains successfully passed");
+        info!("all chains successfully passed");
 
         Ok(())
     }

@@ -28,11 +28,11 @@ Documentation of arbitrage algorithm [here](https://github.com/mkbeh/arb-bot-rs/
 [TODO] docker 
 
 ```shell
-docker build --build-arg SERVICE_NAME=bot -t arb-bot-rs:latest .
+docker build --build-arg SERVICE_NAME=bot --build-arg BUILD_PROFILE=release-lto -t arb-bot-rs:latest .
 ```
 
 ```shell
-docker run --memory="50m" arb-bot-rs:latest
+docker run --cpus=".5" --cpuset-cpus=1 --memory="50m" arb-bot-rs:latest
 ```
 
 ## Safety

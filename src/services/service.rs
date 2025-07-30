@@ -9,10 +9,9 @@ use tokio::sync::{
 
 use crate::services::enums::SymbolOrder;
 
-const ORDERS_CHANNEL_BUF_SIZE: usize = 1_000;
-
 pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
-    let (tx, rx) = tokio::sync::mpsc::channel::<Vec<Order>>(ORDERS_CHANNEL_BUF_SIZE);
+    const BUF_SIZE: usize = 1_000;
+    let (tx, rx) = tokio::sync::mpsc::channel::<Vec<Order>>(BUF_SIZE);
     OrdersSingleton {
         tx,
         rx: Mutex::new(rx),
@@ -29,20 +28,16 @@ pub trait OrderSenderService: Send + Sync {
     async fn send_orders(&self, msg: Vec<Order>) -> anyhow::Result<()>;
 }
 
+pub struct OrdersSingleton {
+    pub tx: Sender<Vec<Order>>,
+    pub rx: Mutex<Receiver<Vec<Order>>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Order {
     pub symbol: String,
     pub symbol_order: SymbolOrder,
     pub price: Decimal,
-    pub base_asset: String,
     pub base_qty: Decimal,
-    pub base_precision: u32,
     pub quote_qty: Decimal,
-    pub quote_asset: String,
-    pub quote_precision: u32,
-}
-
-pub struct OrdersSingleton {
-    pub tx: Sender<Vec<Order>>,
-    pub rx: Mutex<Receiver<Vec<Order>>>,
 }

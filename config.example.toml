@@ -14,10 +14,10 @@ error_timeout = 120
 # Enable send profit orders.
 send_orders = false
 
-# Minimal profit limit in USD. Default: 0$.
-min_profit_limit = 0
-# Maximum limit per transaction in USD. Default: 30$.
-max_volume_limit = 30
+# Minimal profit qunatity limit in USD.
+min_profit_qty = 0
+# Maximum order quantity limit in USD.
+max_order_qty = 30
 
 [binance-settings]
 
@@ -36,73 +36,62 @@ market_depth_limit = 5
 # will be applied if they are greater than 0, otherwise the default limits will be applied.
 [[binance-settings.assets]]
 asset = "BTC"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "BTCUSDT"
 
 [[binance-settings.assets]]
 asset = "ETH"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "ETHUSDT"
 
 [[binance-settings.assets]]
 asset = "LTC"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "LTCUSDT"
 
 [[binance-settings.assets]]
 asset = "BNB"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "BNBUSDT"
 
 [[binance-settings.assets]]
 asset = "USDT"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 
 [[binance-settings.assets]]
 asset = "USDC"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 
 [[binance-settings.assets]]
 asset = "FDUSD"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 
 [[binance-settings.assets]]
 asset = "EUR"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "EURUSDT"
 
 [[binance-settings.assets]]
 asset = "TRY"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "USDTTRY"
 
 [[binance-settings.assets]]
 asset = "BRL"
-asset_precision = 8
-min_profit_limit = 0
-max_volume_limit = 0
+min_profit_qty = 0
+max_order_qty = 0
 symbol = "USDTBRL"
 
 [[binance-settings.assets]]
 asset = "JPY"
-asset_precision = 8
-min_profit_limit = 400
-max_volume_limit = 4500
+min_profit_qty = 400
+max_order_qty = 4500
