@@ -76,33 +76,6 @@ impl OrderBuilder {
             })
         };
 
-        let define_symbol_filter_fn = |filters: &Vec<Filters>| -> SymbolFilter {
-            let mut symbol_filter = SymbolFilter::default();
-
-            for filter in filters {
-                match filter {
-                    Filters::LotSize {
-                        min_qty,
-                        max_qty: _max_qty,
-                        step_size,
-                    } => {
-                        symbol_filter.lot_size_step = step_size.normalize().scale();
-                        symbol_filter.lot_size_min_qty = *min_qty;
-                    }
-                    Filters::PriceFilter {
-                        min_price: _min_price,
-                        max_price: _max_price,
-                        tick_size,
-                    } => {
-                        symbol_filter.tick_size = tick_size.normalize().scale();
-                    }
-                    _ => continue,
-                };
-            }
-
-            symbol_filter
-        };
-
         for chain in chains.iter() {
             let mut request_weight = REQUEST_WEIGHT.lock().await;
 
@@ -160,7 +133,7 @@ impl OrderBuilder {
                 }
 
                 let symbol = &chain_symbol.symbol;
-                let symbol_filter = define_symbol_filter_fn(&symbol.filters);
+                let symbol_filter = define_symbol_filter(&symbol.filters);
 
                 let order_symbol = OrderSymbol {
                     symbol: symbol.symbol.clone(),
@@ -186,8 +159,6 @@ impl OrderBuilder {
             }
 
             ORDERS_CHANNEL.tx.send(orders).await?;
-
-            tokio::time::sleep(Duration::from_secs(10)).await;
         }
 
         info!(chains = chains.len(), "all chain have been completed");
@@ -232,15 +203,9 @@ impl OrderBuilder {
             }
         };
 
-        let define_precision = |order_symbol: &OrderSymbol| -> u32 {
-            match order_symbol.symbol_order {
-                SymbolOrder::Asc => order_symbol.base_asset_precision,
-                SymbolOrder::Desc => order_symbol.quote_precision,
-            }
-        };
-
         let mut orders: Vec<LocalOrder> = vec![];
         let mut depth_limit = 0;
+        let max_order_qty = get_max_order_qty(order_symbols.first().unwrap());
 
         while depth_limit < self.market_depth_limit {
             for (i, order_symbol) in order_symbols.iter().enumerate() {
@@ -252,10 +217,7 @@ impl OrderBuilder {
 
                 // Define qty limit for current symbol.
                 let max_order_qty = if i == 0 {
-                    order_symbol
-                        .max_order_qty
-                        .expect("unexpected logic")
-                        .trunc_with_scale(define_precision(order_symbol))
+                    max_order_qty
                 } else {
                     orders[orders.len() - 1].quote_qty
                 };
@@ -290,7 +252,7 @@ impl OrderBuilder {
                     }
                 };
 
-                let order = LocalOrder {
+                orders.push(LocalOrder {
                     symbol: order_symbol.symbol.clone(),
                     symbol_order: order_symbol.symbol_order,
                     price,
@@ -299,8 +261,7 @@ impl OrderBuilder {
                     quote_qty,
                     quote_precision: order_symbol.quote_precision,
                     symbol_filter: order_symbol.symbol_filter.clone(),
-                };
-                orders.push(order);
+                });
 
                 // If first symbol and base qty does not match the max order qty, where max order
                 // qty for 2nd and 3rd symbol is previous symbol quote qty, it is necessary to
@@ -312,17 +273,7 @@ impl OrderBuilder {
 
             // Compare first chain order qty and first chain item qty limit.
             // If it is equal, there is no point in trying to sum up the qty, so break.
-            let first_order = &orders[orders.len() - order_symbols.len()];
-            let first_order_precision = first_order.base_qty.normalize().scale();
-
-            if first_order.base_qty
-                == order_symbols
-                    .first()
-                    .unwrap()
-                    .max_order_qty
-                    .unwrap()
-                    .trunc_with_scale(first_order_precision)
-            {
+            if orders[orders.len() - order_symbols.len()].base_qty == max_order_qty {
                 break;
             }
 
@@ -331,9 +282,9 @@ impl OrderBuilder {
 
         // Round and recalculate quantities according to binance api rules.
         let mut profit_orders = vec![];
-        let mut min_profit_qty = order_symbols.first().unwrap().min_profit_qty.unwrap();
+        let mut min_profit_qty = get_min_profit_qty(order_symbols.first().unwrap());
 
-        // Iterate over every first order.
+        // Iterate over every first order in chain.
         'outer_loop: for i in (0..).take(orders.len() - 1).step_by(order_symbols.len()) {
             let mut count = 0;
             let mut tmp_orders: Vec<Order> = vec![];
@@ -354,6 +305,8 @@ impl OrderBuilder {
                         let base_qty =
                             base_qty.trunc_with_scale(orders[count].symbol_filter.lot_size_step);
 
+                        // If at least one order from the chain does not have enough quantity to
+                        // reach the minimum, then skip the entire chain of orders.
                         if orders[count].symbol_filter.lot_size_min_qty > base_qty {
                             continue 'outer_loop;
                         }
@@ -404,6 +357,53 @@ impl OrderBuilder {
             profit_orders
         }
     }
+}
+
+fn define_symbol_filter(filters: &Vec<Filters>) -> SymbolFilter {
+    let mut symbol_filter = SymbolFilter::default();
+    for filter in filters {
+        match filter {
+            Filters::LotSize {
+                min_qty,
+                max_qty: _max_qty,
+                step_size,
+            } => {
+                symbol_filter.lot_size_step = step_size.normalize().scale();
+                symbol_filter.lot_size_min_qty = *min_qty;
+            }
+            Filters::PriceFilter {
+                min_price: _min_price,
+                max_price: _max_price,
+                tick_size,
+            } => {
+                symbol_filter.tick_size = tick_size.normalize().scale();
+            }
+            _ => continue,
+        };
+    }
+
+    symbol_filter
+}
+
+fn define_precision(order_symbol: &OrderSymbol) -> u32 {
+    match order_symbol.symbol_order {
+        SymbolOrder::Asc => order_symbol.base_asset_precision,
+        SymbolOrder::Desc => order_symbol.quote_precision,
+    }
+}
+
+fn get_max_order_qty(order_symbol: &OrderSymbol) -> Decimal {
+    order_symbol
+        .max_order_qty
+        .unwrap()
+        .trunc_with_scale(define_precision(order_symbol))
+}
+
+fn get_min_profit_qty(order_symbol: &OrderSymbol) -> Decimal {
+    order_symbol
+        .min_profit_qty
+        .unwrap()
+        .trunc_with_scale(define_precision(order_symbol))
 }
 
 #[cfg(test)]

@@ -33,18 +33,6 @@ pub struct OrdersSingleton {
     pub rx: Mutex<Receiver<Vec<Order>>>,
 }
 
-// #[derive(Clone, Debug)]
-// pub struct Order {
-//     pub symbol: String,
-//     pub symbol_order: SymbolOrder,
-//     pub price: Decimal,
-//     pub base_qty: Decimal,
-//     pub base_precision: u32,
-//     pub quote_qty: Decimal,
-//     pub quote_precision: u32,
-//     pub order_book_units: Vec<OrderBookUnit>,
-// }
-
 #[derive(Clone, Debug)]
 pub struct Order {
     pub symbol: String,
