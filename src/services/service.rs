@@ -7,7 +7,7 @@ use tokio::sync::{
     mpsc::{Receiver, Sender},
 };
 
-use crate::{libs::binance_api::OrderBookUnit, services::enums::SymbolOrder};
+use crate::services::enums::SymbolOrder;
 
 pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
     const BUF_SIZE: usize = 1_000;
@@ -50,5 +50,6 @@ pub struct Order {
     pub symbol: String,
     pub symbol_order: SymbolOrder,
     pub price: Decimal,
-    pub qty: Decimal,
+    pub base_qty: Decimal,
+    pub quote_qty: Decimal,
 }

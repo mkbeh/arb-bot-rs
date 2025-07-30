@@ -58,11 +58,7 @@ pub struct Asset {
 }
 
 impl Asset {
-    fn check(
-        &mut self,
-        min_profit_qty: Decimal,
-        max_order_qty: Decimal,
-    ) -> anyhow::Result<()> {
+    fn check(&mut self, min_profit_qty: Decimal, max_order_qty: Decimal) -> anyhow::Result<()> {
         match self.symbol.as_ref() {
             Some(symbol) => {
                 if !symbol.contains("USDT") {
@@ -71,9 +67,7 @@ impl Asset {
             }
             None => {
                 // Set default limits if symbol not present in config.
-                if self.max_order_qty == Decimal::zero()
-                    && self.min_profit_qty == Decimal::zero()
-                {
+                if self.max_order_qty == Decimal::zero() && self.min_profit_qty == Decimal::zero() {
                     self.min_profit_qty = min_profit_qty;
                     self.max_order_qty = max_order_qty;
                 }
@@ -135,10 +129,7 @@ impl Config {
         }
 
         for asset in &mut self.binance.assets {
-            asset.check(
-                self.settings.min_profit_qty,
-                self.settings.max_order_qty,
-            )?;
+            asset.check(self.settings.min_profit_qty, self.settings.max_order_qty)?;
         }
 
         Ok(())
