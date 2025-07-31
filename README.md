@@ -2,9 +2,9 @@
 
 ![GitHub CI](https://github.com/mkbeh/arb-bot-rs/actions/workflows/ci.yml/badge.svg)
 
-Cryptocurrency exchanges arbitrage bot.
+Arbitrage bot for cryptocurrency exchanges which uses the triangular arbitrage algorithm.
 
-[Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs)
+Full description of the algorithm used can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
 ### Supports
 
@@ -35,7 +35,8 @@ cargo build --release
 
 ## Usage
 
-Fill in the [config](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) file and rename the file to
+Fill in the [example]((https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml)) config file and rename the
+file to
 `config.toml`.
 
 Run app:
