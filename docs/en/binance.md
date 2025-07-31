@@ -42,46 +42,46 @@ Ticker chains are build based on base assets.
 
 **Example #1 (no changes):**
 
-> **Before:** BTC:USDT - USDT:ETH - ETH:BTC
-
-> **After:** BTC:USDT - USDT:ETH - ETH:BTC
+> **B:** BTC:USDT - USDT:ETH - ETH:BTC
+>
+> **A:** BTC:USDT - USDT:ETH - ETH:BTC
 
 **Example #2 (swap 1st symbol):**
 
-> **Before:** **BTC:USDT** - BTC:ETH - ETH:USDT
-
-> **After:** **USDT:BTC** - BTC:ETH - ETH:USDT
+> **B:** **BTC:USDT** - BTC:ETH - ETH:USDT
+>
+> **A:** **USDT:BTC** - BTC:ETH - ETH:USDT
 
 **Example #3 (swap 2nd symbol):**
 
-> **Before:** BTC:USDT - **ETH:USDT** - ETH:BTC
-
-> **After:** BTC:USDT - **USD:TETH** - ETH:BTC
+> **B:** BTC:USDT - **ETH:USDT** - ETH:BTC
+>
+> **A:** BTC:USDT - **USD:TETH** - ETH:BTC
 
 **Example #4 (swap 3rd symbol):**
 
-> **Before:** ETH:BTC - BTC:USDT - **ETH:USDT**
-
-> **After:** ETH:BTC - BTC:USDT - **USDT:ETH**
+> **B:** ETH:BTC - BTC:USDT - **ETH:USDT**
+>
+> **A:** ETH:BTC - BTC:USDT - **USDT:ETH**
 
 
 **Example #5 (swap 1st and 2nd symbols):**
 
-> **Before:** **BTC:USDT** - **BND:BTC** - BNB:USDT
-
-> **After:** **USDT:BTC** - **BTC:BNB** - BNB:USDT
+> **B:** **BTC:USDT** - **BND:BTC** - BNB:USDT
+>
+> **A:** **USDT:BTC** - **BTC:BNB** - BNB:USDT
 
 **Example #6 (swap all symbols):**
 
-> **Before:** **ETH:BTC** - **RLC:ETH** - **BTC:RLC**
-
-> **After:** **BTC:ETH** - **ETH:RLC** - **RLC:BTC**
+> **B:** **ETH:BTC** - **RLC:ETH** - **BTC:RLC**
+>
+> **A:** **BTC:ETH** - **ETH:RLC** - **RLC:BTC**
 
 **Example #7 (swap 2nd and 3rd symbols):**
 
-> **Before:** ETH:BTC - **QTUM:BTC** - **ETH:QTUM**
-
-> **After:** ETH:BTC - **BTC:QTUM** - **QTUM:ETH**
+> **B:** ETH:BTC - **QTUM:BTC** - **ETH:QTUM**
+>
+> **A:** ETH:BTC - **BTC:QTUM** - **QTUM:ETH**
 
 
 **Note:**
@@ -89,13 +89,13 @@ Ticker chains are build based on base assets.
 1. Swapped 2nd symbol should not match with 1st symbol.
 
    > **Example:** ETH:BTC - BTC:ETH - ... - not valid
-
+   >
    > **Example:** ETH:BTC - BTC:QTUM - ... - valid
 
 2. Exit from the 3rd symbol should be on the base asset of the 1st symbol.
 
    > **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
-
+   >
    > **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
 
 ## Receive orders by symbols from the order book and calculate possible profit according to the algorithm
