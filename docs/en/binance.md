@@ -32,19 +32,7 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
 Ticker chains are build based on base assets.
 
-**Example list of base assets:**
-
-* BTC
-* ETH
-* LTC
-* BNB
-* USDT
-* USDC
-* FDUSD
-* EUR
-* TRY
-* BRL
-* JPY
+**Example list of base assets:** BTC, ETH, LTC, BNB, USDT, USDC, FDUSD, EUR, TRY, BRL, JPY.
 
 ### Chain build algorithm
 

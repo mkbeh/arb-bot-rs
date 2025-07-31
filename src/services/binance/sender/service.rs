@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use tracing::{debug, error, info};
-use uuid::Uuid;
 
 use crate::{
     libs::binance_api::{Account, OrderSide, OrderType, SendOrderRequest, TimeInForce, Trade},
-    services::{Order, enums::SymbolOrder, service::OrderSenderService},
+    services::{Chain, Order, enums::SymbolOrder, service::OrderSenderService},
 };
 
 pub struct BinanceSenderConfig {
@@ -31,7 +30,7 @@ impl BinanceSender {
 
 #[async_trait]
 impl OrderSenderService for BinanceSender {
-    async fn send_orders(&self, msg: Vec<Order>) -> anyhow::Result<()> {
+    async fn send_orders(&self, msg: Chain) -> anyhow::Result<()> {
         let define_order_side = |order: &Order| -> OrderSide {
             match order.symbol_order {
                 SymbolOrder::Asc => OrderSide::Sell,
@@ -39,8 +38,7 @@ impl OrderSenderService for BinanceSender {
             }
         };
 
-        let chain_id = Uuid::new_v4();
-        info!(chain_id = ?chain_id, orders = ?msg, send_orders = ?self.send_orders, "sending orders");
+        info!(ts = ?msg.ts, chain_id = ?msg.chain_id, orders = ?msg.orders, send_orders = ?self.send_orders, "sending orders");
 
         if !self.send_orders {
             return Ok(());
@@ -50,7 +48,7 @@ impl OrderSenderService for BinanceSender {
             let trade_api = self.trade_api.clone();
 
             async move {
-                for order in msg.iter() {
+                for order in msg.orders.iter() {
                     let mut request = SendOrderRequest {
                         symbol: order.symbol.to_owned(),
                         order_side: define_order_side(order),
@@ -75,16 +73,16 @@ impl OrderSenderService for BinanceSender {
                         SymbolOrder::Desc => request.quantity = Some(order.quote_qty),
                     }
 
-                    debug!(chain_id = ?chain_id, order = ?order, request = ?request, "sending
+                    debug!(chain_id = ?msg.chain_id, order = ?order, request = ?request, "sending
         order request");
 
                     match trade_api.send_order(request).await {
                         Ok(response) => {
-                            info!(chain_id = ?chain_id, order = ?order, response = ?response,
+                            info!(chain_id = ?msg.chain_id, order = ?order, response = ?response,
         "successfully send order")
                         }
                         Err(e) => {
-                            error!(chain_id = ?chain_id, order = ?order, error = ?e, "error
+                            error!(chain_id = ?msg.chain_id, order = ?order, error = ?e, "error
         during send order");
                             break;
                         }

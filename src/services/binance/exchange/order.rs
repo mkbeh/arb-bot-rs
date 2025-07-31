@@ -3,12 +3,16 @@ use std::{ops::Sub, time::Duration};
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
 use tracing::info;
+use uuid::Uuid;
 
 use crate::{
     config::Asset,
-    libs::binance_api::{Filters, Market, OrderBook, OrderBookUnit},
+    libs::{
+        binance_api::{Filters, Market, OrderBook, OrderBookUnit},
+        misc,
+    },
     services::{
-        Order,
+        Chain, Order,
         binance::{REQUEST_WEIGHT, exchange::ChainSymbol},
         enums::SymbolOrder,
         service::ORDERS_CHANNEL,
@@ -158,7 +162,12 @@ impl OrderBuilder {
                 continue;
             }
 
-            ORDERS_CHANNEL.tx.send(orders).await?;
+            let msg = Chain {
+                ts: misc::time::get_current_timestamp(),
+                chain_id: Uuid::new_v4(),
+                orders,
+            };
+            ORDERS_CHANNEL.tx.send(msg).await?;
         }
 
         info!(chains = chains.len(), "all chain have been completed");

@@ -6,12 +6,13 @@ use tokio::sync::{
     Mutex,
     mpsc::{Receiver, Sender},
 };
+use uuid::Uuid;
 
 use crate::services::enums::SymbolOrder;
 
 pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
     const BUF_SIZE: usize = 1_000;
-    let (tx, rx) = tokio::sync::mpsc::channel::<Vec<Order>>(BUF_SIZE);
+    let (tx, rx) = tokio::sync::mpsc::channel::<Chain>(BUF_SIZE);
     OrdersSingleton {
         tx,
         rx: Mutex::new(rx),
@@ -25,12 +26,19 @@ pub trait ExchangeService: Send + Sync {
 
 #[async_trait]
 pub trait OrderSenderService: Send + Sync {
-    async fn send_orders(&self, msg: Vec<Order>) -> anyhow::Result<()>;
+    async fn send_orders(&self, msg: Chain) -> anyhow::Result<()>;
 }
 
 pub struct OrdersSingleton {
-    pub tx: Sender<Vec<Order>>,
-    pub rx: Mutex<Receiver<Vec<Order>>>,
+    pub tx: Sender<Chain>,
+    pub rx: Mutex<Receiver<Chain>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Chain {
+    pub ts: u64,
+    pub chain_id: Uuid,
+    pub orders: Vec<Order>,
 }
 
 #[derive(Clone, Debug)]
