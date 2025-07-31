@@ -35,7 +35,7 @@ cargo build --release
 
 ## Usage
 
-Fill in the [example]((https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml)) config file and rename the
+Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
 file to
 `config.toml`.
 
