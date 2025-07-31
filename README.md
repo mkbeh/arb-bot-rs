@@ -14,18 +14,18 @@ List of supported cryptocurrency exchanges.
 |:--------:|:-------:|
 | Binance  | &check; |
 
-### Content
+## Content
 
 * [Installation](#installation)
 * [Usage](#usage)
 
-### Installation
+## Installation
 
 Application is written in Rust, so you'll need to grab a
 [Rust installation](https://www.rust-lang.org/) in order to compile it.
 Application compiles with Rust 1.88.0 (stable) or newer.
 
-#### Build from source
+### Build from source
 
 ```shell
 git clone https://github.com/mkbeh/arb-bot-rs.git
@@ -33,7 +33,7 @@ cd arb-bot-rs
 cargo build --release
 ```
 
-### Usage
+## Usage
 
 Fill in the [config](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) file and rename the file to
 `config.toml`.
@@ -44,7 +44,7 @@ Run app:
 target/release/bot 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
 ```
 
-#### Docker
+### Docker
 
 Build image:
 
@@ -58,7 +58,7 @@ Run app:
 docker run --cpus=".5" --cpuset-cpus=1 --memory="50m" arb-bot-rs:latest
 ```
 
-### Running tests
+## Running tests
 
 Application is relatively well-tested, including both unit tests and integration tests. To run the full test suite, use:
 
@@ -66,7 +66,7 @@ Application is relatively well-tested, including both unit tests and integration
 cargo test --all
 ```
 
-### Translations
+## Translations
 
 The following is a list of known translations of application documentation.
 
