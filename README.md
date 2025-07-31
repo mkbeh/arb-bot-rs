@@ -41,7 +41,7 @@ Fill in the [config](https://github.com/mkbeh/arb-bot-rs/blob/main/config.exampl
 Run app:
 
 ```shell
-target/release-lto/bot 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
+target/release/bot 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
 ```
 
 #### Docker
