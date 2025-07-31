@@ -38,7 +38,7 @@ Ticker chains are build based on base assets.
 
 **Chain of symbols:** BTC:USDT - USDT:ETH - ETH:BTC
 
-**Examples:**
+#### Examples
 
 **Example #1 (no changes):**
 
@@ -84,19 +84,23 @@ Ticker chains are build based on base assets.
 > **A:** ETH:BTC - **BTC:QTUM** - **QTUM:ETH**
 
 
-**Notes:**
+### Notes
 
-* Swapped 2nd symbol should not match with 1st symbol.
+**Note #1** 
 
-  > **Example:** ETH:BTC - BTC:ETH - ... - not valid
-  >
-  > **Example:** ETH:BTC - BTC:QTUM - ... - valid
+Swapped 2nd symbol should not match with 1st symbol.
 
-* Exit from the 3rd symbol should be on the base asset of the 1st symbol.
+> **Example:** ETH:BTC - BTC:ETH - ... - not valid
+>
+> **Example:** ETH:BTC - BTC:QTUM - ... - valid
 
-  > **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
-  >
-  > **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
+**Note #2** 
+
+Exit from the 3rd symbol should be on the base asset of the 1st symbol.
+
+> **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
+>
+> **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
 
 ## Receive orders by symbols from the order book and calculate possible profit according to the algorithm
 
