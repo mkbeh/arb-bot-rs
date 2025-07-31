@@ -9,7 +9,7 @@ use tracing::info;
 
 use crate::{
     config::Asset,
-    libs::binance_api::{General, Symbol},
+    libs::binance_api::{General, OrderType, Symbol},
     services::enums::SymbolOrder,
 };
 
@@ -77,8 +77,12 @@ impl ChainBuilder {
         order: SymbolOrder,
         base_assets: &[Asset],
     ) -> Vec<[ChainSymbol; 3]> {
-        let mut chains = Vec::new();
-        for a_symbol in symbols {
+        let mut chains = vec![];
+        'outer_loop: for a_symbol in symbols {
+            if !self.check_order_type(&a_symbol.order_types) {
+                continue 'outer_loop;
+            }
+
             let mut a_wrapper = ChainSymbol::new(a_symbol.clone(), Default::default());
             let base_asset =
                 if let Some(asset) = self.define_base_asset(&mut a_wrapper, order, base_assets) {
@@ -88,6 +92,10 @@ impl ChainBuilder {
                 };
 
             for b_symbol in symbols {
+                if !self.check_order_type(&a_symbol.order_types) {
+                    continue 'outer_loop;
+                }
+
                 let mut b_wrapper = ChainSymbol::new(b_symbol.clone(), Default::default());
 
                 // Selection symbol for 1st symbol.
@@ -96,6 +104,10 @@ impl ChainBuilder {
                 }
 
                 for c_symbol in symbols {
+                    if !self.check_order_type(&a_symbol.order_types) {
+                        continue 'outer_loop;
+                    }
+
                     let mut c_wrapper = ChainSymbol::new(c_symbol.clone(), Default::default());
 
                     // Selection symbol for 2nd symbol.
@@ -123,6 +135,13 @@ impl ChainBuilder {
             }
         }
         chains
+    }
+
+    fn check_order_type(&self, order_types: &[OrderType]) -> bool {
+        const REQUIRE_ORDER_TYPES: [OrderType; 2] = [OrderType::Limit, OrderType::Market];
+        REQUIRE_ORDER_TYPES
+            .iter()
+            .all(|order_type| order_types.contains(order_type))
     }
 
     fn define_base_asset(
