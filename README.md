@@ -14,7 +14,7 @@ List of supported cryptocurrency exchanges.
 |:--------:|:-------:|
 | Binance  | &check; |
 
-## Content
+### Content
 
 * [Installation](#installation)
 * [Usage](#usage)
