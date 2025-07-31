@@ -40,63 +40,58 @@ Ticker chains are build based on base assets.
 
 #### Examples
 
-**Example #1 (no changes):**
+**#1 (no changes):**
 
 > **B:** BTC:USDT - USDT:ETH - ETH:BTC
 >
 > **A:** BTC:USDT - USDT:ETH - ETH:BTC
 
-**Example #2 (swap 1st symbol):**
+**#2 (swap 1st symbol):**
 
 > **B:** **BTC:USDT** - BTC:ETH - ETH:USDT
 >
 > **A:** **USDT:BTC** - BTC:ETH - ETH:USDT
 
-**Example #3 (swap 2nd symbol):**
+**#3 (swap 2nd symbol):**
 
 > **B:** BTC:USDT - **ETH:USDT** - ETH:BTC
 >
 > **A:** BTC:USDT - **USD:TETH** - ETH:BTC
 
-**Example #4 (swap 3rd symbol):**
+**#4 (swap 3rd symbol):**
 
 > **B:** ETH:BTC - BTC:USDT - **ETH:USDT**
 >
 > **A:** ETH:BTC - BTC:USDT - **USDT:ETH**
 
 
-**Example #5 (swap 1st and 2nd symbols):**
+**#5 (swap 1st and 2nd symbols):**
 
 > **B:** **BTC:USDT** - **BND:BTC** - BNB:USDT
 >
 > **A:** **USDT:BTC** - **BTC:BNB** - BNB:USDT
 
-**Example #6 (swap all symbols):**
+**#6 (swap all symbols):**
 
 > **B:** **ETH:BTC** - **RLC:ETH** - **BTC:RLC**
 >
 > **A:** **BTC:ETH** - **ETH:RLC** - **RLC:BTC**
 
-**Example #7 (swap 2nd and 3rd symbols):**
+**#7 (swap 2nd and 3rd symbols):**
 
 > **B:** ETH:BTC - **QTUM:BTC** - **ETH:QTUM**
 >
 > **A:** ETH:BTC - **BTC:QTUM** - **QTUM:ETH**
 
-
 ### Notes
 
-**Note #1** 
-
-Swapped 2nd symbol should not match with 1st symbol.
+**#1:**  Swapped 2nd symbol should not match with 1st symbol.
 
 > ETH:BTC - BTC:ETH - ... - not valid
 >
 > ETH:BTC - BTC:QTUM - ... - valid
 
-**Note #2** 
-
-Exit from the 3rd symbol should be on the base asset of the 1st symbol.
+**#2:** Exit from the 3rd symbol should be on the base asset of the 1st symbol.
 
 > **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
 >
