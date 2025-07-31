@@ -70,4 +70,4 @@ cargo test --all
 
 The following is a list of known translations of application documentation.
 
-* [English]()
+* [English](https://github.com/mkbeh/arb-bot-rs/tree/main/docs/en)
