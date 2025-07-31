@@ -35,7 +35,14 @@ cargo build --release
 
 ### Usage
 
-[TODO] how to + config
+Fill in the [config](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) file and rename the file to
+`config.toml`.
+
+Run app:
+
+```shell
+target/release-lto/bot 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
+```
 
 #### Docker
 
@@ -55,7 +62,9 @@ docker run --cpus=".5" --cpuset-cpus=1 --memory="50m" arb-bot-rs:latest
 
 Application is relatively well-tested, including both unit tests and integration tests. To run the full test suite, use:
 
-> cargo test --all
+```shell
+cargo test --all
+```
 
 ### Translations
 
