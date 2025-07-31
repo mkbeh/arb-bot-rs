@@ -90,17 +90,17 @@ Ticker chains are build based on base assets.
 
 Swapped 2nd symbol should not match with 1st symbol.
 
-> **Example:** ETH:BTC - BTC:ETH - ... - not valid
+> ETH:BTC - BTC:ETH - ... - not valid
 >
-> **Example:** ETH:BTC - BTC:QTUM - ... - valid
+> ETH:BTC - BTC:QTUM - ... - valid
 
 **Note #2** 
 
 Exit from the 3rd symbol should be on the base asset of the 1st symbol.
 
-> **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
+> **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
 >
-> **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
+> **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
 
 ## Receive orders by symbols from the order book and calculate possible profit according to the algorithm
 
