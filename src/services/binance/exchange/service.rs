@@ -78,7 +78,7 @@ impl ExchangeService for BinanceExchangeService {
             bail!("Failed to build chains orders: {}", e);
         }
 
-        info!("all chains successfully passed");
+        info!("All chains successfully passed");
 
         Ok(())
     }

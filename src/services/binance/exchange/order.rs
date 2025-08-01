@@ -90,8 +90,6 @@ impl OrderBuilder {
             }
         }
 
-        info!(chains = chains.len(), "all chain have been completed");
-
         Ok(())
     }
 
