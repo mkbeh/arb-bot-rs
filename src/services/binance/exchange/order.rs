@@ -2,7 +2,7 @@ use std::{ops::Sub, sync::Arc, time::Duration};
 
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
-use tracing::{error, info};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
