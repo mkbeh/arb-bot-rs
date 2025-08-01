@@ -26,7 +26,7 @@ pub struct BinanceExchangeConfig {
 pub struct BinanceExchangeService {
     asset_builder: AssetBuilder,
     chain_builder: Arc<ChainBuilder>,
-    order_builder: OrderBuilder,
+    order_builder: Arc<OrderBuilder>,
 }
 
 impl BinanceExchangeService {
@@ -43,7 +43,7 @@ impl BinanceExchangeService {
         Self {
             asset_builder,
             chain_builder: Arc::new(chain_builder),
-            order_builder,
+            order_builder: Arc::new(order_builder),
         }
     }
 }
@@ -71,6 +71,7 @@ impl ExchangeService for BinanceExchangeService {
         // Get order books per chain and calculate profit.
         if let Err(e) = self
             .order_builder
+            .clone()
             .build_chains_orders(chains, base_assets)
             .await
         {

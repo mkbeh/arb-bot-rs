@@ -51,10 +51,10 @@ impl ChainBuilder {
 
         for order in SymbolOrder::iter() {
             tasks.push(tokio::spawn({
-                let order_builder = Arc::clone(&self);
+                let this = Arc::clone(&self);
                 let symbols = exchange_info.symbols.clone();
                 let assets = base_assets.clone();
-                async move { order_builder.build_chains(&symbols, order, &assets).await }
+                async move { this.build_chains(&symbols, order, &assets).await }
             }));
         }
 

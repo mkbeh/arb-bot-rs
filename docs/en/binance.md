@@ -32,83 +32,70 @@ curl -X GET https://api.binance.com/api/v3/ticker/24hr?type=MINI | jq | > volume
 
 Ticker chains are build based on base assets.
 
-**Example list of base assets:**
-
-* BTC
-* ETH
-* LTC
-* BNB
-* USDT
-* USDC
-* FDUSD
-* EUR
-* TRY
-* BRL
-* JPY
+**Example list of base assets:** BTC, ETH, LTC, BNB, USDT, USDC, FDUSD, EUR, TRY, BRL, JPY.
 
 ### Chain build algorithm
 
 **Chain of symbols:** BTC:USDT - USDT:ETH - ETH:BTC
 
-**Examples:**
+#### Examples
 
-**Example #1 (no changes):**
+**#1 (no changes):**
 
-> **Before:** BTC:USDT - USDT:ETH - ETH:BTC
+> **B:** BTC:USDT - USDT:ETH - ETH:BTC
+>
+> **A:** BTC:USDT - USDT:ETH - ETH:BTC
 
-> **After:** BTC:USDT - USDT:ETH - ETH:BTC
+**#2 (swap 1st symbol):**
 
-**Example #2 (swap 1st symbol):**
+> **B:** **BTC:USDT** - BTC:ETH - ETH:USDT
+>
+> **A:** **USDT:BTC** - BTC:ETH - ETH:USDT
 
-> **Before:** **BTC:USDT** - BTC:ETH - ETH:USDT
+**#3 (swap 2nd symbol):**
 
-> **After:** **USDT:BTC** - BTC:ETH - ETH:USDT
+> **B:** BTC:USDT - **ETH:USDT** - ETH:BTC
+>
+> **A:** BTC:USDT - **USD:TETH** - ETH:BTC
 
-**Example #3 (swap 2nd symbol):**
+**#4 (swap 3rd symbol):**
 
-> **Before:** BTC:USDT - **ETH:USDT** - ETH:BTC
-
-> **After:** BTC:USDT - **USD:TETH** - ETH:BTC
-
-**Example #4 (swap 3rd symbol):**
-
-> **Before:** ETH:BTC - BTC:USDT - **ETH:USDT**
-
-> **After:** ETH:BTC - BTC:USDT - **USDT:ETH**
-
-
-**Example #5 (swap 1st and 2nd symbols):**
-
-> **Before:** **BTC:USDT** - **BND:BTC** - BNB:USDT
-
-> **After:** **USDT:BTC** - **BTC:BNB** - BNB:USDT
-
-**Example #6 (swap all symbols):**
-
-> **Before:** **ETH:BTC** - **RLC:ETH** - **BTC:RLC**
-
-> **After:** **BTC:ETH** - **ETH:RLC** - **RLC:BTC**
-
-**Example #7 (swap 2nd and 3rd symbols):**
-
-> **Before:** ETH:BTC - **QTUM:BTC** - **ETH:QTUM**
-
-> **After:** ETH:BTC - **BTC:QTUM** - **QTUM:ETH**
+> **B:** ETH:BTC - BTC:USDT - **ETH:USDT**
+>
+> **A:** ETH:BTC - BTC:USDT - **USDT:ETH**
 
 
-**Note:**
+**#5 (swap 1st and 2nd symbols):**
 
-1. Swapped 2nd symbol should not match with 1st symbol.
+> **B:** **BTC:USDT** - **BND:BTC** - BNB:USDT
+>
+> **A:** **USDT:BTC** - **BTC:BNB** - BNB:USDT
 
-   > **Example:** ETH:BTC - BTC:ETH - ... - not valid
+**#6 (swap all symbols):**
 
-   > **Example:** ETH:BTC - BTC:QTUM - ... - valid
+> **B:** **ETH:BTC** - **RLC:ETH** - **BTC:RLC**
+>
+> **A:** **BTC:ETH** - **ETH:RLC** - **RLC:BTC**
 
-2. Exit from the 3rd symbol should be on the base asset of the 1st symbol.
+**#7 (swap 2nd and 3rd symbols):**
 
-   > **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
+> **B:** ETH:BTC - **QTUM:BTC** - **ETH:QTUM**
+>
+> **A:** ETH:BTC - **BTC:QTUM** - **QTUM:ETH**
 
-   > **Example:** **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
+### Notes
+
+**#1:**  Swapped 2nd symbol should not match with 1st symbol.
+
+> ETH:BTC - BTC:ETH - ... - not valid
+>
+> ETH:BTC - BTC:QTUM - ... - valid
+
+**#2:** Exit from the 3rd symbol should be on the base asset of the 1st symbol.
+
+> **ETH:BTC** - BTC:QTUM - **QTUM:USDT** - not valid
+>
+> **ETH:BTC** - BTC:QTUM - **QTUM:ETH** - valid
 
 ## Receive orders by symbols from the order book and calculate possible profit according to the algorithm
 
