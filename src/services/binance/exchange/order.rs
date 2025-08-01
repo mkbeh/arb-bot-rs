@@ -1,8 +1,8 @@
-use std::{ops::Sub, time::Duration};
+use std::{ops::Sub, sync::Arc, time::Duration};
 
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
-use tracing::info;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
@@ -66,111 +66,127 @@ impl OrderBuilder {
     }
 
     pub async fn build_chains_orders(
-        &self,
+        self: Arc<Self>,
         chains: Vec<[ChainSymbol; 3]>,
         base_assets: Vec<Asset>,
     ) -> anyhow::Result<()> {
-        let find_base_asset_fn = |chain_symbol: &ChainSymbol| -> Option<&Asset> {
-            base_assets.iter().find(|&x| {
-                if chain_symbol.order == SymbolOrder::Asc {
-                    x.asset == chain_symbol.symbol.base_asset
-                } else {
-                    x.asset == chain_symbol.symbol.quote_asset
-                }
-            })
-        };
-
+        let mut tasks = vec![];
         for chain in chains.iter() {
-            let mut request_weight = REQUEST_WEIGHT.lock().await;
-
-            // Calculate request weight, where api method 'get depth' cost 5 weight and api method
-            // 'send orders' cost 1 weight - need x3 requests for each symbol.
-            let weight = (5 + 1) * 3;
-
-            while !request_weight.add(weight) {
-                tokio::time::sleep(Duration::from_secs(60)).await;
-            }
-
-            // Async get order book for each symbol in chain.
-            let tasks: Vec<_> = chain
-                .clone()
-                .into_iter()
-                .map(|wrapper| {
-                    let client = self.market_api.clone();
-                    let depth_limit = self.market_depth_limit;
-                    tokio::spawn(async move {
-                        client
-                            .get_depth(wrapper.symbol.symbol.clone(), depth_limit)
-                            .await
-                    })
-                })
-                .collect();
-
-            let mut order_books = vec![];
-
-            for task in tasks {
-                match task.await? {
-                    Ok(order_book) => order_books.push(order_book),
-                    Err(e) => bail!("failed to get symbol order book: {}", e),
+            tasks.push(tokio::spawn({
+                let base_assets = base_assets.clone();
+                let chain = chain.clone();
+                let this = self.clone();
+                async move {
+                    if let Err(e) = this.build_orders(&base_assets, &chain).await {
+                        error!("Failed to build orders for chain {:?}: {}", chain, e);
+                    }
                 }
+            }));
+        }
+
+        for task in tasks {
+            if let Err(e) = task.await {
+                error!("Task failed to execute: {}", e);
             }
-
-            // Build orders info and calculate profit.
-            let mut order_symbols = vec![];
-
-            for (i, chain_symbol) in chain.iter().enumerate() {
-                // Define limits for 1st pair.
-                let mut min_profit_qty = None;
-                let mut max_order_qty = None;
-
-                if i == 0 {
-                    let base_asset = match find_base_asset_fn(chain_symbol) {
-                        Some(base) => base,
-                        _ => bail!(
-                            "failed to find base asset for symbol {}",
-                            chain_symbol.symbol.symbol
-                        ),
-                    };
-
-                    min_profit_qty = Some(base_asset.min_profit_qty);
-                    max_order_qty = Some(base_asset.max_order_qty);
-                }
-
-                let symbol = &chain_symbol.symbol;
-                let symbol_filter = define_symbol_filter(&symbol.filters);
-
-                let order_symbol = OrderSymbol {
-                    symbol: symbol.symbol.clone(),
-                    base_asset: symbol.base_asset.clone(),
-                    base_asset_precision: symbol.base_asset_precision,
-                    quote_asset: symbol.quote_asset.clone(),
-                    quote_precision: symbol.quote_precision,
-                    symbol_order: chain_symbol.order,
-                    min_profit_qty,
-                    max_order_qty,
-                    order_book: order_books[i].clone(),
-                    symbol_filter,
-                };
-
-                order_symbols.push(order_symbol);
-            }
-
-            let orders = self.calculate_chain_profit(&order_symbols);
-            if orders.is_empty() {
-                // Sub reserved 1x3 weight for send orders.
-                request_weight.sub(3);
-                continue;
-            }
-
-            let msg = Chain {
-                ts: misc::time::get_current_timestamp(),
-                chain_id: Uuid::new_v4(),
-                orders,
-            };
-            ORDERS_CHANNEL.tx.send(msg).await?;
         }
 
         info!(chains = chains.len(), "all chain have been completed");
+
+        Ok(())
+    }
+
+    async fn build_orders(
+        &self,
+        base_assets: &[Asset],
+        chain: &[ChainSymbol; 3],
+    ) -> anyhow::Result<()> {
+        let mut request_weight = REQUEST_WEIGHT.lock().await;
+
+        // Calculate request weight, where api method 'get depth' cost 5 weight and api method
+        // 'send orders' cost 1 weight - need x3 requests for each symbol.
+        let weight = (5 + 1) * 3;
+
+        while !request_weight.add(weight) {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        }
+
+        // Async get order book for each symbol in chain.
+        let tasks: Vec<_> = chain
+            .clone()
+            .into_iter()
+            .map(|wrapper| {
+                let client = self.market_api.clone();
+                let depth_limit = self.market_depth_limit;
+                tokio::spawn(async move {
+                    client
+                        .get_depth(wrapper.symbol.symbol.clone(), depth_limit)
+                        .await
+                })
+            })
+            .collect();
+
+        let mut order_books = vec![];
+
+        for task in tasks {
+            match task.await? {
+                Ok(order_book) => order_books.push(order_book),
+                Err(e) => bail!("failed to get symbol order book: {}", e),
+            }
+        }
+
+        // Build orders info and calculate profit.
+        let mut order_symbols = vec![];
+
+        for (i, chain_symbol) in chain.iter().enumerate() {
+            // Define limits for 1st pair.
+            let mut min_profit_qty = None;
+            let mut max_order_qty = None;
+
+            if i == 0 {
+                let base_asset = match find_base_asset(base_assets, chain_symbol) {
+                    Some(base) => base,
+                    _ => bail!(
+                        "failed to find base asset for symbol {}",
+                        chain_symbol.symbol.symbol
+                    ),
+                };
+
+                min_profit_qty = Some(base_asset.min_profit_qty);
+                max_order_qty = Some(base_asset.max_order_qty);
+            }
+
+            let symbol = &chain_symbol.symbol;
+            let symbol_filter = define_symbol_filter(&symbol.filters);
+
+            let order_symbol = OrderSymbol {
+                symbol: symbol.symbol.clone(),
+                base_asset: symbol.base_asset.clone(),
+                base_asset_precision: symbol.base_asset_precision,
+                quote_asset: symbol.quote_asset.clone(),
+                quote_precision: symbol.quote_precision,
+                symbol_order: chain_symbol.order,
+                min_profit_qty,
+                max_order_qty,
+                order_book: order_books[i].clone(),
+                symbol_filter,
+            };
+
+            order_symbols.push(order_symbol);
+        }
+
+        let orders = self.calculate_chain_profit(&order_symbols);
+        if orders.is_empty() {
+            // Sub reserved 1x3 weight for send orders.
+            request_weight.sub(3);
+            return Ok(());
+        }
+
+        let msg = Chain {
+            ts: misc::time::get_current_timestamp(),
+            chain_id: Uuid::new_v4(),
+            orders,
+        };
+        ORDERS_CHANNEL.tx.send(msg).await?;
 
         Ok(())
     }
@@ -366,6 +382,19 @@ impl OrderBuilder {
             profit_orders
         }
     }
+}
+
+fn find_base_asset(base_assets: &[Asset], chain_symbol: &ChainSymbol) -> Option<Asset> {
+    base_assets
+        .iter()
+        .find(|&x| {
+            if chain_symbol.order == SymbolOrder::Asc {
+                x.asset == chain_symbol.symbol.base_asset
+            } else {
+                x.asset == chain_symbol.symbol.quote_asset
+            }
+        })
+        .cloned()
 }
 
 fn define_symbol_filter(filters: &Vec<Filters>) -> SymbolFilter {
@@ -718,7 +747,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let orders_builder = OrderBuilder::new(market_api, 5);
+        let orders_builder = Arc::new(OrderBuilder::new(market_api, 5));
         let result = orders_builder
             .build_chains_orders(test_chains, base_assets)
             .await;

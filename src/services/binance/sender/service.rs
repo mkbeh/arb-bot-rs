@@ -1,8 +1,11 @@
 use async_trait::async_trait;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 use crate::{
-    libs::binance_api::{Account, OrderSide, OrderType, SendOrderRequest, TimeInForce, Trade},
+    libs::{
+        binance_api::{Account, OrderSide, OrderType, SendOrderRequest, TimeInForce, Trade},
+        misc,
+    },
     services::{Chain, Order, enums::SymbolOrder, service::OrderSenderService},
 };
 
@@ -73,16 +76,15 @@ impl OrderSenderService for BinanceSender {
                         SymbolOrder::Desc => request.quantity = Some(order.quote_qty),
                     }
 
-                    debug!(chain_id = ?msg.chain_id, order = ?order, request = ?request, "sending
-        order request");
-
                     match trade_api.send_order(request).await {
                         Ok(response) => {
-                            info!(chain_id = ?msg.chain_id, order = ?order, response = ?response,
+                            let ts = misc::time::get_current_timestamp();
+                            info!(ts = ?ts, chain_id = ?msg.chain_id, order = ?order, response = ?response,
         "successfully send order")
                         }
                         Err(e) => {
-                            error!(chain_id = ?msg.chain_id, order = ?order, error = ?e, "error
+                            let ts = misc::time::get_current_timestamp();
+                            error!(ts = ?ts, chain_id = ?msg.chain_id, order = ?order, error = ?e, "error
         during send order");
                             break;
                         }
