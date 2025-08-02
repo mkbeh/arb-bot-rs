@@ -287,7 +287,9 @@ pub struct TickerPriceStats {
 
 #[cfg(test)]
 mod tests {
-    use crate::libs::binance_api::{ExchangeInformation, SendOrderResponse, TickerPriceStats};
+    use crate::libs::binance_api::{
+        AccountInformation, ExchangeInformation, OrderBook, SendOrderResponse, TickerPriceStats,
+    };
 
     #[test]
     fn test_deserialize_exchange_information() {
@@ -430,6 +432,50 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_account_information() {
+        let data = r#"
+        {
+          "makerCommission": 15,
+          "takerCommission": 15,
+          "buyerCommission": 0,
+          "sellerCommission": 0,
+          "commissionRates": {
+            "maker": "0.00150000",
+            "taker": "0.00150000",
+            "buyer": "0.00000000",
+            "seller": "0.00000000"
+          },
+          "canTrade": true,
+          "canWithdraw": true,
+          "canDeposit": true,
+          "brokered": false,
+          "requireSelfTradePrevention": false,
+          "preventSor": false,
+          "updateTime": 123456789,
+          "accountType": "SPOT",
+          "balances": [
+            {
+              "asset": "BTC",
+              "free": "4723846.89208129",
+              "locked": "0.00000000"
+            },
+            {
+              "asset": "LTC",
+              "free": "4763368.68006011",
+              "locked": "0.00000000"
+            }
+          ],
+          "permissions": [
+            "SPOT"
+          ],
+          "uid": 354937868
+        }
+        "#;
+
+        serde_json::from_str::<AccountInformation>(data).unwrap();
+    }
+
+    #[test]
     fn test_deserialize_send_order_response() {
         let data = r#"
         {
@@ -490,6 +536,29 @@ mod tests {
         "#;
 
         serde_json::from_str::<SendOrderResponse>(data).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_order_book() {
+        let data = r#"
+        {
+          "lastUpdateId": 1027024,
+          "bids": [
+            [
+              "4.00000000",
+              "431.00000000"
+            ]
+          ],
+          "asks": [
+            [
+              "4.00000200",
+              "12.00000000"
+            ]
+          ]
+        }
+        "#;
+
+        serde_json::from_str::<OrderBook>(data).unwrap();
     }
 
     #[test]
