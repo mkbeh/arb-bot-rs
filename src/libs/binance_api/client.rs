@@ -30,6 +30,7 @@ impl Client {
                 .tcp_keepalive(cfg.http_config.tcp_keepalive)
                 .tcp_keepalive_interval(cfg.http_config.tcp_keepalive_interval)
                 .tcp_keepalive_retries(cfg.http_config.tcp_keepalive_retries)
+                .timeout(cfg.http_config.timeout)
                 .build()?,
         };
 
@@ -155,6 +156,7 @@ pub struct HttpConfig {
     pub tcp_keepalive: Duration,
     pub tcp_keepalive_interval: Duration,
     pub tcp_keepalive_retries: u32,
+    pub timeout: Duration,
 }
 
 impl Default for HttpConfig {
@@ -166,6 +168,7 @@ impl Default for HttpConfig {
             tcp_keepalive: Duration::from_secs(120),
             tcp_keepalive_interval: Duration::from_secs(30),
             tcp_keepalive_retries: 5,
+            timeout: Duration::from_secs(10),
         }
     }
 }
