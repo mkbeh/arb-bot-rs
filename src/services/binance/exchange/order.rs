@@ -1,8 +1,12 @@
 use std::{ops::Sub, sync::Arc, time::Duration};
 
 use anyhow::bail;
-use rust_decimal::{Decimal, prelude::Zero};
-use tracing::{error, info};
+use rust_decimal::{
+    Decimal,
+    prelude::{FromPrimitive, Zero},
+};
+use tokio::task::JoinSet;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -55,13 +59,15 @@ pub struct SymbolFilter {
 pub struct OrderBuilder {
     market_api: Market,
     market_depth_limit: usize,
+    fee_percent: Decimal,
 }
 
 impl OrderBuilder {
-    pub fn new(market_api: Market, market_depth_limit: usize) -> Self {
+    pub fn new(market_api: Market, market_depth_limit: usize, fee_percent: Decimal) -> Self {
         Self {
             market_api,
             market_depth_limit,
+            fee_percent,
         }
     }
 
@@ -70,27 +76,37 @@ impl OrderBuilder {
         chains: Vec<[ChainSymbol; 3]>,
         base_assets: Vec<Asset>,
     ) -> anyhow::Result<()> {
-        let mut tasks = vec![];
+        let mut tasks_set = JoinSet::new();
+
         for chain in chains.iter() {
-            tasks.push(tokio::spawn({
+            tasks_set.spawn({
                 let base_assets = base_assets.clone();
                 let chain = chain.clone();
                 let this = self.clone();
-                async move {
-                    if let Err(e) = this.build_orders(&base_assets, &chain).await {
-                        error!("Failed to build orders for chain {:?}: {}", chain, e);
+                async move { this.build_orders(&base_assets, &chain).await }
+            });
+        }
+
+        while let Some(result) = tasks_set.join_next().await {
+            match result {
+                Ok(Ok(orders)) => {
+                    if !orders.is_empty() {
+                        let msg = Chain {
+                            ts: misc::time::get_current_timestamp(),
+                            chain_id: Uuid::new_v4(),
+                            orders,
+                        };
+                        ORDERS_CHANNEL.tx.send(msg).await?;
                     }
                 }
-            }));
-        }
-
-        for task in tasks {
-            if let Err(e) = task.await {
-                error!("Task failed to execute: {}", e);
+                Ok(Err(e)) => {
+                    error!("Failed to build orders for chains: {}", e);
+                }
+                Err(e) => {
+                    error!("Failed to build orders for chains: {}", e);
+                }
             }
         }
-
-        info!(chains = chains.len(), "all chain have been completed");
 
         Ok(())
     }
@@ -99,15 +115,19 @@ impl OrderBuilder {
         &self,
         base_assets: &[Asset],
         chain: &[ChainSymbol; 3],
-    ) -> anyhow::Result<()> {
-        let mut request_weight = REQUEST_WEIGHT.lock().await;
+    ) -> anyhow::Result<Vec<Order>> {
+        loop {
+            // Calculate request weight, where api method 'get depth' cost 5 weight and api method
+            // 'send orders' cost 1 weight - need x3 requests for each symbol.
+            // Reserve weight for sending orders to avoid delays.
+            let weight = (5 + 1) * 3;
 
-        // Calculate request weight, where api method 'get depth' cost 5 weight and api method
-        // 'send orders' cost 1 weight - need x3 requests for each symbol.
-        let weight = (5 + 1) * 3;
+            let mut request_weight = REQUEST_WEIGHT.lock().await;
+            if request_weight.add(weight) {
+                break;
+            }
 
-        while !request_weight.add(weight) {
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
 
         // Async get order book for each symbol in chain.
@@ -126,7 +146,6 @@ impl OrderBuilder {
             .collect();
 
         let mut order_books = vec![];
-
         for task in tasks {
             match task.await? {
                 Ok(order_book) => order_books.push(order_book),
@@ -175,20 +194,7 @@ impl OrderBuilder {
         }
 
         let orders = self.calculate_chain_profit(&order_symbols);
-        if orders.is_empty() {
-            // Sub reserved 1x3 weight for send orders.
-            request_weight.sub(3);
-            return Ok(());
-        }
-
-        let msg = Chain {
-            ts: misc::time::get_current_timestamp(),
-            chain_id: Uuid::new_v4(),
-            orders,
-        };
-        ORDERS_CHANNEL.tx.send(msg).await?;
-
-        Ok(())
+        Ok(orders)
     }
 
     fn calculate_chain_profit(&self, order_symbols: &[OrderSymbol]) -> Vec<Order> {
@@ -362,13 +368,14 @@ impl OrderBuilder {
             }
 
             // Check profit.
-            //
+            let fee = calculate_fee(tmp_orders.first().unwrap().base_qty, self.fee_percent);
+
             // Difference between the outbound volume of the last symbol in chain and the inbound
             // volume of the first symbol in chain.
             let diff_qty =
                 tmp_orders.last().unwrap().quote_qty - tmp_orders.first().unwrap().base_qty;
 
-            if diff_qty >= min_profit_qty {
+            if (diff_qty - fee) >= min_profit_qty {
                 min_profit_qty = diff_qty;
                 profit_orders.extend_from_slice(&tmp_orders);
             }
@@ -442,6 +449,12 @@ fn get_min_profit_qty(order_symbol: &OrderSymbol) -> Decimal {
         .min_profit_qty
         .unwrap()
         .trunc_with_scale(define_precision(order_symbol))
+}
+
+fn calculate_fee(qty: Decimal, fee_percent: Decimal) -> Decimal {
+    let orders_count = Decimal::from_usize(3).unwrap();
+    let delimiter = Decimal::from_usize(100).unwrap();
+    (qty * fee_percent * orders_count) / delimiter
 }
 
 #[cfg(test)]
@@ -747,7 +760,11 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let orders_builder = Arc::new(OrderBuilder::new(market_api, 5));
+        let orders_builder = Arc::new(OrderBuilder::new(
+            market_api,
+            5,
+            Decimal::from_f64(0.1).unwrap(),
+        ));
         let result = orders_builder
             .build_chains_orders(test_chains, base_assets)
             .await;
@@ -770,7 +787,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -947,7 +964,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1124,7 +1141,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1301,7 +1318,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1477,7 +1494,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1573,7 +1590,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 1);
+        let order_builder = OrderBuilder::new(market_api, 1, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {

@@ -36,8 +36,10 @@ cargo build --release
 ## Usage
 
 Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
-file to
-`config.toml`.
+file to `config.toml`.
+
+**_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
+`send_orders = true`._**
 
 Run app:
 
@@ -56,7 +58,7 @@ docker build --build-arg SERVICE_NAME=bot --build-arg BUILD_PROFILE=release -t a
 Run app:
 
 ```shell
-docker run --cpus=".5" --cpuset-cpus=1 --memory="75m" arb-bot-rs:latest
+docker run --cpus="1" --cpuset-cpus="0" --memory="75m" arb-bot-rs:latest
 ```
 
 ## Running tests

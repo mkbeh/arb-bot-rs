@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::bail;
 use strum::IntoEnumIterator;
+use tokio::task::JoinSet;
 use tracing::info;
 
 use crate::{
@@ -47,19 +48,22 @@ impl ChainBuilder {
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
         // contain 2 basic assets specified in the config at once.
         let mut chains: Vec<_> = vec![];
-        let mut tasks = Vec::with_capacity(SymbolOrder::iter().count());
+        let mut tasks_set = JoinSet::new();
 
         for order in SymbolOrder::iter() {
-            tasks.push(tokio::spawn({
+            tasks_set.spawn({
                 let this = Arc::clone(&self);
                 let symbols = exchange_info.symbols.clone();
                 let assets = base_assets.clone();
                 async move { this.build_chains(&symbols, order, &assets).await }
-            }));
+            });
         }
 
-        for task in tasks {
-            chains.extend(task.await?)
+        while let Some(result) = tasks_set.join_next().await {
+            match result {
+                Ok(chain) => chains.extend(chain),
+                Err(e) => bail!(e),
+            }
         }
 
         let unique_chains = self.deduplicate_chains(chains);

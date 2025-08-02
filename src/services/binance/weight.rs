@@ -35,8 +35,10 @@ impl RequestWeight {
     }
 
     pub fn add(&mut self, weight: usize) -> bool {
-        if (misc::time::get_current_timestamp() - self.timestamp) > self.weight_reset_secs {
-            self.weight = 0
+        let current_ts = misc::time::get_current_timestamp();
+        if (current_ts - self.timestamp) > self.weight_reset_secs {
+            self.weight = 0;
+            self.timestamp = current_ts;
         }
 
         if self.weight + weight > self.weight_limit {
@@ -56,6 +58,10 @@ impl RequestWeight {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
+    use tokio::{sync::Mutex, task::JoinSet};
+
     use crate::services::binance::RequestWeight;
 
     #[test]
@@ -70,6 +76,32 @@ mod tests {
         let result = request_weight.add(10);
         assert!(!result);
         assert_eq!(request_weight.weight, 5);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_request_weight_add_async() -> anyhow::Result<()> {
+        static RW: LazyLock<Mutex<RequestWeight>> =
+            LazyLock::new(|| Mutex::new(RequestWeight::default()));
+
+        {
+            let mut guard = RW.lock().await;
+            guard.set_weight_limit(10);
+        }
+
+        let mut set = JoinSet::new();
+        for _ in 0..10 {
+            set.spawn(async move {
+                let mut guard = RW.lock().await;
+                let _ = guard.add(10);
+                assert_eq!(guard.weight, 10);
+            });
+        }
+
+        for _ in 0..10 {
+            set.join_next().await;
+        }
 
         Ok(())
     }
