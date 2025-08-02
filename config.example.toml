@@ -6,6 +6,10 @@
 # The process is launched only for one specific exchange from the available list.
 exchange_name = "binance"
 
+# Fee percentage.
+# https://www.binance.com/en/fee/schedule
+fee_percent = 0.1
+
 # Delay seconds between arbitrage cycles. Max: 5000.
 timeout = 60
 # Timeout seconds on error. Max: 5000.

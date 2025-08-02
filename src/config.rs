@@ -28,6 +28,8 @@ pub struct Config {
 #[derive(Clone, Deserialize)]
 pub struct Settings {
     pub exchange_name: String,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub fee_percent: Decimal,
     pub timeout: u64,
     pub error_timeout: u64,
     pub send_orders: bool,

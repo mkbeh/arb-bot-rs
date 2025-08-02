@@ -75,7 +75,7 @@ impl Entrypoint {
             REQUEST_WEIGHT
                 .lock()
                 .await
-                .set_weight_limit(config.binance.api_weight_limit)
+                .set_weight_limit(config.binance.api_weight_limit);
         }
 
         let service_config = BinanceExchangeConfig {
@@ -85,6 +85,7 @@ impl Entrypoint {
             market_depth_limit: config.binance.market_depth_limit,
             min_profit_qty: config.settings.min_profit_qty,
             max_order_qty: config.settings.max_order_qty,
+            fee_percentage: config.settings.fee_percent,
         };
         let service = Arc::new(BinanceExchangeService::new(service_config));
 

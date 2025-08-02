@@ -1,7 +1,10 @@
 use std::{ops::Sub, sync::Arc, time::Duration};
 
 use anyhow::bail;
-use rust_decimal::{Decimal, prelude::Zero};
+use rust_decimal::{
+    Decimal,
+    prelude::{FromPrimitive, Zero},
+};
 use tokio::task::JoinSet;
 use tracing::error;
 use uuid::Uuid;
@@ -56,13 +59,15 @@ pub struct SymbolFilter {
 pub struct OrderBuilder {
     market_api: Market,
     market_depth_limit: usize,
+    fee_percent: Decimal,
 }
 
 impl OrderBuilder {
-    pub fn new(market_api: Market, market_depth_limit: usize) -> Self {
+    pub fn new(market_api: Market, market_depth_limit: usize, fee_percent: Decimal) -> Self {
         Self {
             market_api,
             market_depth_limit,
+            fee_percent,
         }
     }
 
@@ -363,13 +368,14 @@ impl OrderBuilder {
             }
 
             // Check profit.
-            //
+            let fee = calculate_fee(tmp_orders.first().unwrap().base_qty, self.fee_percent);
+
             // Difference between the outbound volume of the last symbol in chain and the inbound
             // volume of the first symbol in chain.
             let diff_qty =
                 tmp_orders.last().unwrap().quote_qty - tmp_orders.first().unwrap().base_qty;
 
-            if diff_qty >= min_profit_qty {
+            if (diff_qty - fee) >= min_profit_qty {
                 min_profit_qty = diff_qty;
                 profit_orders.extend_from_slice(&tmp_orders);
             }
@@ -443,6 +449,12 @@ fn get_min_profit_qty(order_symbol: &OrderSymbol) -> Decimal {
         .min_profit_qty
         .unwrap()
         .trunc_with_scale(define_precision(order_symbol))
+}
+
+fn calculate_fee(qty: Decimal, fee_percent: Decimal) -> Decimal {
+    let orders_count = Decimal::from_usize(3).unwrap();
+    let delimiter = Decimal::from_usize(100).unwrap();
+    (qty * fee_percent * orders_count) / delimiter
 }
 
 #[cfg(test)]
@@ -748,7 +760,11 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let orders_builder = Arc::new(OrderBuilder::new(market_api, 5));
+        let orders_builder = Arc::new(OrderBuilder::new(
+            market_api,
+            5,
+            Decimal::from_f64(0.1).unwrap(),
+        ));
         let result = orders_builder
             .build_chains_orders(test_chains, base_assets)
             .await;
@@ -771,7 +787,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -948,7 +964,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1125,7 +1141,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1302,7 +1318,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1478,7 +1494,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 3);
+        let order_builder = OrderBuilder::new(market_api, 3, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {
@@ -1574,7 +1590,7 @@ mod tests {
             Err(e) => bail!("Failed init binance client: {e}"),
         };
 
-        let order_builder = OrderBuilder::new(market_api, 1);
+        let order_builder = OrderBuilder::new(market_api, 1, Decimal::from_f64(0.1).unwrap());
 
         let order_symbols = vec![
             OrderSymbol {

@@ -21,6 +21,7 @@ pub struct BinanceExchangeConfig {
     pub market_depth_limit: usize,
     pub min_profit_qty: Decimal,
     pub max_order_qty: Decimal,
+    pub fee_percentage: Decimal,
 }
 
 pub struct BinanceExchangeService {
@@ -38,7 +39,11 @@ impl BinanceExchangeService {
             config.max_order_qty,
         );
         let chain_builder = ChainBuilder::new(config.general_api);
-        let order_builder = OrderBuilder::new(config.market_api, config.market_depth_limit);
+        let order_builder = OrderBuilder::new(
+            config.market_api,
+            config.market_depth_limit,
+            config.fee_percentage,
+        );
 
         Self {
             asset_builder,
