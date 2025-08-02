@@ -36,8 +36,10 @@ cargo build --release
 ## Usage
 
 Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
-file to
-`config.toml`.
+file to `config.toml`.
+
+**_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
+`send_orders = true`._**
 
 Run app:
 

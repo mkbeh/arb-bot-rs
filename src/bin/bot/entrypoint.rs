@@ -72,8 +72,10 @@ impl Entrypoint {
         };
 
         {
-            let mut request_weight = REQUEST_WEIGHT.lock().await;
-            request_weight.set_weight_limit(config.binance.api_weight_limit);
+            REQUEST_WEIGHT
+                .lock()
+                .await
+                .set_weight_limit(config.binance.api_weight_limit)
         }
 
         let service_config = BinanceExchangeConfig {

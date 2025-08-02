@@ -2,6 +2,7 @@ use std::{ops::Sub, sync::Arc, time::Duration};
 
 use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
+use tokio::task::JoinSet;
 use tracing::error;
 use uuid::Uuid;
 
@@ -70,23 +71,35 @@ impl OrderBuilder {
         chains: Vec<[ChainSymbol; 3]>,
         base_assets: Vec<Asset>,
     ) -> anyhow::Result<()> {
-        let mut tasks = vec![];
+        let mut tasks_set = JoinSet::new();
+
         for chain in chains.iter() {
-            tasks.push(tokio::spawn({
+            tasks_set.spawn({
                 let base_assets = base_assets.clone();
                 let chain = chain.clone();
                 let this = self.clone();
-                async move {
-                    if let Err(e) = this.build_orders(&base_assets, &chain).await {
-                        error!("Failed to build orders for chain {:?}: {}", chain, e);
-                    }
-                }
-            }));
+                async move { this.build_orders(&base_assets, &chain).await }
+            });
         }
 
-        for task in tasks {
-            if let Err(e) = task.await {
-                error!("Task failed to execute: {}", e);
+        while let Some(result) = tasks_set.join_next().await {
+            match result {
+                Ok(Ok(orders)) => {
+                    if !orders.is_empty() {
+                        let msg = Chain {
+                            ts: misc::time::get_current_timestamp(),
+                            chain_id: Uuid::new_v4(),
+                            orders,
+                        };
+                        ORDERS_CHANNEL.tx.send(msg).await?;
+                    }
+                }
+                Ok(Err(e)) => {
+                    error!("Failed to build orders for chains: {}", e);
+                }
+                Err(e) => {
+                    error!("Failed to build orders for chains: {}", e);
+                }
             }
         }
 
@@ -97,15 +110,19 @@ impl OrderBuilder {
         &self,
         base_assets: &[Asset],
         chain: &[ChainSymbol; 3],
-    ) -> anyhow::Result<()> {
-        let mut request_weight = REQUEST_WEIGHT.lock().await;
+    ) -> anyhow::Result<Vec<Order>> {
+        loop {
+            // Calculate request weight, where api method 'get depth' cost 5 weight and api method
+            // 'send orders' cost 1 weight - need x3 requests for each symbol.
+            // Reserve weight for sending orders to avoid delays.
+            let weight = (5 + 1) * 3;
 
-        // Calculate request weight, where api method 'get depth' cost 5 weight and api method
-        // 'send orders' cost 1 weight - need x3 requests for each symbol.
-        let weight = (5 + 1) * 3;
+            let mut request_weight = REQUEST_WEIGHT.lock().await;
+            if request_weight.add(weight) {
+                break;
+            }
 
-        while !request_weight.add(weight) {
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
 
         // Async get order book for each symbol in chain.
@@ -124,7 +141,6 @@ impl OrderBuilder {
             .collect();
 
         let mut order_books = vec![];
-
         for task in tasks {
             match task.await? {
                 Ok(order_book) => order_books.push(order_book),
@@ -173,20 +189,7 @@ impl OrderBuilder {
         }
 
         let orders = self.calculate_chain_profit(&order_symbols);
-        if orders.is_empty() {
-            // Sub reserved 1x3 weight for send orders.
-            request_weight.sub(3);
-            return Ok(());
-        }
-
-        let msg = Chain {
-            ts: misc::time::get_current_timestamp(),
-            chain_id: Uuid::new_v4(),
-            orders,
-        };
-        ORDERS_CHANNEL.tx.send(msg).await?;
-
-        Ok(())
+        Ok(orders)
     }
 
     fn calculate_chain_profit(&self, order_symbols: &[OrderSymbol]) -> Vec<Order> {
