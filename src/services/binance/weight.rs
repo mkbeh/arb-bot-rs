@@ -26,7 +26,7 @@ impl RequestWeight {
             timestamp: misc::time::get_current_timestamp(),
             weight: 0,
             weight_limit: 0,
-            weight_reset_secs: 60,
+            weight_reset_secs: 61,
         }
     }
 
