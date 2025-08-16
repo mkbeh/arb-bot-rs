@@ -27,6 +27,7 @@ pub trait ExchangeService: Send + Sync {
 #[async_trait]
 pub trait OrderSenderService: Send + Sync {
     async fn send_orders(&self, msg: Chain) -> anyhow::Result<()>;
+    async fn send_orders_ws(&self) -> anyhow::Result<()>;
 }
 
 pub struct OrdersSingleton {

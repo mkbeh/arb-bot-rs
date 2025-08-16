@@ -33,6 +33,9 @@ impl BinanceSender {
 
 #[async_trait]
 impl OrderSenderService for BinanceSender {
+    async fn send_orders_ws(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
     async fn send_orders(&self, msg: Chain) -> anyhow::Result<()> {
         let define_order_side = |order: &Order| -> OrderSide {
             match order.symbol_order {

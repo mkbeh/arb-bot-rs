@@ -1,17 +1,10 @@
-use std::{
-    sync::{Arc, OnceLock},
-    time::Duration,
-};
+use std::{sync::{Arc, OnceLock}, time, time::Duration};
 
 use async_trait::async_trait;
-use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::{
-    libs::http_server::ServerProcess,
-    services::{OrderSenderService, service::ORDERS_CHANNEL},
-};
+use crate::{libs::http_server::ServerProcess, services::OrderSenderService};
 
 pub struct Config {
     pub error_timeout_secs: u64,
@@ -45,17 +38,14 @@ impl ServerProcess for Process {
     }
 
     async fn run(&self, token: CancellationToken) -> anyhow::Result<()> {
-        let mut orders_rx = ORDERS_CHANNEL.rx.lock().await;
-
         loop {
             tokio::select! {
             _ = token.cancelled() => {
                 break;
             }
-            Some(msg) = orders_rx.recv() => {
-                if let Err(e) = self.service.send_orders(msg).await {
-                   error!(error = ?e, "error during orders send process");
-                   sleep(self.error_timeout_secs).await;
+            _ = tokio::time::sleep(time::Duration::from_secs(1)) => {
+                if let Err(e) = self.service.send_orders_ws().await {
+                    error!("Failed sending orders: {}", e);
                 }
             }
             }

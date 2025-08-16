@@ -45,6 +45,7 @@ pub struct BinanceSettings {
     pub api_token: String,
     pub api_secret_key: String,
     pub api_weight_limit: usize,
+    pub ws_url: String,
     pub market_depth_limit: usize,
     pub assets: Vec<Asset>,
 }

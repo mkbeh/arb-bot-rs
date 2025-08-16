@@ -78,6 +78,10 @@ impl Trade {
             params.push(("recvWindow".to_owned(), v.to_string()));
         }
 
+        if let Some(ref v) = request.time_in_force {
+            params.push(("timeInForce".to_owned(), v.to_string()));
+        }
+
         self.client
             .post(Api::Spot(Spot::Order), Some(&params), true)
             .await

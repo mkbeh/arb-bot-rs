@@ -11,6 +11,7 @@ use app::{
     },
     services::{
         BinanceExchangeConfig, BinanceExchangeService, BinanceSender, BinanceSenderConfig,
+        BinanceWsExchangeConfig, BinanceWsExchangeService, BinanceWsSender, BinanceWsSenderConfig,
         ExchangeService, OrderSenderService, binance::REQUEST_WEIGHT,
     },
 };
@@ -25,12 +26,15 @@ impl Entrypoint {
 
         let exchange_service: Arc<dyn ExchangeService> =
             match config.settings.exchange_name.parse()? {
-                Exchange::Binance => self.build_binance_exchange_service(config.clone()).await?,
+                Exchange::Binance => {
+                    self.build_binance_ws_exchange_service(config.clone())
+                        .await?
+                }
             };
 
         let order_sender_service: Arc<dyn OrderSenderService> =
             match config.settings.exchange_name.parse()? {
-                Exchange::Binance => self.build_binance_sender_service(config.clone()).await?,
+                Exchange::Binance => self.build_binance_ws_sender_service(config.clone()).await?,
             };
 
         let arbitrage_config = arbitrage_job::Config::new(settings.timeout, settings.error_timeout);
@@ -48,6 +52,80 @@ impl Entrypoint {
             .map_err(|e| anyhow!("handling server error: {}", e))?;
 
         Ok(())
+    }
+
+    async fn build_binance_ws_exchange_service(
+        &self,
+        config: Config,
+    ) -> anyhow::Result<Arc<BinanceWsExchangeService>> {
+        let api_config = binance_api::Config {
+            api_url: config.binance.api_url,
+            api_token: config.binance.api_token,
+            api_secret_key: config.binance.api_secret_key,
+            http_config: binance_api::HttpConfig::default(),
+        };
+
+        let general_api = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        let market_api = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        {
+            REQUEST_WEIGHT
+                .lock()
+                .await
+                .set_weight_limit(config.binance.api_weight_limit);
+        }
+
+        let service_config = BinanceWsExchangeConfig {
+            general_api,
+            market_api,
+            base_assets: config.binance.assets,
+            ws_url: config.binance.ws_url.clone(),
+            market_depth_limit: config.binance.market_depth_limit,
+            min_profit_qty: config.settings.min_profit_qty,
+            max_order_qty: config.settings.max_order_qty,
+            fee_percentage: config.settings.fee_percent,
+        };
+
+        let service = BinanceWsExchangeService::from_config(service_config);
+        Ok(Arc::new(service))
+    }
+
+    async fn build_binance_ws_sender_service(
+        &self,
+        config: Config,
+    ) -> anyhow::Result<Arc<BinanceWsSender>> {
+        let api_config = binance_api::Config {
+            api_url: config.binance.api_url,
+            api_token: config.binance.api_token,
+            api_secret_key: config.binance.api_secret_key,
+            http_config: binance_api::HttpConfig::default(),
+        };
+
+        let account_api = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        let trade_api = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        let service_config = BinanceWsSenderConfig {
+            account_api,
+            trade_api,
+            send_orders: config.settings.send_orders,
+        };
+        let service = Arc::new(BinanceWsSender::new(service_config));
+
+        Ok(service)
     }
 
     async fn build_binance_exchange_service(
@@ -87,7 +165,7 @@ impl Entrypoint {
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
         };
-        let service = Arc::new(BinanceExchangeService::new(service_config));
+        let service = Arc::new(BinanceExchangeService::from_config(service_config));
 
         Ok(service)
     }
