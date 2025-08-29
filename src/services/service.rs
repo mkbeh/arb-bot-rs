@@ -6,6 +6,7 @@ use tokio::sync::{
     Mutex,
     mpsc::{Receiver, Sender},
 };
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::services::enums::SymbolOrder;
@@ -21,13 +22,12 @@ pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
 
 #[async_trait]
 pub trait ExchangeService: Send + Sync {
-    async fn start_arbitrage(&self) -> anyhow::Result<()>;
+    async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()>;
 }
 
 #[async_trait]
 pub trait OrderSenderService: Send + Sync {
-    async fn send_orders(&self, msg: Chain) -> anyhow::Result<()>;
-    async fn send_orders_ws(&self) -> anyhow::Result<()>;
+    async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()>;
 }
 
 pub struct OrdersSingleton {
@@ -37,7 +37,7 @@ pub struct OrdersSingleton {
 
 #[derive(Clone, Debug)]
 pub struct Chain {
-    pub ts: u64,
+    pub ts: u128,
     pub chain_id: Uuid,
     pub orders: Vec<Order>,
 }

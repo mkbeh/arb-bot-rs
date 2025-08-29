@@ -1,4 +1,7 @@
-use std::{sync::{Arc, OnceLock}, time, time::Duration};
+use std::{
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
@@ -40,14 +43,15 @@ impl ServerProcess for Process {
     async fn run(&self, token: CancellationToken) -> anyhow::Result<()> {
         loop {
             tokio::select! {
-            _ = token.cancelled() => {
-                break;
-            }
-            _ = tokio::time::sleep(time::Duration::from_secs(1)) => {
-                if let Err(e) = self.service.send_orders_ws().await {
-                    error!("Failed sending orders: {}", e);
+                _ = token.cancelled() => {
+                    break;
                 }
-            }
+                result = self.service.send_orders(token.child_token()) => {
+                    if let Err(e) = result {
+                        error!(error = ?e, "error during sender process");
+                        tokio::time::sleep(self.error_timeout_secs).await;
+                    }
+                }
             }
         }
 

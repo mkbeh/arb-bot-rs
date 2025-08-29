@@ -126,7 +126,10 @@ impl Client {
 
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
     match resp.status() {
-        StatusCode::OK => resp.json::<T>().await.map_err(|e| anyhow!(e)),
+        StatusCode::OK => {
+            let body = resp.bytes().await?;
+            Ok(serde_json::from_slice::<T>(&body)?)
+        }
         StatusCode::INTERNAL_SERVER_ERROR => bail!("Internal Server Error"),
         StatusCode::SERVICE_UNAVAILABLE => bail!("Service Unavailable"),
         StatusCode::UNAUTHORIZED => bail!("Unauthorized"),

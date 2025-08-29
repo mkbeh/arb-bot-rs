@@ -1,9 +1,7 @@
-pub mod asset;
-pub mod chain;
-pub mod order;
+mod asset;
+mod chain;
+mod order;
 pub mod service;
+mod ticker;
 
-pub use asset::*;
-pub use chain::*;
-pub use order::*;
 pub use service::{BinanceExchangeConfig, BinanceExchangeService};

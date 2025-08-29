@@ -23,10 +23,10 @@ impl Default for RequestWeight {
 impl RequestWeight {
     pub fn new() -> Self {
         Self {
-            timestamp: misc::time::get_current_timestamp(),
+            timestamp: misc::time::get_current_timestamp().as_secs(),
             weight: 0,
             weight_limit: 0,
-            weight_reset_secs: 61,
+            weight_reset_secs: 60,
         }
     }
 
@@ -35,7 +35,7 @@ impl RequestWeight {
     }
 
     pub fn add(&mut self, weight: usize) -> bool {
-        let current_ts = misc::time::get_current_timestamp();
+        let current_ts = misc::time::get_current_timestamp().as_secs();
         if (current_ts - self.timestamp) > self.weight_reset_secs {
             self.weight = 0;
             self.timestamp = current_ts;
@@ -62,7 +62,7 @@ mod tests {
 
     use tokio::{sync::Mutex, task::JoinSet};
 
-    use crate::services::binance::RequestWeight;
+    use crate::services::binance::weight::RequestWeight;
 
     #[test]
     fn test_request_weight_add() -> anyhow::Result<()> {

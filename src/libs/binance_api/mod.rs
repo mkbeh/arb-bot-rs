@@ -7,9 +7,8 @@ pub mod market;
 pub mod models;
 pub mod trade;
 mod utils;
-pub mod ws_streams;
 pub mod ws;
-
+pub mod ws_streams;
 pub use account::Account;
 pub use api::Binance;
 pub use client::{Config, HttpConfig};

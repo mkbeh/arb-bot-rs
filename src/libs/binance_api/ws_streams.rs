@@ -1,15 +1,11 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use anyhow::bail;
 use futures_util::{SinkExt, StreamExt};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async,
-    tungstenite::{Message, handshake::client::Response},
-};
-use tracing::{error, info};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, error};
 use url::Url;
 
 static STREAM_PREFIX: &str = "stream";
@@ -17,8 +13,8 @@ static WS_PREFIX: &str = "ws";
 
 pub struct WebsocketStream<'a, WebsocketEvent> {
     ws_url: String,
-    socket: Option<(WebSocketStream<MaybeTlsStream<TcpStream>>, Response)>,
-    cb: Option<Box<dyn FnMut(WebsocketEvent) -> anyhow::Result<()> + 'a + Send>>,
+    socket: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    callback: Option<Box<dyn FnMut(WebsocketEvent) -> anyhow::Result<()> + 'a + Send>>,
 }
 
 impl<'a, WebsocketEvent: DeserializeOwned> WebsocketStream<'a, WebsocketEvent> {
@@ -26,7 +22,7 @@ impl<'a, WebsocketEvent: DeserializeOwned> WebsocketStream<'a, WebsocketEvent> {
         Self {
             ws_url,
             socket: None,
-            cb: None,
+            callback: None,
         }
     }
 
@@ -34,65 +30,64 @@ impl<'a, WebsocketEvent: DeserializeOwned> WebsocketStream<'a, WebsocketEvent> {
     where
         Callback: FnMut(WebsocketEvent) -> anyhow::Result<()> + 'a + Send,
     {
-        self.cb = Some(Box::new(cb));
+        self.callback = Some(Box::new(cb));
         self
     }
 
     pub async fn connect(&mut self, stream: String) -> anyhow::Result<()> {
-        let s = format!("{}/{}/{}", self.ws_url, WS_PREFIX, stream);
+        let s = format!("{}/{WS_PREFIX}/{stream}", self.ws_url);
         let url = Url::parse(s.as_str())?;
         self.connect_ws(url).await
     }
 
     pub async fn connect_multiple(&mut self, streams: &[String]) -> anyhow::Result<()> {
-        let s = format!("{}/{}", self.ws_url, STREAM_PREFIX);
+        let s = format!("{}/{STREAM_PREFIX}", self.ws_url);
         let mut url = Url::parse(s.as_str())?;
         url.query_pairs_mut()
             .append_pair("streams", streams.join("/").as_str());
         self.connect_ws(url).await
     }
 
-    pub async fn disconnect(&mut self) -> anyhow::Result<()> {
+    pub async fn disconnect(&mut self) {
         if let Some(ref mut stream) = self.socket {
-            stream.0.close(None).await?;
-            Ok(())
+            let _ = stream.close(None).await;
         } else {
-            bail!("Failed to disconnect websocket connection");
+            debug!("Websocket stream already disconnected");
         }
     }
 
-    pub async fn run(&mut self, flag: &AtomicBool) -> anyhow::Result<()> {
-        if let Some((ref mut ws_stream, _)) = self.socket {
-            let (mut write, mut read) = ws_stream.split();
-
-            while flag.load(Ordering::Relaxed) {
-                if let Some(msg) = read.next().await {
-                    match msg {
-                        Ok(Message::Text(msg)) => {
-                            if msg.is_empty() {
-                                continue;
+    pub async fn handle_messages(&mut self, token: CancellationToken) -> anyhow::Result<()> {
+        if let Some(ref mut stream) = self.socket {
+            let (mut writer, mut reader) = stream.split();
+            loop {
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        break;
+                    }
+                    Some(result) = reader.next() => {
+                        match result {
+                            Ok(Message::Text(message)) => {
+                                if let Some(ref mut callback) = self.callback {
+                                    let event = serde_json::from_str(message.as_str())?;
+                                    callback(event)?;
+                                }
                             }
-
-                            if let Some(cb) = self.cb.as_mut() {
-                                let event = serde_json::from_str(msg.as_str())?;
-                                cb(event)?;
+                            Ok(Message::Ping(data)) => {
+                                if let Err(e) = writer.send(Message::Pong(data)).await {
+                                    error!("Failed to send pong: {:?}", e);
+                                    break;
+                                }
                             }
-                        }
-                        Ok(Message::Ping(ping_data)) => {
-                            if let Err(e) = write.send(Message::Pong(ping_data)).await {
-                                error!("Failed to send pong: {:?}", e);
+                            Ok(Message::Close(_)) => {
+                                debug!("Websocket stream closed");
                                 break;
                             }
-                        }
-                        Ok(Message::Close(_)) => {
-                            info!("Websocket stream closed");
-                            break;
-                        }
-                        Err(e) => {
-                            error!("Websocket stream error: {:?}", e.to_string());
-                            break;
-                        }
-                        _ => {}
+                            Err(e) => {
+                                error!("Websocket stream error: {:?}", e.to_string());
+                                break;
+                            }
+                            _ => {}
+                    }
                     }
                 }
             }
@@ -103,7 +98,7 @@ impl<'a, WebsocketEvent: DeserializeOwned> WebsocketStream<'a, WebsocketEvent> {
 
     async fn connect_ws(&mut self, url: Url) -> anyhow::Result<()> {
         match connect_async(url.as_str()).await {
-            Ok(stream) => {
+            Ok((stream, _)) => {
                 self.socket = Some(stream);
                 Ok(())
             }

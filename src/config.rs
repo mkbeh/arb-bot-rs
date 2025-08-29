@@ -8,7 +8,6 @@ use strum_macros::EnumString;
 use crate::libs::toml;
 
 const CONFIG_FILE: &str = "config.toml";
-const MAX_DELAY: u64 = 5000;
 const MAX_MARKET_DEPTH_LIMIT: usize = 20;
 
 #[derive(Debug, PartialEq, EnumString)]
@@ -30,7 +29,6 @@ pub struct Settings {
     pub exchange_name: String,
     #[serde(with = "rust_decimal::serde::float")]
     pub fee_percent: Decimal,
-    pub timeout: u64,
     pub error_timeout: u64,
     pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]
@@ -46,6 +44,8 @@ pub struct BinanceSettings {
     pub api_secret_key: String,
     pub api_weight_limit: usize,
     pub ws_url: String,
+    pub ws_streams_url: String,
+    pub ws_max_connections: usize,
     pub market_depth_limit: usize,
     pub assets: Vec<Asset>,
 }
@@ -103,10 +103,6 @@ impl Config {
                 self.settings.exchange_name
             )
         })?;
-
-        if self.settings.timeout > MAX_DELAY {
-            bail!("delay is greater than: {}", MAX_DELAY);
-        }
 
         if self.settings.max_order_qty <= Decimal::zero() {
             bail!("max_order_qty must be greater than 0");
