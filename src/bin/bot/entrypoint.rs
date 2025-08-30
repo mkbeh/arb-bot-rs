@@ -100,6 +100,7 @@ impl Entrypoint {
     ) -> anyhow::Result<Arc<BinanceSender>> {
         let service_config = BinanceSenderConfig {
             send_orders: config.settings.send_orders,
+            order_lifetime_secs: config.settings.order_lifetime,
             ws_url: config.binance.ws_url,
             api_token: config.binance.api_token.clone(),
             api_secret_key: config.binance.api_secret_key.clone(),

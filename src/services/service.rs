@@ -2,18 +2,14 @@ use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
-use tokio::sync::{
-    Mutex,
-    mpsc::{Receiver, Sender},
-};
+use tokio::sync::{Mutex, broadcast};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::services::enums::SymbolOrder;
 
 pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
-    const BUF_SIZE: usize = 1_000;
-    let (tx, rx) = tokio::sync::mpsc::channel::<Chain>(BUF_SIZE);
+    let (tx, rx) = broadcast::channel::<Chain>(1);
     OrdersSingleton {
         tx,
         rx: Mutex::new(rx),
@@ -31,8 +27,8 @@ pub trait OrderSenderService: Send + Sync {
 }
 
 pub struct OrdersSingleton {
-    pub tx: Sender<Chain>,
-    pub rx: Mutex<Receiver<Chain>>,
+    pub tx: broadcast::Sender<Chain>,
+    pub rx: Mutex<broadcast::Receiver<Chain>>,
 }
 
 #[derive(Clone, Debug)]

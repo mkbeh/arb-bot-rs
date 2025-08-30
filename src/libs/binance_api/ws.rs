@@ -33,13 +33,11 @@ use crate::libs::binance_api::{
 type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Clone)]
-pub struct WebsocketConnectConfig {
+pub struct ConnectConfig {
     pub ws_url: String,
     pub api_key: String,
     pub secret_key: String,
 }
-
-pub struct WebsocketClient;
 
 #[derive(Clone)]
 pub struct WebsocketWriter {
@@ -58,31 +56,37 @@ pub struct WebsocketReader {
         Arc<Mutex<HashMap<String, mpsc::Sender<anyhow::Result<WebsocketResponse<Value>>>>>>,
 }
 
-impl WebsocketClient {
-    pub async fn connect(
-        conf: WebsocketConnectConfig,
-    ) -> anyhow::Result<(WebsocketWriter, WebsocketReader)> {
-        let url = Url::parse(conf.ws_url.as_str())?;
-        let (ws_stream, _) = connect_async(url.as_str()).await?;
-        let (writer, reader) = ws_stream.split();
+pub async fn connect_ws(conf: ConnectConfig) -> anyhow::Result<(WebsocketWriter, WebsocketReader)> {
+    let url = Url::parse(conf.ws_url.as_str())?;
+    let (ws_stream, _) = connect_async(url.as_str()).await?;
+    let (writer, reader) = ws_stream.split();
 
-        let pending_requests = Arc::new(Mutex::new(HashMap::new()));
+    let pending_requests = Arc::new(Mutex::new(HashMap::new()));
 
-        let ws_writer = WebsocketWriter {
-            writer: Arc::new(Mutex::new(writer)),
-            api_key: conf.api_key,
-            secret_key: conf.secret_key,
-            response_timeout: Duration::from_secs(10),
-            pending_requests: pending_requests.clone(),
-        };
+    let ws_writer = WebsocketWriter {
+        writer: Arc::new(Mutex::new(writer)),
+        api_key: conf.api_key,
+        secret_key: conf.secret_key,
+        response_timeout: Duration::from_secs(10),
+        pending_requests: pending_requests.clone(),
+    };
 
-        let ws_reader = WebsocketReader {
-            writer: ws_writer.writer.clone(),
-            reader,
-            pending_requests,
-        };
+    let ws_reader = WebsocketReader {
+        writer: ws_writer.writer.clone(),
+        reader,
+        pending_requests,
+    };
 
-        Ok((ws_writer, ws_reader))
+    Ok((ws_writer, ws_reader))
+}
+
+impl ConnectConfig {
+    pub fn new(ws_url: String, api_key: String, secret_key: String) -> Self {
+        Self {
+            ws_url,
+            api_key,
+            secret_key,
+        }
     }
 }
 
@@ -217,33 +221,23 @@ impl WebsocketWriter {
         }
 
         // Send request
-        // let payload =
-        //     serde_json::to_string(&request).map_err(|e| anyhow!("Failed to serialize: {}", e))?;
-
         let payload = serde_json::to_string(&request)
             .map_err(|e| WebsocketClientError::SerializationError(e.to_string()))?;
 
-        let mut writer = self.writer.lock().await;
-        // writer
-        //     .send(Message::Text(payload.into()))
-        //     .await
-        //     .map_err(|e| anyhow!("Failed to send websocket request: {}", e))?;
-        writer
-            .send(Message::Text(payload.into()))
-            .await
-            .map_err(|e| WebsocketClientError::ConnectionError(e.to_string()))?;
+        {
+            let mut writer = self.writer.lock().await;
+            writer
+                .send(Message::Text(payload.into()))
+                .await
+                .map_err(|e| WebsocketClientError::ConnectionError(e.to_string()))?;
+        }
 
         // Wait response with timeout
         match tokio::time::timeout(self.response_timeout, async { response_rx.recv().await }).await
         {
             Ok(Some(Ok(response))) => response.content.into_result(),
-            Ok(Some(Err(e))) => {
-                // bail!("Received error: {e}")
-                Err(WebsocketClientError::RemoteError(e.to_string()).into())
-            }
-            Ok(None) => {
-                Err(WebsocketClientError::NoResponse.into())
-            }
+            Ok(Some(Err(e))) => Err(WebsocketClientError::RemoteError(e.to_string()).into()),
+            Ok(None) => Err(WebsocketClientError::NoResponse.into()),
             Err(_) => {
                 // Remove request from pending due to timeout
                 let mut pending = self.pending_requests.lock().await;

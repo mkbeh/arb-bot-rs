@@ -30,6 +30,7 @@ pub struct Settings {
     #[serde(with = "rust_decimal::serde::float")]
     pub fee_percent: Decimal,
     pub error_timeout: u64,
+    pub order_lifetime: u64,
     pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_profit_qty: Decimal,

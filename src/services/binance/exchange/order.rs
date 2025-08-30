@@ -67,12 +67,20 @@ pub struct OrderBuilder {
     check_interval: Duration,
 }
 
+macro_rules! record_message {
+    ($msg:ident, $storage:ident) => {
+        if let Ok(msg) = $msg {
+            $storage.update(msg);
+        }
+    };
+}
+
 impl OrderBuilder {
     pub fn new(market_depth_limit: usize, fee_percent: Decimal) -> Self {
         Self {
             market_depth_limit,
             fee_percent,
-            check_interval: Duration::from_millis(1),
+            check_interval: Duration::from_millis(5),
         }
     }
 
@@ -97,43 +105,39 @@ impl OrderBuilder {
                         .collect_tuple()
                         .expect("Invalid chain length");
 
+                    let mut check_interval = tokio::time::interval(this.check_interval);
                     let mut storage = BookTickerStore::new();
                     let mut last_prices = vec![];
-                    let mut check_interval = tokio::time::interval(this.check_interval);
 
                     loop {
                         tokio::select! {
+                            msg = rx1.recv() => record_message!(msg, storage),
+                            msg = rx2.recv() => record_message!(msg, storage),
+                            msg = rx3.recv() => record_message!(msg, storage),
+
                             _ = check_interval.tick() => {
-                                // Receive messages from channels
-                                let channel_msgs = [
-                                    rx1.try_recv().ok(),
-                                    rx2.try_recv().ok(),
-                                    rx3.try_recv().ok(),
-                                ];
-
-                                // Update storage
-                                channel_msgs.iter().
-                                    flatten().
-                                    for_each(|msg| storage.update(msg.clone()));
-
                                 // Checking availability of all data in storage
                                 if storage.len() < chain.len() {
                                     continue;
                                 }
 
-                                // Use messages from channels if there are any, otherwise from storage
-                                let messages: Vec<BookTickerEvent> = chain.iter().enumerate().map(|(i, symbol)| {
-                                    channel_msgs[i].clone().unwrap_or_else(|| {
-                                        storage.get(symbol.symbol.symbol.as_str()).unwrap().clone()
-                                    })
-                                }).collect();
+                                let order_book: Vec<BookTickerEvent> = chain.
+                                    iter().
+                                    map(|symbol| storage.get(symbol.symbol.symbol.as_str()).unwrap()).
+                                    cloned().
+                                    collect();
 
                                 // Check that the prices have changed
-                                let prices = chain.iter().zip(messages.iter()).map(|(symbol, message)| {                 match symbol.order {
-                                    SymbolOrder::Asc => message.best_bid_price,
-                                    SymbolOrder::Desc => message.best_ask_price,
-                                }
-                                }).collect::<Vec<Decimal>>();
+                                let prices = chain.
+                                    iter().
+                                    zip(order_book.iter()).
+                                    map(|(symbol, message)| {
+                                        match symbol.order {
+                                            SymbolOrder::Asc => message.best_bid_price,
+                                            SymbolOrder::Desc => message.best_ask_price,
+                                        }
+                                    }).
+                                    collect::<Vec<Decimal>>();
 
                                 if last_prices == prices {
                                     continue;
@@ -141,7 +145,15 @@ impl OrderBuilder {
                                     last_prices = prices;
                                 }
 
-                                if let Err(e) = this.process_chain(&base_assets, &chain, &messages).await {
+                                if let Err(e) = Self::process_chain(
+                                    &base_assets,
+                                    &chain,
+                                    &order_book,
+                                    this.market_depth_limit,
+                                    this.fee_percent,
+                                )
+                                .await
+                                {
                                     error!(error = ?e, "Error during process arbitrage");
                                 }
                             }
@@ -180,10 +192,11 @@ impl OrderBuilder {
 
     /// Build orders info and calculate profit.
     async fn process_chain(
-        &self,
         base_assets: &[Asset],
         chain: &[ChainSymbol; 3],
         order_book: &[BookTickerEvent],
+        market_depth_limit: usize,
+        fee_percent: Decimal,
     ) -> anyhow::Result<()> {
         let mut order_symbols = vec![];
 
@@ -216,7 +229,7 @@ impl OrderBuilder {
             order_symbols.push(order_symbol);
         }
 
-        let orders = self.calculate_chain_profit(&order_symbols);
+        let orders = Self::calculate_chain_profit(&order_symbols, market_depth_limit, fee_percent);
         if orders.is_empty() {
             return Ok(());
         }
@@ -227,55 +240,25 @@ impl OrderBuilder {
             orders,
         };
 
-        if let Err(e) = ORDERS_CHANNEL.tx.try_send(orders_chain) {
+        if let Err(e) = ORDERS_CHANNEL.tx.send(orders_chain) {
             error!(error = ?e, "Failed to send chain to channel");
         }
 
         Ok(())
     }
 
-    fn calculate_chain_profit(&self, order_symbols: &[OrderSymbol]) -> Vec<Order> {
-        // Recalculate quantities of orders. First order in chain always skip, because operate
-        // with a max order quantity value.
-        let recalculate_orders_qty_fn = |orders: &mut [PreOrder], order: usize| {
-            let orders_count = orders.len();
-            let mut count = 1;
-
-            while count <= order {
-                let order_a_idx = orders_count - count - 1;
-                let order_b_idx = orders_count - count;
-
-                let order_a = &orders[order_a_idx];
-                let order_b = &orders[order_b_idx];
-
-                if order_a.quote_qty == order_b.base_qty {
-                    return;
-                }
-
-                let base_precision = match order_a.symbol_order {
-                    SymbolOrder::Asc => order_a.base_precision,
-                    SymbolOrder::Desc => order_a.quote_precision,
-                };
-
-                let base_qty = match order_a.symbol_order {
-                    SymbolOrder::Asc => order_b.base_qty / order_a.price,
-                    SymbolOrder::Desc => order_b.base_qty * order_a.price,
-                };
-
-                {
-                    orders[order_a_idx].quote_qty = order_b.base_qty;
-                    orders[order_a_idx].base_qty = base_qty.trunc_with_scale(base_precision);
-                }
-
-                count += 1;
-            }
-        };
-
-        let max_order_qty = get_max_order_qty(order_symbols.first().unwrap());
+    fn calculate_chain_profit(
+        order_symbols: &[OrderSymbol],
+        market_depth_limit: usize,
+        fee_percent: Decimal,
+    ) -> Vec<Order> {
         let mut orders: Vec<PreOrder> = vec![];
-        let mut depth_limit = 0;
+        let mut start_depth_limit = 0;
 
-        while depth_limit < self.market_depth_limit {
+        // Extract max order qty from first symbol in the chain.
+        let max_order_qty = get_max_order_qty(order_symbols.first().unwrap());
+
+        while start_depth_limit < market_depth_limit {
             for (i, order_symbol) in order_symbols.iter().enumerate() {
                 // Define list of orders according to the order of assets in symbol.
                 let order_units: &Vec<OrderBookUnit> = match order_symbol.symbol_order {
@@ -301,7 +284,7 @@ impl OrderBuilder {
                 let mut price = Decimal::zero();
                 let mut base_qty = Decimal::zero();
 
-                for order_unit in order_units.iter().take(depth_limit + 1) {
+                for order_unit in order_units.iter().take(start_depth_limit + 1) {
                     let qty = match order_symbol.symbol_order {
                         SymbolOrder::Asc => order_unit.qty,
                         SymbolOrder::Desc => (order_unit.qty * order_unit.price)
@@ -341,7 +324,7 @@ impl OrderBuilder {
                 // qty for 2nd and 3rd symbol is previous symbol quote qty, it is necessary to
                 // recalculate the qty of previous orders.
                 if i != 0 && base_qty < max_order_qty {
-                    recalculate_orders_qty_fn(&mut orders, i);
+                    Self::recalculate_orders_qty(&mut orders, i);
                 }
             }
 
@@ -351,7 +334,7 @@ impl OrderBuilder {
                 break;
             }
 
-            depth_limit += 1;
+            start_depth_limit += 1;
         }
 
         // Round and recalculate quantities according to binance api rules.
@@ -411,7 +394,7 @@ impl OrderBuilder {
             }
 
             // Check profit.
-            let fee = calculate_fee(tmp_orders.first().unwrap().base_qty, self.fee_percent);
+            let fee = calculate_fee(tmp_orders.first().unwrap().base_qty, fee_percent);
 
             // Difference between the outbound volume of the last symbol in chain and the inbound
             // volume of the first symbol in chain.
@@ -430,6 +413,42 @@ impl OrderBuilder {
             profit_orders[idx..].to_vec()
         } else {
             profit_orders
+        }
+    }
+
+    /// Recalculate quantities of orders. First order in chain always skip,
+    /// because operate with a max order quantity value.
+    fn recalculate_orders_qty(orders: &mut Vec<PreOrder>, order_index: usize) {
+        let orders_count = orders.len();
+        let mut count = 1;
+
+        while count <= order_index {
+            let order_a_idx = orders_count - count - 1;
+            let order_b_idx = orders_count - count;
+
+            let order_a = &orders[order_a_idx];
+            let order_b = &orders[order_b_idx];
+
+            if order_a.quote_qty == order_b.base_qty {
+                return;
+            }
+
+            let base_precision = match order_a.symbol_order {
+                SymbolOrder::Asc => order_a.base_precision,
+                SymbolOrder::Desc => order_a.quote_precision,
+            };
+
+            let base_qty = match order_a.symbol_order {
+                SymbolOrder::Asc => order_b.base_qty / order_a.price,
+                SymbolOrder::Desc => order_b.base_qty * order_a.price,
+            };
+
+            {
+                orders[order_a_idx].quote_qty = order_b.base_qty;
+                orders[order_a_idx].base_qty = base_qty.trunc_with_scale(base_precision);
+            }
+
+            count += 1;
         }
     }
 }
@@ -690,8 +709,8 @@ fn calculate_fee(qty: Decimal, fee_percent: Decimal) -> Decimal {
 //             .with_body(payload_ethbtc)
 //             .create_async();
 //
-//         let (mock_order_book_ethbtc, mock_order_book_ltcbtc, mock_order_book_ltceth) = futures::join!(
-//             mock_order_book_btcusdt,
+//         let (mock_order_book_ethbtc, mock_order_book_ltcbtc, mock_order_book_ltceth) =
+// futures::join!(             mock_order_book_btcusdt,
 //             mock_order_book_ethusdt,
 //             mock_order_book_ethbtc
 //         );
@@ -1176,8 +1195,8 @@ fn calculate_fee(qty: Decimal, fee_percent: Decimal) -> Decimal {
 //         Ok(())
 //     }
 //
-//     // Case #3: the 2nd pair of the 1st depth does not have enough volume to reach the volume limit.
-//     // (order - ASC/DESC/ASC)
+//     // Case #3: the 2nd pair of the 1st depth does not have enough volume to reach the volume
+// limit.     // (order - ASC/DESC/ASC)
 //     #[tokio::test]
 //     async fn test_calculate_chain_profit_3() -> anyhow::Result<()> {
 //         let market_api = match Binance::new(binance_api::Config::default()) {
@@ -1353,8 +1372,8 @@ fn calculate_fee(qty: Decimal, fee_percent: Decimal) -> Decimal {
 //         Ok(())
 //     }
 //
-//     // Case #3: the 3rd pair of the 1st depth does not have enough volume to reach the volume limit.
-//     // (order - ASC/DESC/ASC)
+//     // Case #3: the 3rd pair of the 1st depth does not have enough volume to reach the volume
+// limit.     // (order - ASC/DESC/ASC)
 //     #[tokio::test]
 //     async fn test_calculate_chain_profit_4() -> anyhow::Result<()> {
 //         let market_api = match Binance::new(binance_api::Config::default()) {
