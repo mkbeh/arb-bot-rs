@@ -1,11 +1,13 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::libs::binance_api::enums::{
-    NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, SymbolStatus,
-    TimeInForce,
+use crate::libs::binance_api::{
+    Filters,
+    enums::{
+        NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, SymbolStatus,
+        TimeInForce,
+    },
 };
-use crate::libs::binance_api::Filters;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

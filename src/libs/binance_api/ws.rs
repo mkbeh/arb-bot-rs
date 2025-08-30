@@ -31,6 +31,10 @@ use crate::libs::binance_api::{
 };
 
 type HmacSha256 = Hmac<Sha256>;
+type WebSocketStreamType = WebSocketStream<MaybeTlsStream<TcpStream>>;
+type WebSocketSink = SplitSink<WebSocketStreamType, Message>;
+type WebSocketStreamSplit = SplitStream<WebSocketStreamType>;
+type PendingRequests = HashMap<String, mpsc::Sender<anyhow::Result<WebsocketResponse<Value>>>>;
 
 #[derive(Clone)]
 pub struct ConnectConfig {
@@ -41,19 +45,17 @@ pub struct ConnectConfig {
 
 #[derive(Clone)]
 pub struct WebsocketWriter {
-    writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
+    writer: Arc<Mutex<WebSocketSink>>,
     api_key: String,
     secret_key: String,
     response_timeout: Duration,
-    pending_requests:
-        Arc<Mutex<HashMap<String, mpsc::Sender<anyhow::Result<WebsocketResponse<Value>>>>>>,
+    pending_requests: Arc<Mutex<PendingRequests>>,
 }
 
 pub struct WebsocketReader {
-    writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
-    reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    pending_requests:
-        Arc<Mutex<HashMap<String, mpsc::Sender<anyhow::Result<WebsocketResponse<Value>>>>>>,
+    writer: Arc<Mutex<WebSocketSink>>,
+    reader: WebSocketStreamSplit,
+    pending_requests: Arc<Mutex<PendingRequests>>,
 }
 
 pub async fn connect_ws(conf: ConnectConfig) -> anyhow::Result<(WebsocketWriter, WebsocketReader)> {
@@ -298,6 +300,7 @@ impl WebsocketReader {
             }
             Err(e) => {
                 error!(error = ?e, response = ?text, "Failed to parse message");
+                bail!("Failed to parse message: {:?}", text);
             }
         }
         Ok(())
@@ -379,6 +382,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct WebsocketResponse<T> {
     id: String,

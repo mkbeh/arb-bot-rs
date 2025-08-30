@@ -97,6 +97,7 @@ impl OrderBuilder {
                 let this = self.clone();
                 let chain = chain.clone();
                 let base_assets = base_assets.clone();
+                let token = token.clone();
 
                 async move {
                     let (mut rx1, mut rx2, mut rx3) = chain
@@ -111,6 +112,10 @@ impl OrderBuilder {
 
                     loop {
                         tokio::select! {
+                            _ = token.cancelled() => {
+                                break;
+                            }
+
                             msg = rx1.recv() => record_message!(msg, storage),
                             msg = rx2.recv() => record_message!(msg, storage),
                             msg = rx3.recv() => record_message!(msg, storage),
@@ -158,7 +163,8 @@ impl OrderBuilder {
                                 }
                             }
                         }
-                    }
+                    };
+                    Ok(())
                 }
             });
         }
@@ -180,7 +186,8 @@ impl OrderBuilder {
                         break;
                     }
                     _ => {
-                        break;
+                        token.cancel();
+                        continue;
                     },
                 }
             }
@@ -418,7 +425,7 @@ impl OrderBuilder {
 
     /// Recalculate quantities of orders. First order in chain always skip,
     /// because operate with a max order quantity value.
-    fn recalculate_orders_qty(orders: &mut Vec<PreOrder>, order_index: usize) {
+    fn recalculate_orders_qty(orders: &mut [PreOrder], order_index: usize) {
         let orders_count = orders.len();
         let mut count = 1;
 

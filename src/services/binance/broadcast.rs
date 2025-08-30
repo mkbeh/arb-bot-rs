@@ -7,7 +7,6 @@ use crate::services::binance::storage::BookTickerEvent;
 
 pub static TICKER_BROADCAST: LazyLock<TickerBroadcast> = LazyLock::new(TickerBroadcast::new);
 
-
 pub struct TickerBroadcast {
     channels: Arc<DashMap<String, broadcast::Sender<BookTickerEvent>>>,
 }

@@ -118,7 +118,8 @@ impl ExchangeService for BinanceExchangeService {
                         break;
                     }
                     _ => {
-                        break; // all tasks complete
+                        token.cancel();
+                        continue;
                     }
                 }
             }

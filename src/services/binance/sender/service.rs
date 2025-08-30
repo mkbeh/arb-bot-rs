@@ -43,8 +43,8 @@ impl BinanceSender {
         Self {
             send_orders: config.send_orders,
             order_lifetime: Duration::from_secs(config.order_lifetime_secs),
-            process_chain_interval: Duration::from_secs(1 * 60),
-            poll_interval: Duration::from_secs(1),
+            process_chain_interval: Duration::from_secs(60),
+            poll_interval: Duration::from_secs(5),
             ws_url: config.ws_url,
             api_token: config.api_token,
             api_secret_key: config.api_secret_key,
@@ -62,9 +62,15 @@ impl OrderSenderService for BinanceSender {
         ))
         .await?;
 
+        // Create a channel to track messages handler completion
+        let (message_done_tx, mut message_done_rx) = tokio::sync::oneshot::channel();
+
         let message_handler = tokio::spawn({
             let token = token.clone();
-            async move { ws_reader.handle_messages(token).await }
+            async move {
+                let result = ws_reader.handle_messages(token).await;
+                let _ = message_done_tx.send(result);
+            }
         });
 
         let mut orders_rx = ORDERS_CHANNEL.rx.lock().await;
@@ -75,12 +81,15 @@ impl OrderSenderService for BinanceSender {
                 _ = token.cancelled() => {
                     break;
                 }
+
                 Ok(chain) = orders_rx.recv() => {
                     info!(chain = ?chain, send_orders = ?self.send_orders, "received chain orders");
 
-                    if !self.send_orders
-                        || last_chain_exec_ts.is_some_and(|t| t.elapsed() < self.process_chain_interval)
-                    {
+                    if !self.send_orders {
+                        continue;
+                    }
+
+                    if last_chain_exec_ts.is_some_and(|t| t.elapsed() < self.process_chain_interval) {
                         continue;
                     }
 
@@ -93,10 +102,26 @@ impl OrderSenderService for BinanceSender {
 
                     last_chain_exec_ts = Some(Instant::now());
                 }
+
+                result = &mut message_done_rx => match result {
+                    Ok(Err(e)) => {
+                        error!("Message handler failed: {}", e);
+                        break;
+                    }
+                    Err(_) => {
+                        error!("Message handler channel closed unexpectedly");
+                        break;
+                    }
+                    _ => {
+                        break
+                    }
+                }
             }
         }
 
+        message_handler.abort();
         let _ = message_handler.await;
+
         Ok(())
     }
 }
@@ -152,19 +177,13 @@ impl BinanceSender {
         };
 
         // Check order status
-        let query_order_request = QueryOrderRequest {
-            symbol: order.symbol.to_owned(),
-            order_id: Some(order_id),
-            orig_client_order_id: None,
-            recv_window: None,
-            timestamp: None,
-            api_key: None,
-            signature: None,
-        };
-
         let start_time = Instant::now();
 
         loop {
+            if start_time.elapsed() >= self.order_lifetime {
+                bail!("Timed out trying to poll order status");
+            }
+
             if !REQUEST_WEIGHT
                 .lock()
                 .await
@@ -174,14 +193,23 @@ impl BinanceSender {
                 continue;
             }
 
+            let query_order_request = QueryOrderRequest {
+                symbol: order.symbol.to_owned(),
+                order_id: Some(order_id),
+                orig_client_order_id: None,
+                recv_window: None,
+                timestamp: None,
+                api_key: None,
+                signature: None,
+            };
+
             match ws_writer.query_order(query_order_request.clone()).await {
-                Ok(response) => match response.status {
-                    OrderStatus::Filled => {
+                Ok(response) => {
+                    if response.status == OrderStatus::Filled {
                         info!(response = ?response, "Order filled successfully");
                         break;
                     }
-                    _ => {}
-                },
+                }
                 Err(e) => {
                     if e.downcast_ref::<WebsocketClientError>()
                         .map(|e| matches!(e, WebsocketClientError::Timeout(_)))
@@ -191,11 +219,6 @@ impl BinanceSender {
                     }
                     bail!("Failed to query order status: {e}");
                 }
-            }
-
-            if start_time.elapsed() >= self.order_lifetime {
-                // todo: sell everything by market price
-                bail!("Timed out trying to poll order status");
             }
 
             tokio::time::sleep(self.poll_interval).await;

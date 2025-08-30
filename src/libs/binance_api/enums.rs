@@ -1,4 +1,5 @@
 use std::fmt::Display;
+
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
