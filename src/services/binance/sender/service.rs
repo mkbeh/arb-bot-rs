@@ -78,11 +78,9 @@ impl OrderSenderService for BinanceSender {
                 Ok(chain) = orders_rx.recv() => {
                     info!(chain = ?chain, send_orders = ?self.send_orders, "received chain orders");
 
-                    if last_chain_exec_ts.is_some_and(|t| t.elapsed() < self.process_chain_interval) {
-                        continue;
-                    }
-
-                    if !self.send_orders {
+                    if !self.send_orders
+                        || last_chain_exec_ts.is_some_and(|t| t.elapsed() < self.process_chain_interval)
+                    {
                         continue;
                     }
 
