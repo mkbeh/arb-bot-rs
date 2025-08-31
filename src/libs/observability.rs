@@ -12,7 +12,11 @@ pub fn setup_opentelemetry(name: &'static str) {
 
     let filter_fmt = EnvFilter::new(fmt_log_level.clone())
         .add_directive(format!("{name}={fmt_log_level}").parse().unwrap())
+        .add_directive("hyper=error".parse().unwrap())
+        .add_directive("h2=error".parse().unwrap())
         .add_directive("reqwest=error".parse().unwrap())
+        .add_directive("tower_http=error".parse().unwrap())
+        .add_directive("axum::rejection=trace".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap());
     let fmt_layer = tracing_subscriber::fmt::layer()
         .compact()

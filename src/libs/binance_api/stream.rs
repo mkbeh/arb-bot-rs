@@ -1,5 +1,8 @@
 use anyhow::bail;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{
+    SinkExt, StreamExt,
+    stream::{SplitSink, SplitStream},
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::net::TcpStream;
@@ -11,26 +14,32 @@ use url::Url;
 static STREAM_PREFIX: &str = "stream";
 static WS_PREFIX: &str = "ws";
 
-pub struct WebsocketStream<'a, WebsocketEvent> {
+type EventCallback<'a, T> = Box<dyn FnMut(T) -> anyhow::Result<()> + 'a + Send>;
+type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
+
+pub struct WebsocketStream<'a, Event> {
     ws_url: String,
-    socket: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    callback: Option<Box<dyn FnMut(WebsocketEvent) -> anyhow::Result<()> + 'a + Send>>,
+    writer: Option<Writer>,
+    reader: Option<Reader>,
+    callback: Option<EventCallback<'a, Event>>,
 }
 
-impl<'a, WebsocketEvent: DeserializeOwned> WebsocketStream<'a, WebsocketEvent> {
+impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
     pub fn new(ws_url: String) -> Self {
         Self {
             ws_url,
-            socket: None,
+            writer: None,
+            reader: None,
             callback: None,
         }
     }
 
-    pub fn with_callback<Callback>(mut self, cb: Callback) -> Self
+    pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
     where
-        Callback: FnMut(WebsocketEvent) -> anyhow::Result<()> + 'a + Send,
+        Callback: FnMut(Event) -> anyhow::Result<()> + 'a + Send,
     {
-        self.callback = Some(Box::new(cb));
+        self.callback = Some(Box::new(callback));
         self
     }
 
@@ -49,61 +58,87 @@ impl<'a, WebsocketEvent: DeserializeOwned> WebsocketStream<'a, WebsocketEvent> {
     }
 
     pub async fn disconnect(&mut self) {
-        if let Some(ref mut stream) = self.socket {
-            let _ = stream.close(None).await;
-        } else {
-            debug!("Websocket stream already disconnected");
+        if let Some(ref mut writer) = self.writer {
+            let _ = writer.close().await;
         }
+
+        self.writer = None;
+        self.reader = None;
     }
 
     pub async fn handle_messages(&mut self, token: CancellationToken) -> anyhow::Result<()> {
-        if let Some(ref mut stream) = self.socket {
-            let (mut writer, mut reader) = stream.split();
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        break;
-                    }
-                    Some(result) = reader.next() => {
-                        match result {
-                            Ok(Message::Text(message)) => {
-                                if let Some(ref mut callback) = self.callback {
-                                    let event = serde_json::from_str(message.as_str())?;
-                                    callback(event)?;
-                                }
-                            }
-                            Ok(Message::Ping(data)) => {
-                                if let Err(e) = writer.send(Message::Pong(data)).await {
-                                    error!("Failed to send pong: {:?}", e);
-                                    break;
-                                }
-                            }
-                            Ok(Message::Close(_)) => {
-                                debug!("Websocket stream closed");
+        if !self.is_connected() {
+            bail!("Websocket stream is not connected");
+        }
+
+        let writer = self.writer.as_mut().unwrap();
+        let reader = self.reader.as_mut().unwrap();
+
+        loop {
+            tokio::select! {
+                _ = token.cancelled() => {
+                    break;
+                }
+                Some(result) = reader.next() => {
+                    match result {
+                        Ok(Message::Text(message)) => {
+                            Self::handle_text_message(&mut self.callback, &message)?
+                        }
+                        Ok(Message::Ping(data)) => {
+                            if let Err(e) = writer.send(Message::Pong(data)).await {
+                                error!("Failed to send pong: {:?}", e);
                                 break;
                             }
-                            Err(e) => {
-                                error!("Websocket stream error: {:?}", e.to_string());
-                                break;
-                            }
-                            _ => {}
-                    }
+                        }
+                        Ok(Message::Close(_)) => {
+                            debug!("Websocket stream closed");
+                            break;
+                        }
+                        Err(e) => {
+                            error!("Websocket stream error: {:?}", e.to_string());
+                            break;
+                        }
+                        _ => {}
                     }
                 }
             }
         }
+        Ok(())
+    }
 
+    fn handle_text_message(
+        callback: &mut Option<EventCallback<'a, Event>>,
+        text: &str,
+    ) -> anyhow::Result<()> {
+        if let Some(callback) = callback {
+            match serde_json::from_str::<Event>(text) {
+                Ok(event) => {
+                    if let Err(e) = callback(event) {
+                        bail!("Failed to call callback: {e} - {:?}", text);
+                    };
+                }
+                Err(e) => {
+                    bail!("Failed to parse websocket event: {e} - {:?}", text);
+                }
+            }
+        };
         Ok(())
     }
 
     async fn connect_ws(&mut self, url: Url) -> anyhow::Result<()> {
         match connect_async(url.as_str()).await {
             Ok((stream, _)) => {
-                self.socket = Some(stream);
+                let (writer, reader) = stream.split();
+                self.writer = Some(writer);
+                self.reader = Some(reader);
                 Ok(())
             }
             Err(e) => bail!("Received error during handshake: {}", e),
         }
+    }
+
+    pub fn is_connected(&self) -> bool {
+        self.writer.is_some() && self.reader.is_some()
     }
 }
 
@@ -132,8 +167,8 @@ pub struct StreamEvent<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Events {
-    BookTicker(BookTickerEvent),
-    PartialBookDepth(OrderBook),
+    BookTicker(Box<BookTickerEvent>),
+    PartialBookDepth(Box<OrderBook>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

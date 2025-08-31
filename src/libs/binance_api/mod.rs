@@ -5,7 +5,7 @@ mod enums;
 pub mod general;
 pub mod market;
 pub mod models;
-pub mod streams;
+pub mod stream;
 pub mod trade;
 mod utils;
 pub mod ws;

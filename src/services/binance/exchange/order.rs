@@ -31,9 +31,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct OrderSymbol<'a> {
     pub symbol: String,
-    pub base_asset: String,
     pub base_asset_precision: u32,
-    pub quote_asset: String,
     pub quote_precision: u32,
     pub symbol_order: SymbolOrder,
     pub min_profit_qty: Option<Decimal>,
@@ -223,9 +221,7 @@ impl OrderBuilder {
 
             let order_symbol = OrderSymbol {
                 symbol: chain_symbol.symbol.symbol.clone(),
-                base_asset: chain_symbol.symbol.base_asset.clone(),
                 base_asset_precision: chain_symbol.symbol.base_asset_precision,
-                quote_asset: chain_symbol.symbol.quote_asset.clone(),
                 quote_precision: chain_symbol.symbol.quote_precision,
                 symbol_order: chain_symbol.order,
                 min_profit_qty,
