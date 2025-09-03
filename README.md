@@ -29,13 +29,13 @@ List of supported cryptocurrency exchanges.
 #### Level 1 - Context
 
 * **Core System:** Arbitrage Bot
-* **External Dependencies:** Binance Exchange (REST+WebSocket), Configuration File
+* **External Dependencies:** Cryptocurrency Exchange (REST+WebSocket), Configuration File
 * **Primary Flow:** Real-time market data → Arbitrage detection → Order execution
 
 #### Level 2 - Containers
 
 * **Main Process:** Orchestrates all components
-* **Binance API Client:** Handles REST API communications
+* **Cryptocurrency API Client:** Handles REST API communications
 * **WebSocket Client:** Manages real-time data streams
 * **Config Manager:** Processes configuration settings
 * **HTTP Server:** Provides health monitoring endpoints
@@ -59,7 +59,7 @@ List of supported cryptocurrency exchanges.
 
 * **Market Data:** WebSocket → Ticker Builder → Chain Builder
 * **Arbitrage Detection:** Chain analysis → Profit validation → Order generation
-* **Order Execution:** Orders Channel → Sender Service → Binance API
+* **Order Execution:** Orders Channel → Sender Service → Cryptocurrency Exchange API
 * **Monitoring:** Continuous status checks → Performance metrics
 
 ### 🛡️ Quality Attributes
@@ -72,18 +72,15 @@ List of supported cryptocurrency exchanges.
 ### 🎪 Deployment
 
 * **Single Container:** Docker-based deployment
-* **External Dependencies:** Binance API endpoints
+* **External Dependencies:** Cryptocurrency Exchange API endpoints
 * **Monitoring:** Integrated health checks and metrics
-
-This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
-comprehensive monitoring capabilities while maintaining modularity and scalability.
 
 ### Context Diagram (Level 1)
 
 ```mermaid
 flowchart TD
     subgraph ExternalSystems[External Systems]
-        Binance[Binance Exchange<br/>REST API & WebSocket]
+        CryptoExchange[Crypto Exchange<br/>REST API & WebSocket]
         ConfigFile[Configuration File<br/>config.toml]
     end
 
@@ -91,13 +88,13 @@ flowchart TD
         ArbitrageBot[Arbitrage Bot]
     end
 
-    ArbitrageBot -->|REST API requests| Binance
-    ArbitrageBot -->|WebSocket connections| Binance
+    ArbitrageBot -->|REST API requests| CryptoExchange
+    ArbitrageBot -->|WebSocket connections| CryptoExchange
     ArbitrageBot -->|Reads configuration| ConfigFile
     style ArbBotRS fill: #e1f5fe, color: #000000
     style ExternalSystems fill: #f3e5f5, color: #000000
     style ArbitrageBot fill: #c8e6c9, color: #000000
-    style Binance fill: #ffcdd2, color: #000000
+    style CryptoExchange fill: #ffcdd2, color: #000000
     style ConfigFile fill: #d7ccc8, color: #000000
 ```
 
@@ -107,30 +104,30 @@ flowchart TD
 flowchart TB
     subgraph ArbBotRS[Bot]
         MainProcess[Main Process]
-        BinanceAPIClient[Binance API Client<br/>HTTP/REST client]
+        CryptoAPIClient[Crypto Exchange API Client<br/>HTTP/REST client]
         WSClient[WebSocket Client]
         ConfigManager[Config Manager]
         HTTPServer[HTTP Server<br/>Monitoring server]
-        MainProcess -->|manages| BinanceAPIClient
+        MainProcess -->|manages| CryptoAPIClient
         MainProcess -->|manages| WSClient
         MainProcess -->|uses| ConfigManager
         MainProcess -->|starts| HTTPServer
     end
 
     subgraph ExternalSystems[External Systems]
-        Binance[Binance Exchange]
+        Crypto[Crypto Exchange]
         ConfigFile[config.toml file]
     end
 
-    BinanceAPIClient -->|REST API| Binance
-    WSClient -->|WebSocket| Binance
+    CryptoAPIClient -->|REST API| Crypto
+    WSClient -->|WebSocket| Crypto
     ConfigManager -->|reads| ConfigFile
     style MainProcess fill: #bbdefb, color: #000000
-    style BinanceAPIClient fill: #c8e6c9, color: #000000
+    style CryptoAPIClient fill: #c8e6c9, color: #000000
     style WSClient fill: #ffecb3, color: #000000
     style ConfigManager fill: #ffcdd2, color: #000000
     style HTTPServer fill: #d7ccc8, color: #000000
-    style Binance fill: #e1f5fe, color: #000000
+    style Crypto fill: #e1f5fe, color: #000000
     style ConfigFile fill: #f3e5f5, color: #000000
 ```
 
@@ -249,6 +246,9 @@ quadrantChart
     "Tracing": [0.7, 0.3]
     "WebSocket": [0.8, 0.2]
 ```
+
+This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
+comprehensive monitoring capabilities while maintaining modularity and scalability.
 
 ## Installation
 
