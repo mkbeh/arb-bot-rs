@@ -2,7 +2,8 @@
 
 ![GitHub CI](https://github.com/mkbeh/arb-bot-rs/actions/workflows/ci.yml/badge.svg)
 
-Arbitrage bot for cryptocurrency exchanges which uses the triangular arbitrage algorithm.
+Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
+triangular arbitrage opportunities on cryptocurrency exchanges.
 
 Full description of the algorithm used can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
@@ -16,12 +17,66 @@ List of supported cryptocurrency exchanges.
 
 ### Content
 
-* [Project design](#project-design)
+* [System overview](#system-overview)
 * [Installation](#installation)
 * [Usage](#usage)
 * [Translations](#translations)
 
-## Project design
+## System overview
+
+### 📊 Architecture Levels
+
+#### Level 1 - Context
+
+* **Core System:** Arbitrage Bot
+* **External Dependencies:** Binance Exchange (REST+WebSocket), Configuration File
+* **Primary Flow:** Real-time market data → Arbitrage detection → Order execution
+
+#### Level 2 - Containers
+
+* **Main Process:** Orchestrates all components
+* **Binance API Client:** Handles REST API communications
+* **WebSocket Client:** Manages real-time data streams
+* **Config Manager:** Processes configuration settings
+* **HTTP Server:** Provides health monitoring endpoints
+
+#### Level 3 - Components
+
+* **Arbitrage Job:** Core arbitrage detection logic
+* **Order Sender Job:** Order execution management
+* **Exchange Service:** Market data processing
+* **Sender Service:** Risk-managed order execution
+* **Orders Channel:** Pub/Sub communication bus
+
+#### Level 4 - Code (Arbitrage Job)
+
+* **Ticker Builder:** Processes real-time price data
+* **Chain Builder:** Identifies arbitrage chains
+* **Order Builder:** Generates executable orders
+* **Profit Calculator:** Validates profitability
+
+### ⚡ Key Data Flows
+
+* **Market Data:** WebSocket → Ticker Builder → Chain Builder
+* **Arbitrage Detection:** Chain analysis → Profit validation → Order generation
+* **Order Execution:** Orders Channel → Sender Service → Binance API
+* **Monitoring:** Continuous status checks → Performance metrics
+
+### 🛡️ Quality Attributes
+
+* **Performance:** Low-latency real-time processing
+* **Reliability:** Automatic reconnections and error handling
+* **Maintainability:** Modular design with clear separation of concerns
+* **Monitorability:** Comprehensive logging and metrics
+
+### 🎪 Deployment
+
+* **Single Container:** Docker-based deployment
+* **External Dependencies:** Binance API endpoints
+* **Monitoring:** Integrated health checks and metrics
+
+This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
+comprehensive monitoring capabilities while maintaining modularity and scalability.
 
 ### Context Diagram (Level 1)
 
@@ -39,12 +94,11 @@ flowchart TD
     ArbitrageBot -->|REST API requests| Binance
     ArbitrageBot -->|WebSocket connections| Binance
     ArbitrageBot -->|Reads configuration| ConfigFile
-
-    style ArbBotRS fill:#e1f5fe,color:#000000
-    style ExternalSystems fill:#f3e5f5,color:#000000
-    style ArbitrageBot fill:#c8e6c9,color:#000000
-    style Binance fill:#ffcdd2,color:#000000
-    style ConfigFile fill:#d7ccc8,color:#000000
+    style ArbBotRS fill: #e1f5fe, color: #000000
+    style ExternalSystems fill: #f3e5f5, color: #000000
+    style ArbitrageBot fill: #c8e6c9, color: #000000
+    style Binance fill: #ffcdd2, color: #000000
+    style ConfigFile fill: #d7ccc8, color: #000000
 ```
 
 ### Container Diagram (Level 2)
@@ -57,7 +111,6 @@ flowchart TB
         WSClient[WebSocket Client]
         ConfigManager[Config Manager]
         HTTPServer[HTTP Server<br/>Monitoring server]
-
         MainProcess -->|manages| BinanceAPIClient
         MainProcess -->|manages| WSClient
         MainProcess -->|uses| ConfigManager
@@ -72,14 +125,13 @@ flowchart TB
     BinanceAPIClient -->|REST API| Binance
     WSClient -->|WebSocket| Binance
     ConfigManager -->|reads| ConfigFile
-
-    style MainProcess fill:#bbdefb,color:#000000
-    style BinanceAPIClient fill:#c8e6c9,color:#000000
-    style WSClient fill:#ffecb3,color:#000000
-    style ConfigManager fill:#ffcdd2,color:#000000
-    style HTTPServer fill:#d7ccc8,color:#000000
-    style Binance fill:#e1f5fe,color:#000000
-    style ConfigFile fill:#f3e5f5,color:#000000
+    style MainProcess fill: #bbdefb, color: #000000
+    style BinanceAPIClient fill: #c8e6c9, color: #000000
+    style WSClient fill: #ffecb3, color: #000000
+    style ConfigManager fill: #ffcdd2, color: #000000
+    style HTTPServer fill: #d7ccc8, color: #000000
+    style Binance fill: #e1f5fe, color: #000000
+    style ConfigFile fill: #f3e5f5, color: #000000
 ```
 
 ### Component Diagram (Level 3)
@@ -90,7 +142,6 @@ flowchart TB
         Entrypoint[Entrypoint]
         JobScheduler[Job Scheduler]
         ServicesManager[Services Manager]
-
         Entrypoint -->|initializes| JobScheduler
         Entrypoint -->|initializes| ServicesManager
     end
@@ -113,20 +164,18 @@ flowchart TB
     JobScheduler -->|starts| OrderSenderJob
     ServicesManager -->|manages| ExchangeService
     ServicesManager -->|manages| SenderService
-
     ArbitrageJob -->|publishes to| OrdersChannel
     ArbitrageJob -->|uses| ExchangeService
     OrderSenderJob -->|subscribes to| OrdersChannel
     OrderSenderJob -->|uses| SenderService
-
-    style Entrypoint fill:#e1f5fe,color:#000000
-    style ArbitrageJob fill:#c8e6c9,color:#000000
-    style OrderSenderJob fill:#ffecb3,color:#000000
-    style ExchangeService fill:#ffcdd2,color:#000000
-    style SenderService fill:#d1c4e9,color:#000000
-    style OrdersChannel fill:#f3e5f5,color:#000000
-    style JobScheduler fill:#bbdefb,color:#000000
-    style ServicesManager fill:#c8e6c9,color:#000000
+    style Entrypoint fill: #e1f5fe, color: #000000
+    style ArbitrageJob fill: #c8e6c9, color: #000000
+    style OrderSenderJob fill: #ffecb3, color: #000000
+    style ExchangeService fill: #ffcdd2, color: #000000
+    style SenderService fill: #d1c4e9, color: #000000
+    style OrdersChannel fill: #f3e5f5, color: #000000
+    style JobScheduler fill: #bbdefb, color: #000000
+    style ServicesManager fill: #c8e6c9, color: #000000
 ```
 
 ### Arbitrage Job Component Diagram (Level 4)
@@ -137,11 +186,9 @@ flowchart TB
         TickerBuilder[Ticker Builder]
         ChainBuilder[Chain Builder]
         OrderBuilder[Order Builder]
-
         WSStreams[WebSocket Streams]
         SymbolChains[Symbol Chains Generator]
         ProfitCalculator[Profit Calculator]
-
         TickerBuilder -->|uses| WSStreams
         ChainBuilder -->|uses| SymbolChains
         ChainBuilder -->|uses| TickerBuilder
@@ -156,15 +203,14 @@ flowchart TB
 
     WSStreams -->|subscribes to| Broadcast
     OrderBuilder -->|publishes to| OrdersChan
-
-    style TickerBuilder fill:#bbdefb,color:#000000
-    style ChainBuilder fill:#c8e6c9,color:#000000
-    style OrderBuilder fill:#ffecb3,color:#000000
-    style WSStreams fill:#ffcdd2,color:#000000
-    style SymbolChains fill:#d7ccc8,color:#000000
-    style ProfitCalculator fill:#e1f5fe,color:#000000
-    style Broadcast fill:#f3e5f5,color:#000000
-    style OrdersChan fill:#d1c4e9,color:#000000
+    style TickerBuilder fill: #bbdefb, color: #000000
+    style ChainBuilder fill: #c8e6c9, color: #000000
+    style OrderBuilder fill: #ffecb3, color: #000000
+    style WSStreams fill: #ffcdd2, color: #000000
+    style SymbolChains fill: #d7ccc8, color: #000000
+    style ProfitCalculator fill: #e1f5fe, color: #000000
+    style Broadcast fill: #f3e5f5, color: #000000
+    style OrdersChan fill: #d1c4e9, color: #000000
 ```
 
 ### Arbitrage Operation Sequence Diagram
@@ -195,7 +241,6 @@ quadrantChart
     title "Arb Bot RS Technology Stack"
     x-axis "Low-level" --> "High-level"
     y-axis "Infrastructure" --> "Application"
-    
     "Rust": [0.2, 0.8]
     "Tokio": [0.3, 0.7]
     "Reqwest": [0.4, 0.6]
