@@ -71,7 +71,6 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
             bail!("Websocket stream is not connected");
         }
 
-        let writer = self.writer.as_mut().unwrap();
         let reader = self.reader.as_mut().unwrap();
 
         loop {
@@ -85,9 +84,10 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
                             Self::handle_text_message(&mut self.callback, &message)?
                         }
                         Ok(Message::Ping(data)) => {
-                            if let Err(e) = writer.send(Message::Pong(data)).await {
-                                error!("Failed to send pong: {:?}", e);
-                                break;
+                            if let Some(ref mut writer) = self.writer {
+                                if let Err(e) = writer.send(Message::Pong(data)).await {
+                                    error!("Failed to send pong: {:?}", e);
+                                }
                             }
                         }
                         Ok(Message::Close(_)) => {
@@ -103,6 +103,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
                 }
             }
         }
+
         Ok(())
     }
 

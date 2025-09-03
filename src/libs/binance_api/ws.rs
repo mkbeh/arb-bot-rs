@@ -62,7 +62,6 @@ pub async fn connect_ws(conf: ConnectConfig) -> anyhow::Result<(WebsocketWriter,
     let url = Url::parse(conf.ws_url.as_str())?;
     let (ws_stream, _) = connect_async(url.as_str()).await?;
     let (writer, reader) = ws_stream.split();
-
     let pending_requests = Arc::new(Mutex::new(HashMap::new()));
 
     let ws_writer = WebsocketWriter {
@@ -108,7 +107,6 @@ impl WebsocketWriter {
         params.push(("timestamp".to_owned(), timestamp.to_string()));
         params.push(("type".to_owned(), request.order_type.to_string()));
 
-        // Опциональные параметры (в алфавитном порядке)
         if let Some(ref v) = request.iceberg_qty {
             params.push(("icebergQty".to_owned(), v.to_string()));
         }

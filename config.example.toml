@@ -25,6 +25,9 @@ min_profit_qty = 0.1
 # Maximum order quantity limit in USD.
 max_order_qty = 30.0
 
+# Min ticker 24h quantity.
+min_ticker_qty_24h = 500000
+
 [binance-settings]
 
 api_url = "https://api.binance.com"
@@ -50,60 +53,71 @@ market_depth_limit = 1
 asset = "BTC"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "BTCUSDT"
 
 [[binance-settings.assets]]
 asset = "ETH"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "ETHUSDT"
 
 [[binance-settings.assets]]
 asset = "LTC"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "LTCUSDT"
 
 [[binance-settings.assets]]
 asset = "BNB"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "BNBUSDT"
 
 [[binance-settings.assets]]
 asset = "USDT"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 
 [[binance-settings.assets]]
 asset = "USDC"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 
 [[binance-settings.assets]]
 asset = "FDUSD"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 
 [[binance-settings.assets]]
 asset = "EUR"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "EURUSDT"
 
 [[binance-settings.assets]]
 asset = "TRY"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "USDTTRY"
 
 [[binance-settings.assets]]
 asset = "BRL"
 min_profit_qty = 0
 max_order_qty = 0
+min_ticker_qty_24h = 0
 symbol = "USDTBRL"
 
 [[binance-settings.assets]]
 asset = "JPY"
 min_profit_qty = 400
 max_order_qty = 4500
+min_ticker_qty_24h = 0

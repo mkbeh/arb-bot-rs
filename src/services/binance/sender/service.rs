@@ -93,6 +93,7 @@ impl OrderSenderService for BinanceSender {
                         continue;
                     }
 
+
                     for order in chain.orders.iter() {
                         if let Err(e) = self.process_order(order, &mut ws_writer).await {
                             error!(error = ?e, "Error processing order");

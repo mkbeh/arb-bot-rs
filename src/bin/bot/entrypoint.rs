@@ -88,6 +88,7 @@ impl Entrypoint {
             min_profit_qty: config.settings.min_profit_qty,
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
+            min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
         };
 
         let service = BinanceExchangeService::from_config(service_config);

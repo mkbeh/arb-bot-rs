@@ -44,7 +44,11 @@ impl TickerBuilder {
             .collect::<Vec<_>>();
 
         let mut tasks_set: JoinSet<anyhow::Result<()>> = JoinSet::new();
-        let chunk_size = streams.len() / self.ws_max_connections;
+        let chunk_size = if streams.len() >= self.ws_max_connections {
+            streams.len() / self.ws_max_connections
+        } else {
+            streams.len()
+        };
 
         for chunk in streams.chunks(chunk_size) {
             let ws_url = self.ws_streams_url.clone();

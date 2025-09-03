@@ -36,6 +36,8 @@ pub struct Settings {
     pub min_profit_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub max_order_qty: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub min_ticker_qty_24h: Decimal,
 }
 
 #[derive(Clone, Deserialize)]
@@ -59,6 +61,8 @@ pub struct Asset {
     pub min_profit_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub max_order_qty: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub min_ticker_qty_24h: Decimal,
 }
 
 impl Asset {

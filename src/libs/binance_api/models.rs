@@ -190,8 +190,8 @@ pub struct TickerPriceStats {
     pub quote_volume: Decimal,
     pub open_time: u64,
     pub close_time: u64,
-    pub first_id: u64,
-    pub last_id: u64,
+    pub first_id: i64,
+    pub last_id: i64,
     pub count: u64,
 }
 
