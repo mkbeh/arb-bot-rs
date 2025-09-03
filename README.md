@@ -57,6 +57,7 @@ flowchart TB
         WSClient[WebSocket Client]
         ConfigManager[Config Manager]
         HTTPServer[HTTP Server<br/>Monitoring server]
+
         MainProcess -->|manages| BinanceAPIClient
         MainProcess -->|manages| WSClient
         MainProcess -->|uses| ConfigManager
@@ -71,11 +72,14 @@ flowchart TB
     BinanceAPIClient -->|REST API| Binance
     WSClient -->|WebSocket| Binance
     ConfigManager -->|reads| ConfigFile
-    style MainProcess fill: #bbdefb
-    style BinanceAPIClient fill: #c8e6c9
-    style WSClient fill: #ffecb3
-    style ConfigManager fill: #ffcdd2
-    style HTTPServer fill: #d7ccc8
+
+    style MainProcess fill:#bbdefb,color:#000000
+    style BinanceAPIClient fill:#c8e6c9,color:#000000
+    style WSClient fill:#ffecb3,color:#000000
+    style ConfigManager fill:#ffcdd2,color:#000000
+    style HTTPServer fill:#d7ccc8,color:#000000
+    style Binance fill:#e1f5fe,color:#000000
+    style ConfigFile fill:#f3e5f5,color:#000000
 ```
 
 ### Component Diagram (Level 3)
