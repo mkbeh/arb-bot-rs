@@ -16,10 +16,190 @@ List of supported cryptocurrency exchanges.
 
 ### Content
 
+* [Project design (C4 models)](#project-design-c4-models)
 * [Installation](#installation)
 * [Usage](#usage)
-* [Project design (C4 models)](#project-design-c4-models)
 * [Translations](#translations)
+
+## Project design (C4 Models)
+
+### Context Diagram (Level 1)
+
+```mermaid
+flowchart TD
+    subgraph ExternalSystems[External Systems]
+        Binance[Binance Exchange<br/>REST API & WebSocket]
+        ConfigFile[Configuration File<br/>config.toml]
+    end
+
+    subgraph ArbBotRS[Arb Bot RS System]
+        ArbitrageBot[Arbitrage Bot]
+    end
+
+    ArbitrageBot -->|REST API requests| Binance
+    ArbitrageBot -->|WebSocket connections| Binance
+    ArbitrageBot -->|Reads configuration| ConfigFile
+
+    style ArbBotRS fill:#e1f5fe,color:#000000
+    style ExternalSystems fill:#f3e5f5,color:#000000
+    style ArbitrageBot fill:#c8e6c9,color:#000000
+    style Binance fill:#ffcdd2,color:#000000
+    style ConfigFile fill:#d7ccc8,color:#000000
+```
+
+### Container Diagram (Level 2)
+
+```mermaid
+flowchart TB
+    subgraph ArbBotRS[Arb Bot RS]
+        MainProcess[Main Process]
+        BinanceAPIClient[Binance API Client<br/>HTTP/REST client]
+        WSClient[WebSocket Client]
+        ConfigManager[Config Manager]
+        HTTPServer[HTTP Server<br/>Monitoring server]
+        MainProcess -->|manages| BinanceAPIClient
+        MainProcess -->|manages| WSClient
+        MainProcess -->|uses| ConfigManager
+        MainProcess -->|starts| HTTPServer
+    end
+
+    subgraph ExternalSystems[External Systems]
+        Binance[Binance Exchange]
+        ConfigFile[config.toml file]
+    end
+
+    BinanceAPIClient -->|REST API| Binance
+    WSClient -->|WebSocket| Binance
+    ConfigManager -->|reads| ConfigFile
+    style MainProcess fill: #bbdefb
+    style BinanceAPIClient fill: #c8e6c9
+    style WSClient fill: #ffecb3
+    style ConfigManager fill: #ffcdd2
+    style HTTPServer fill: #d7ccc8
+```
+
+### Component Diagram (Level 3)
+
+```mermaid
+flowchart TB
+    subgraph MainProcess[Main Process]
+        Entrypoint[Entrypoint]
+        JobScheduler[Job Scheduler]
+        ServicesManager[Services Manager]
+
+        Entrypoint -->|initializes| JobScheduler
+        Entrypoint -->|initializes| ServicesManager
+    end
+
+    subgraph Jobs[Jobs]
+        ArbitrageJob[Arbitrage Job]
+        OrderSenderJob[Order Sender Job]
+    end
+
+    subgraph Services[Services]
+        ExchangeService[Exchange Service]
+        SenderService[Sender Service]
+    end
+
+    subgraph Communication[Communication]
+        OrdersChannel[Orders Channel]
+    end
+
+    JobScheduler -->|starts| ArbitrageJob
+    JobScheduler -->|starts| OrderSenderJob
+    ServicesManager -->|manages| ExchangeService
+    ServicesManager -->|manages| SenderService
+
+    ArbitrageJob -->|publishes to| OrdersChannel
+    ArbitrageJob -->|uses| ExchangeService
+    OrderSenderJob -->|subscribes to| OrdersChannel
+    OrderSenderJob -->|uses| SenderService
+
+    style Entrypoint fill:#e1f5fe,color:#000000
+    style ArbitrageJob fill:#c8e6c9,color:#000000
+    style OrderSenderJob fill:#ffecb3,color:#000000
+    style ExchangeService fill:#ffcdd2,color:#000000
+    style SenderService fill:#d1c4e9,color:#000000
+    style OrdersChannel fill:#f3e5f5,color:#000000
+    style JobScheduler fill:#bbdefb,color:#000000
+    style ServicesManager fill:#c8e6c9,color:#000000
+```
+
+### Arbitrage Job Component Diagram (Level 4)
+
+```mermaid
+flowchart TB
+    subgraph ArbitrageJob[Arbitrage Job]
+        TickerBuilder[Ticker Builder]
+        ChainBuilder[Chain Builder]
+        OrderBuilder[Order Builder]
+
+        WSStreams[WebSocket Streams]
+        SymbolChains[Symbol Chains Generator]
+        ProfitCalculator[Profit Calculator]
+
+        TickerBuilder -->|uses| WSStreams
+        ChainBuilder -->|uses| SymbolChains
+        ChainBuilder -->|uses| TickerBuilder
+        OrderBuilder -->|uses| ChainBuilder
+        OrderBuilder -->|uses| ProfitCalculator
+    end
+
+    subgraph External[External Components]
+        Broadcast[Ticker Broadcast]
+        OrdersChan[Orders Channel]
+    end
+
+    WSStreams -->|subscribes to| Broadcast
+    OrderBuilder -->|publishes to| OrdersChan
+
+    style TickerBuilder fill:#bbdefb,color:#000000
+    style ChainBuilder fill:#c8e6c9,color:#000000
+    style OrderBuilder fill:#ffecb3,color:#000000
+    style WSStreams fill:#ffcdd2,color:#000000
+    style SymbolChains fill:#d7ccc8,color:#000000
+    style ProfitCalculator fill:#e1f5fe,color:#000000
+    style Broadcast fill:#f3e5f5,color:#000000
+    style OrdersChan fill:#d1c4e9,color:#000000
+```
+
+### Arbitrage Operation Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant W as WebSocket
+    participant T as Ticker Builder
+    participant C as Chain Builder
+    participant P as Profit Calculator
+    participant O as Order Builder
+    participant S as Order Sender
+    Note over W, S: Arbitrage Opportunity Detection
+    W ->> T: Market data (realtime)
+    T ->> C: Updated tickers
+    C ->> P: Calculate chain profitability
+    P ->> O: Profitable orders
+    Note over W, S: Arbitrage Operation Execution
+    O ->> S: Send orders via channel
+    S ->> S: Monitor order status
+    S ->> S: Check execution
+```
+
+### Technology Stack
+
+```mermaid
+quadrantChart
+    title "Arb Bot RS Technology Stack"
+    x-axis "Low-level" --> "High-level"
+    y-axis "Infrastructure" --> "Application"
+    
+    "Rust": [0.2, 0.8]
+    "Tokio": [0.3, 0.7]
+    "Reqwest": [0.4, 0.6]
+    "Serde": [0.5, 0.5]
+    "Axum": [0.6, 0.4]
+    "Tracing": [0.7, 0.3]
+    "WebSocket": [0.8, 0.2]
+```
 
 ## Installation
 
@@ -71,175 +251,6 @@ Application is relatively well-tested, including both unit tests and integration
 
 ```shell
 cargo test --all
-```
-
-## Project design (C4 Models)
-
-### Context Diagram (Level 1)
-
-```mermaid
-flowchart TD
-    subgraph ExternalSystems[External Systems]
-        Binance[Binance Exchange<br/>REST API & WebSocket]
-        ConfigFile[Configuration File<br/>config.toml]
-    end
-
-    subgraph ArbBotRS[Arb Bot RS System]
-        ArbitrageBot[Arbitrage Bot]
-    end
-
-    ArbitrageBot -->|REST API requests| Binance
-    ArbitrageBot -->|WebSocket connections| Binance
-    ArbitrageBot -->|Reads configuration| ConfigFile
-    style ArbBotRS fill: #e1f5fe
-    style ExternalSystems fill: #f3e5f5
-```
-
-### Container Diagram (Level 2)
-
-```mermaid
-flowchart TB
-    subgraph ArbBotRS[Arb Bot RS]
-        MainProcess[Main Process]
-        BinanceAPIClient[Binance API Client<br/>HTTP/REST client]
-        WSClient[WebSocket Client]
-        ConfigManager[Config Manager]
-        HTTPServer[HTTP Server<br/>Monitoring server]
-        MainProcess -->|manages| BinanceAPIClient
-        MainProcess -->|manages| WSClient
-        MainProcess -->|uses| ConfigManager
-        MainProcess -->|starts| HTTPServer
-    end
-
-    subgraph ExternalSystems[External Systems]
-        Binance[Binance Exchange]
-        ConfigFile[config.toml file]
-    end
-
-    BinanceAPIClient -->|REST API| Binance
-    WSClient -->|WebSocket| Binance
-    ConfigManager -->|reads| ConfigFile
-    style MainProcess fill: #bbdefb
-    style BinanceAPIClient fill: #c8e6c9
-    style WSClient fill: #ffecb3
-    style ConfigManager fill: #ffcdd2
-    style HTTPServer fill: #d7ccc8
-```
-
-### Component Diagram (Level 3)
-
-```mermaid
-flowchart TB
-    subgraph MainProcess[Main Process]
-        Entrypoint[Entrypoint]
-        JobScheduler[Job Scheduler]
-        ServicesManager[Services Manager]
-        Entrypoint -->|initializes| JobScheduler
-        Entrypoint -->|initializes| ServicesManager
-    end
-
-    subgraph Jobs[Jobs]
-        ArbitrageJob[Arbitrage Job]
-        OrderSenderJob[Order Sender Job]
-    end
-
-    subgraph Services[Services]
-        ExchangeService[Exchange Service]
-        SenderService[Sender Service]
-    end
-
-    subgraph Communication[Communication]
-        OrdersChannel[Orders Channel]
-    end
-
-    JobScheduler -->|starts| ArbitrageJob
-    JobScheduler -->|starts| OrderSenderJob
-    ServicesManager -->|manages| ExchangeService
-    ServicesManager -->|manages| SenderService
-    ArbitrageJob -->|publishes to| OrdersChannel
-    ArbitrageJob -->|uses| ExchangeService
-    OrderSenderJob -->|subscribes to| OrdersChannel
-    OrderSenderJob -->|uses| SenderService
-    style Entrypoint fill: #e1f5fe
-    style ArbitrageJob fill: #c8e6c9
-    style OrderSenderJob fill: #ffecb3
-    style ExchangeService fill: #ffcdd2
-    style SenderService fill: #d1c4e9
-    style OrdersChannel fill: #f3e5f5
-```
-
-### Arbitrage Job Component Diagram (Level 4)
-
-```mermaid
-flowchart TB
-    subgraph ArbitrageJob[Arbitrage Job]
-        TickerBuilder[Ticker Builder]
-        ChainBuilder[Chain Builder]
-        OrderBuilder[Order Builder]
-        
-        WSStreams[WebSocket Streams]
-        SymbolChains[Symbol Chains Generator]
-        ProfitCalculator[Profit Calculator]
-        
-        TickerBuilder -->|uses| WSStreams
-        ChainBuilder -->|uses| SymbolChains
-        ChainBuilder -->|uses| TickerBuilder
-        OrderBuilder -->|uses| ChainBuilder
-        OrderBuilder -->|uses| ProfitCalculator
-    end
-
-    subgraph External[External Components]
-        Broadcast[Ticker Broadcast]
-        OrdersChan[Orders Channel]
-    end
-
-    WSStreams -->|subscribes to| Broadcast
-    OrderBuilder -->|publishes to| OrdersChan
-    
-    style TickerBuilder fill:#bbdefb
-    style ChainBuilder fill:#c8e6c9
-    style OrderBuilder fill:#ffecb3
-    style WSStreams fill:#ffcdd2
-    style SymbolChains fill:#d7ccc8
-    style ProfitCalculator fill:#e1f5fe
-```
-
-### Arbitrage Operation Sequence Diagram
-
-```mermaid
-sequenceDiagram
-    participant W as WebSocket
-    participant T as Ticker Builder
-    participant C as Chain Builder
-    participant P as Profit Calculator
-    participant O as Order Builder
-    participant S as Order Sender
-    Note over W, S: Arbitrage Opportunity Detection
-    W ->> T: Market data (realtime)
-    T ->> C: Updated tickers
-    C ->> P: Calculate chain profitability
-    P ->> O: Profitable orders
-    Note over W, S: Arbitrage Operation Execution
-    O ->> S: Send orders via channel
-    S ->> S: Monitor order status
-    S ->> S: Check execution
-```
-
-### Technology Stack
-
-```mermaid
-quadrantChart
-    title "Arb Bot RS Technology Stack"
-    x-axis "Low-level" --> "High-level"
-    y-axis "Infrastructure" --> "Application"
-    
-    "Rust": [0.2, 0.8]
-    "Tokio": [0.3, 0.7]
-    "Reqwest": [0.4, 0.6]
-    "Serde": [0.5, 0.5]
-    "Axum": [0.6, 0.4]
-    "Tracing": [0.7, 0.3]
-    "WebSocket": [0.8, 0.2]
 ```
 
 ## Translations
