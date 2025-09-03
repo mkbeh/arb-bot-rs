@@ -229,7 +229,7 @@ sequenceDiagram
     P ->> O: Profitable orders
     Note over W, S: Arbitrage Operation Execution
     O ->> S: Send orders via channel
-    S ->> S: Monitor order status
+    S ->> S: Send orders to Exchange API
     S ->> S: Check execution
 ```
 
