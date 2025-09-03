@@ -50,14 +50,15 @@ List of supported cryptocurrency exchanges.
 
 #### Level 4 - Code (Arbitrage Job)
 
-* **Ticker Builder:** Processes real-time price data
-* **Chain Builder:** Identifies arbitrage chains
-* **Order Builder:** Generates executable orders
-* **Profit Calculator:** Validates profitability
+* **Ticker Builder:** Processes real-time price data from WebSocket
+* **Chain Builder:** Identifies arbitrage chains using symbol information
+* **Profit Calculator:** Validates profitability of arbitrage opportunities
+* **Order Builder:** Generates executable orders (uses Ticker Builder for prices, Chain Builder for chains, and Profit
+  Calculator for validation)
 
 ### ⚡ Key Data Flows
 
-* **Market Data:** WebSocket → Ticker Builder → Chain Builder
+* **Market Data:** WebSocket → Ticker Builder → Order Builder
 * **Arbitrage Detection:** Chain analysis → Profit validation → Order generation
 * **Order Execution:** Orders Channel → Sender Service → Cryptocurrency Exchange API
 * **Monitoring:** Continuous status checks → Performance metrics
@@ -183,12 +184,13 @@ flowchart TB
         TickerBuilder[Ticker Builder]
         ChainBuilder[Chain Builder]
         OrderBuilder[Order Builder]
+        ProfitCalculator[Profit Calculator]
         WSStreams[WebSocket Streams]
         SymbolChains[Symbol Chains Generator]
-        ProfitCalculator[Profit Calculator]
+    %% Corrected connections based on your feedback
         TickerBuilder -->|uses| WSStreams
         ChainBuilder -->|uses| SymbolChains
-        ChainBuilder -->|uses| TickerBuilder
+        OrderBuilder -->|uses| TickerBuilder
         OrderBuilder -->|uses| ChainBuilder
         OrderBuilder -->|uses| ProfitCalculator
     end
@@ -203,9 +205,9 @@ flowchart TB
     style TickerBuilder fill: #bbdefb, color: #000000
     style ChainBuilder fill: #c8e6c9, color: #000000
     style OrderBuilder fill: #ffecb3, color: #000000
+    style ProfitCalculator fill: #e1f5fe, color: #000000
     style WSStreams fill: #ffcdd2, color: #000000
     style SymbolChains fill: #d7ccc8, color: #000000
-    style ProfitCalculator fill: #e1f5fe, color: #000000
     style Broadcast fill: #f3e5f5, color: #000000
     style OrdersChan fill: #d1c4e9, color: #000000
 ```
@@ -270,7 +272,6 @@ Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.examp
 file to `config.toml`.
 
 *
-
 *_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
 `send_orders = true`._**
 
