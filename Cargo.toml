@@ -33,7 +33,7 @@ toml = { version = "0.9.5" }
 tracing = { version = "0.1.41", default-features = false }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "registry", "std", "fmt", "json"] }
 url = { version = "2.5.7" }
-uuid = { version = "1.18.0", features = ["v4"] }
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [dev-dependencies]
 futures = { version = "0.3.31" }

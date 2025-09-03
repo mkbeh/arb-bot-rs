@@ -167,15 +167,19 @@ impl BinanceSender {
             signature: None,
         };
 
-        let order_id = match ws_writer.place_order(place_order_request).await {
+        let (order_id, status) = match ws_writer.place_order(place_order_request).await {
             Ok(response) => {
                 info!(response = ?response, "Order placed successfully");
-                response.order_id
+                (response.order_id, response.status)
             }
             Err(e) => {
                 bail!("Error try placing order: {e}")
             }
         };
+
+        if status == OrderStatus::Filled {
+            return Ok(());
+        }
 
         // Check order status
         let start_time = Instant::now();
