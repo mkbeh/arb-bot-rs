@@ -32,7 +32,7 @@ flowchart TD
         ConfigFile[Configuration File<br/>config.toml]
     end
 
-    subgraph ArbBotRS[Arb Bot RS System]
+    subgraph ArbBotRS[Bot System]
         ArbitrageBot[Arbitrage Bot]
     end
 
@@ -51,7 +51,7 @@ flowchart TD
 
 ```mermaid
 flowchart TB
-    subgraph ArbBotRS[Arb Bot RS]
+    subgraph ArbBotRS[Bot]
         MainProcess[Main Process]
         BinanceAPIClient[Binance API Client<br/>HTTP/REST client]
         WSClient[WebSocket Client]
