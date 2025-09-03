@@ -16,12 +16,12 @@ List of supported cryptocurrency exchanges.
 
 ### Content
 
-* [Project design (C4 models)](#project-design-c4-models)
+* [Project design](#project-design)
 * [Installation](#installation)
 * [Usage](#usage)
 * [Translations](#translations)
 
-## Project design (C4 Models)
+## Project design
 
 ### Context Diagram (Level 1)
 
