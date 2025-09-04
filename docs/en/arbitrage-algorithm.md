@@ -77,7 +77,7 @@ rates are efficiently and quickly exploited.
 
 Ticker chains are constructed based on base assets to identify triangular arbitrage opportunities.
 
-#### Supported Base Assets
+### Supported Base Assets
 
 **Major Assets:** BTC, ETH, BNB, USDT, USDC, FDUSD
 
@@ -85,7 +85,7 @@ Ticker chains are constructed based on base assets to identify triangular arbitr
 
 **Other Cryptocurrencies:** LTC, ADA, DOT, XRP, and other major pairs
 
-#### Chain Construction Algorithm
+### Chain Construction Algorithm
 
 **Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
 
