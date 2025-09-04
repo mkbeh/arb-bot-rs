@@ -16,7 +16,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn from_config(cfg: Config) -> anyhow::Result<Self, anyhow::Error> {
+    pub fn from_config(cfg: ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
         let client = Self {
             host: cfg.api_url.clone(),
             api_key: cfg.api_token.clone(),
@@ -150,7 +150,7 @@ fn build_query(params: &Vec<(String, String)>) -> String {
 }
 
 #[derive(Default, Clone)]
-pub struct Config {
+pub struct ClientConfig {
     pub api_url: String,
     pub api_token: String,
     pub api_secret_key: String,

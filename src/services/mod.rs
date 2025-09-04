@@ -3,6 +3,6 @@ pub mod enums;
 pub mod service;
 
 pub use binance::{
-    BinanceExchangeConfig, BinanceExchangeService, BinanceSender, BinanceSenderConfig,
+    BinanceExchangeConfig, BinanceExchangeService, BinanceSenderService, BinanceSenderConfig,
 };
 pub use service::*;

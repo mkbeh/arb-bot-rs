@@ -28,7 +28,7 @@ pub struct BinanceSenderConfig {
     pub api_secret_key: String,
 }
 
-pub struct BinanceSender {
+pub struct BinanceSenderService {
     send_orders: bool,
     order_lifetime: Duration,
     process_chain_interval: Duration,
@@ -38,8 +38,8 @@ pub struct BinanceSender {
     api_secret_key: String,
 }
 
-impl BinanceSender {
-    pub fn new(config: BinanceSenderConfig) -> Self {
+impl BinanceSenderService {
+    pub fn from_config(config: BinanceSenderConfig) -> Self {
         Self {
             send_orders: config.send_orders,
             order_lifetime: Duration::from_secs(config.order_lifetime_secs),
@@ -53,7 +53,7 @@ impl BinanceSender {
 }
 
 #[async_trait]
-impl OrderSenderService for BinanceSender {
+impl OrderSenderService for BinanceSenderService {
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
         let (mut ws_writer, ws_reader) = connect_ws(ws::ConnectConfig::new(
             self.ws_url.clone(),
@@ -127,7 +127,7 @@ impl OrderSenderService for BinanceSender {
     }
 }
 
-impl BinanceSender {
+impl BinanceSenderService {
     async fn process_order(
         &self,
         order: &Order,

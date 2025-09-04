@@ -10,12 +10,11 @@ use app::{
         http_server::{Server, server::ServerProcess},
     },
     services::{
-        BinanceExchangeConfig, BinanceExchangeService, BinanceSender, BinanceSenderConfig,
+        BinanceExchangeConfig, BinanceExchangeService, BinanceSenderConfig, BinanceSenderService,
         ExchangeService, OrderSenderService, binance::REQUEST_WEIGHT,
     },
 };
 
-#[derive(Default)]
 pub struct Entrypoint;
 
 impl Entrypoint {
@@ -54,7 +53,7 @@ impl Entrypoint {
         &self,
         config: Config,
     ) -> anyhow::Result<Arc<BinanceExchangeService>> {
-        let api_config = binance_api::Config {
+        let api_config = binance_api::ClientConfig {
             api_url: config.binance.api_url,
             api_token: config.binance.api_token,
             api_secret_key: config.binance.api_secret_key,
@@ -98,7 +97,7 @@ impl Entrypoint {
     async fn build_binance_sender_service(
         &self,
         config: Config,
-    ) -> anyhow::Result<Arc<BinanceSender>> {
+    ) -> anyhow::Result<Arc<BinanceSenderService>> {
         let service_config = BinanceSenderConfig {
             send_orders: config.settings.send_orders,
             order_lifetime_secs: config.settings.order_lifetime,
@@ -106,8 +105,8 @@ impl Entrypoint {
             api_token: config.binance.api_token.clone(),
             api_secret_key: config.binance.api_secret_key.clone(),
         };
-        let service = Arc::new(BinanceSender::new(service_config));
 
-        Ok(service)
+        let service = BinanceSenderService::from_config(service_config);
+        Ok(Arc::new(service))
     }
 }

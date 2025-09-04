@@ -54,7 +54,6 @@ impl ServerProcess for Process {
                 }
             }
         }
-
         Ok(())
     }
 }
