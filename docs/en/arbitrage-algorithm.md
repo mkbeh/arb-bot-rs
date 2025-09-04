@@ -241,5 +241,30 @@ ETH/BTC Order Book
 
 #### Step-by-Step Calculation
 
+1. **BTC/USDT (ASC) - Sell BTC for USDT**
+
+    ```text
+    0.00027 BTC × 109,615.46 USDT/BTC = 29.59 USDT
+    ```
+2. **ETH/USDT (DESC) - Buy ETH with USDT**
+
+    ```text
+    29.59 USDT ÷ 2,585.71 USDT/ETH = 0.01144371 ETH
+    ```
+3. **ETH/BTC (ASC) - Sell ETH for BTC**
+
+    ```text
+    0.01144371 ETH × 0.02358 BTC/ETH = 0.00026984 BTC
+    ```
+   
+4. Profit Calculation
+
+    ```text
+    Initial: 0.00027000 BTC
+    Final:   0.00026984 BTC
+    Profit: -0.00000016 BTC (Negative)
+    ```
+#### Volume Aggregation Strategy
+
 [TODO]
 
