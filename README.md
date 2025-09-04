@@ -238,8 +238,8 @@ sequenceDiagram
 ```mermaid
 quadrantChart
     title "Application Technology Stack"
-    x-axis "Low-level Infrastructure" --> "High-level Application"
-    y-axis "Foundation" --> "Specialized"
+    x-axis "Low-level" --> "High-level"
+    y-axis "Infrastructure" --> "Application"
     "Rust": [0.2, 0.8]
     "Tokio": [0.3, 0.7]
     "Reqwest": [0.4, 0.6]
@@ -247,8 +247,6 @@ quadrantChart
     "Axum": [0.6, 0.4]
     "Tracing": [0.7, 0.3]
     "WebSocket": [0.8, 0.2]
-    "Dashmap": [0.4, 0.4]
-    "Redis": [0.3, 0.3]
 ```
 
 This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
