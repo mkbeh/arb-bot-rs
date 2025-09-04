@@ -112,7 +112,7 @@ BTC/USDT → USDT/ETH → ETH/BTC
 **Case #4 - Third Symbol Reversed**
 
 ```text
-**ETH/BTC → BTC/USDT → USDT/ETH**
+ETH/BTC → BTC/USDT → USDT/ETH
 ```
 
 **Case #5 - First & Second Symbols Reversed**
@@ -146,11 +146,11 @@ BTC/ETH → ETH/RLC → RLC/BTC
 
 **Example Calculation Scenario:**
 
-**Trading Pair Chain:** BTC/USDT (ASC) → ETH/USDT (DESC) → ETH/BTC (ASC)
+* **Trading Pair Chain:** BTC/USDT (ASC) → ETH/USDT (DESC) → ETH/BTC (ASC)
 
-**Volume Limit:** 0.00027 BTC (~$30)
+* **Volume Limit:** 0.00027 BTC (~$30)
 
-**Fee Structure:** Maker/Taker 0.075% (with BNB discount)
+* **Fee Structure:** Maker/Taker 0.075% (with BNB discount)
 
 **Order Book Data Snippets:**
 
