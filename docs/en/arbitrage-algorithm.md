@@ -77,7 +77,7 @@ rates are efficiently and quickly exploited.
 
 Ticker chains are constructed based on base assets to identify triangular arbitrage opportunities.
 
-**Example Base Assets:**
+#### Example Base Assets
 
 * **Major assets:** BTC, ETH, BNB, USDT, USDC, FDUSD
 
@@ -89,7 +89,7 @@ Ticker chains are constructed based on base assets to identify triangular arbitr
 
 **Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
 
-**Examples:**
+#### Examples
 
 **Case #1 - Standard Chain**
 
@@ -144,7 +144,7 @@ BTC/ETH → ETH/RLC → RLC/BTC
 
 ### 📊 Profit Calculation Algorithm
 
-**Example Calculation Scenario:**
+#### Example Calculation Scenario
 
 * **Trading Pair Chain:** BTC/USDT (ASC) → ETH/USDT (DESC) → ETH/BTC (ASC)
 
@@ -152,7 +152,7 @@ BTC/ETH → ETH/RLC → RLC/BTC
 
 * **Fee Structure:** Maker/Taker 0.075% (with BNB discount)
 
-**Order Book Data Snippets:**
+#### Order Book Data Snippets
 
 BTC/USDT Order Book
 
