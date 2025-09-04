@@ -85,7 +85,7 @@ Ticker chains are constructed based on base assets to identify triangular arbitr
 
 * **Other cryptocurrencies:** LTC, ADA, DOT, XRP, and other major pairs
 
-**Chain Construction Algorithm:**
+### Chain Construction Algorithm
 
 **Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
 
@@ -133,7 +133,7 @@ ETH/BTC → BTC/QTUM → QTUM/ETH
 BTC/ETH → ETH/RLC → RLC/BTC
 ```
 
-#### Validation Rules
+### Validation Rules
 
 1. **Non-matching Constraint:** A reversed symbol should not create a circular reference
     * ❌ **Invalid:** ETH/BTC → BTC/ETH → ...
@@ -239,7 +239,7 @@ ETH/BTC Order Book
 }
 ```
 
-#### Step-by-Step Calculation
+### Step-by-Step Calculation
 
 1. **BTC/USDT (ASC) - Sell BTC for USDT**
 
@@ -264,7 +264,7 @@ ETH/BTC Order Book
     Final:   0.00026984 BTC
     Profit: -0.00000016 BTC (Negative)
     ```
-#### Volume Aggregation Strategy
+### Volume Aggregation Strategy
 
 Volume summation is employed in these scenarios:
 
