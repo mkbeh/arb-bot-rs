@@ -9,12 +9,10 @@ use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
-use hmac::{Hmac, Mac};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
-use sha2::Sha256;
 use tokio::{
     net::TcpStream,
     sync::{Mutex, mpsc},
@@ -27,10 +25,9 @@ use uuid::Uuid;
 
 use crate::libs::binance_api::{
     FillInfo, NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode,
-    TimeInForce, utils,
+    TimeInForce, utils, utils::generate_signature,
 };
 
-type HmacSha256 = Hmac<Sha256>;
 type WebSocketStreamType = WebSocketStream<MaybeTlsStream<TcpStream>>;
 type WebSocketSink = SplitSink<WebSocketStreamType, Message>;
 type WebSocketStreamSplit = SplitStream<WebSocketStreamType>;
@@ -150,7 +147,7 @@ impl WebsocketWriter {
         params.sort_by(|a, b| a.0.cmp(&b.0));
 
         let query = build_query_string(params);
-        let signature = generate_signature(&self.secret_key, &query);
+        let signature = generate_signature(&self.secret_key, Some(&query));
 
         request.timestamp = Some(timestamp);
         request.api_key = Some(self.api_key.clone());
@@ -191,7 +188,7 @@ impl WebsocketWriter {
         params.sort_by(|a, b| a.0.cmp(&b.0));
 
         let query = build_query_string(params);
-        let signature = generate_signature(&self.secret_key, &query);
+        let signature = generate_signature(&self.secret_key, Some(&query));
 
         request.timestamp = Some(timestamp);
         request.api_key = Some(self.api_key.clone());
@@ -311,13 +308,6 @@ fn build_query_string(params: Vec<(String, String)>) -> String {
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join("&")
-}
-
-fn generate_signature(secret: &str, query: &str) -> String {
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("invalid length of secret key");
-    mac.update(query.as_bytes());
-    hex::encode(mac.finalize().into_bytes())
 }
 
 #[derive(Debug, thiserror::Error)]
