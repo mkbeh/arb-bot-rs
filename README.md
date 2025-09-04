@@ -5,7 +5,7 @@
 Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
 triangular arbitrage opportunities on cryptocurrency exchanges.
 
-Full description of the algorithm used can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
+Full documentation of the project can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
 ### Supports
 
