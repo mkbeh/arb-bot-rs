@@ -5,6 +5,9 @@ comprehensive monitoring capabilities while maintaining modularity and scalabili
 
 ### 📊 Architecture Levels
 
+This C4 model provides a comprehensive visual documentation of the crypto arbitrage bot's architecture, from high-level
+system context down to detailed component interactions and data flow sequences.
+
 #### Level 1 - Context
 
 * **Core System:** Arbitrage Bot
@@ -55,7 +58,12 @@ comprehensive monitoring capabilities while maintaining modularity and scalabili
 * **External Dependencies:** Cryptocurrency Exchange API endpoints
 * **Monitoring:** Integrated health checks and metrics
 
-### Context Diagram (Level 1)
+### 🎯 Context Diagram (Level 1)
+
+**System Scope & External Dependencies**
+
+_High-level overview showing the arbitrage bot interacting with external systems including cryptocurrency exchanges via
+REST API and WebSocket connections, and local configuration management._
 
 ```mermaid
 flowchart TD
@@ -78,7 +86,12 @@ flowchart TD
     style ConfigFile fill: #d7ccc8, color: #000000
 ```
 
-### Container Diagram (Level 2)
+### 🏗️ Container Diagram (Level 2)
+
+**Internal Component Organization**
+
+_Detailed breakdown of the bot's internal architecture showing how the main process orchestrates API clients, WebSocket
+connections, configuration management, and monitoring services._
 
 ```mermaid
 flowchart TB
@@ -111,7 +124,12 @@ flowchart TB
     style ConfigFile fill: #f3e5f5, color: #000000
 ```
 
-### Component Diagram (Level 3)
+### ⚙️ Component Diagram (Level 3)
+
+**Service Architecture & Communication**
+
+_Component-level design illustrating how jobs and services interact through message channels, showing the separation
+between arbitrage detection and order execution responsibilities._
 
 ```mermaid
 flowchart TB
@@ -155,7 +173,12 @@ flowchart TB
     style ServicesManager fill: #c8e6c9, color: #000000
 ```
 
-### Arbitrage Job Component Diagram (Level 4)
+### 🔍 Arbitrage Job Component Diagram (Level 4)
+
+**Core Arbitrage Engine Details**
+
+_Deep dive into the arbitrage detection logic showing how ticker data flows through the chain building, profit
+calculation, and order generation pipeline._
 
 ```mermaid
 flowchart TB
@@ -191,7 +214,12 @@ flowchart TB
     style OrdersChan fill: #d1c4e9, color: #000000
 ```
 
-### Arbitrage Operation Sequence Diagram
+### ⚡ Arbitrage Operation Sequence Diagram
+
+**Real-time Execution Flow**
+
+_Step-by-step sequence showing how market data is processed through the arbitrage pipeline from WebSocket reception to
+order execution._
 
 ```mermaid
 sequenceDiagram
@@ -212,7 +240,12 @@ sequenceDiagram
     S ->> S: Check execution
 ```
 
-### Technology Stack
+### 🛠️ Technology Stack Diagram
+
+**Foundation & Specialized Tools**
+
+_Visualization of the technology choices showing the progression from low-level infrastructure components to high-level
+application frameworks, highlighting Rust as the core language and Tokio for async operations._
 
 ```mermaid
 quadrantChart
@@ -227,3 +260,6 @@ quadrantChart
     "Tracing": [0.7, 0.3]
     "WebSocket": [0.8, 0.2]
 ```
+
+This technology stack combines Rust's performance advantages with modern async capabilities and comprehensive monitoring
+tools, creating a robust foundation for high-frequency trading operations.
