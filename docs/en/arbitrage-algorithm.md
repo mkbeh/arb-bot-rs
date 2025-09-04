@@ -266,5 +266,10 @@ ETH/BTC Order Book
     ```
 #### Volume Aggregation Strategy
 
-[TODO]
+Volume summation is employed in these scenarios:
+
+* When the top order volume is insufficient for minimum transaction requirements
+* When the top order volume exceeds minimum requirements but falls below maximum single-transaction limits
+* To account for situations where profit exists without aggregation but disappears with aggregated volumes
+
 
