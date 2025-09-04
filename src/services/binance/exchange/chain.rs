@@ -1,16 +1,19 @@
 use std::{
-    collections::{BTreeMap, btree_map},
+    collections::{BTreeMap, HashMap, btree_map},
     sync::Arc,
 };
 
 use anyhow::bail;
+use rust_decimal::{Decimal, prelude::Zero};
 use strum::IntoEnumIterator;
 use tokio::task::JoinSet;
 use tracing::info;
 
 use crate::{
     config::Asset,
-    libs::binance_api::{General, OrderType, Symbol},
+    libs::binance_api::{
+        General, Market, OrderType, Symbol, TickerPriceResponseType, TickerPriceStats,
+    },
     services::enums::SymbolOrder,
 };
 
@@ -29,11 +32,15 @@ impl ChainSymbol {
 #[derive(Clone)]
 pub struct ChainBuilder {
     general_api: General,
+    market_api: Market,
 }
 
 impl ChainBuilder {
-    pub fn new(general_api: General) -> Self {
-        Self { general_api }
+    pub fn new(general_api: General, market_api: Market) -> Self {
+        Self {
+            general_api,
+            market_api,
+        }
     }
 
     pub async fn build_symbols_chains(
@@ -42,7 +49,7 @@ impl ChainBuilder {
     ) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
         let exchange_info = match self.general_api.exchange_info().await {
             Ok(exchange_info) => exchange_info,
-            Err(e) => bail!(e),
+            Err(e) => bail!("Failed to get exchange info: {:?}", e),
         };
 
         // It is necessary to launch 2 cycles of chain formation for a case where one symbol can
@@ -66,13 +73,18 @@ impl ChainBuilder {
             }
         }
 
-        let unique_chains = self.deduplicate_chains(chains);
+        let unique_chains = Self::deduplicate_chains(chains);
+
+        let filter_chains = self
+            .filter_chains_by_24h_vol(&base_assets, unique_chains)
+            .await?;
+
         info!(
-            chains_num = unique_chains.len(),
+            chains_num = filter_chains.len(),
             "successfully build chains",
         );
 
-        Ok(unique_chains)
+        Ok(filter_chains)
     }
 
     async fn build_chains(
@@ -83,39 +95,39 @@ impl ChainBuilder {
     ) -> Vec<[ChainSymbol; 3]> {
         let mut chains = vec![];
         'outer_loop: for a_symbol in symbols {
-            if !self.check_order_type(&a_symbol.order_types) {
+            if !Self::check_order_type(&a_symbol.order_types) {
                 continue 'outer_loop;
             }
 
             let mut a_wrapper = ChainSymbol::new(a_symbol.clone(), Default::default());
             let base_asset =
-                if let Some(asset) = self.define_base_asset(&mut a_wrapper, order, base_assets) {
+                if let Some(asset) = Self::define_base_asset(&mut a_wrapper, order, base_assets) {
                     asset
                 } else {
                     continue;
                 };
 
             for b_symbol in symbols {
-                if !self.check_order_type(&a_symbol.order_types) {
+                if !Self::check_order_type(&a_symbol.order_types) {
                     continue 'outer_loop;
                 }
 
                 let mut b_wrapper = ChainSymbol::new(b_symbol.clone(), Default::default());
 
                 // Selection symbol for 1st symbol.
-                if !self.compare_symbols(&a_wrapper, &mut b_wrapper) {
+                if !Self::compare_symbols(&a_wrapper, &mut b_wrapper) {
                     continue;
                 }
 
                 for c_symbol in symbols {
-                    if !self.check_order_type(&a_symbol.order_types) {
+                    if !Self::check_order_type(&a_symbol.order_types) {
                         continue 'outer_loop;
                     }
 
                     let mut c_wrapper = ChainSymbol::new(c_symbol.clone(), Default::default());
 
                     // Selection symbol for 2nd symbol.
-                    if !self.compare_symbols(&b_wrapper, &mut c_wrapper) {
+                    if !Self::compare_symbols(&b_wrapper, &mut c_wrapper) {
                         continue;
                     }
 
@@ -141,28 +153,97 @@ impl ChainBuilder {
         chains
     }
 
-    fn check_order_type(&self, order_types: &[OrderType]) -> bool {
+    async fn filter_chains_by_24h_vol(
+        &self,
+        base_assets: &[Asset],
+        chains: Vec<[ChainSymbol; 3]>,
+    ) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
+        let calc_volume_fn = |volume: Decimal, price: Decimal, order: SymbolOrder| -> Decimal {
+            match order {
+                SymbolOrder::Asc => volume * price,
+                SymbolOrder::Desc => volume / price,
+            }
+        };
+
+        let ticker_prices: HashMap<String, TickerPriceStats> = match self
+            .market_api
+            .get_ticker_price_24h::<String>(None, TickerPriceResponseType::Mini)
+            .await
+        {
+            Ok(ticker_prices) => ticker_prices
+                .into_iter()
+                .map(|stats| (stats.symbol.clone(), stats))
+                .collect(),
+            Err(e) => bail!("failed to get ticker price: {}", e),
+        };
+
+        let mut filter_chains = vec![];
+        'outer: for chain in chains {
+            let mut last_volume_limit = Decimal::zero();
+
+            for (i, chain_symbol) in chain.iter().enumerate() {
+                let Some(stats) = ticker_prices.get(chain_symbol.symbol.symbol.as_str()) else {
+                    continue 'outer;
+                };
+
+                let (volume, last_price) = match chain_symbol.order {
+                    SymbolOrder::Asc => (stats.volume, stats.last_price),
+                    SymbolOrder::Desc => (stats.quote_volume, stats.last_price),
+                };
+
+                match i {
+                    0 => {
+                        let base_asset = base_assets
+                            .iter()
+                            .find(|v| v.asset == Self::find_base_asset(chain_symbol))
+                            .expect("base asset not found");
+
+                        if volume < base_asset.min_ticker_qty_24h {
+                            continue 'outer;
+                        }
+
+                        last_volume_limit = calc_volume_fn(
+                            base_asset.min_ticker_qty_24h,
+                            last_price,
+                            chain_symbol.order,
+                        );
+                    }
+                    _ => {
+                        if volume < last_volume_limit {
+                            continue 'outer;
+                        }
+
+                        last_volume_limit =
+                            calc_volume_fn(last_volume_limit, last_price, chain_symbol.order);
+                    }
+                }
+            }
+            filter_chains.push(chain);
+        }
+        Ok(filter_chains)
+    }
+
+    fn check_order_type(order_types: &[OrderType]) -> bool {
         const REQUIRE_ORDER_TYPES: [OrderType; 2] = [OrderType::Limit, OrderType::Market];
         REQUIRE_ORDER_TYPES
             .iter()
             .all(|order_type| order_types.contains(order_type))
     }
 
+    fn find_base_asset(chain_symbol: &ChainSymbol) -> String {
+        match chain_symbol.order {
+            // Ex: BTC:TRX
+            SymbolOrder::Asc => chain_symbol.symbol.base_asset.clone(),
+            // Ex: TRX:BTC -> BTC:TRX(reversed)
+            SymbolOrder::Desc => chain_symbol.symbol.quote_asset.clone(),
+        }
+    }
+
     fn define_base_asset(
-        &self,
         wrapper: &mut ChainSymbol,
         order: SymbolOrder,
         base_assets: &[Asset],
     ) -> Option<String> {
-        let get_base_asset_fn = |wrapper: &ChainSymbol| -> String {
-            match wrapper.order {
-                // Ex: BTC:TRX
-                SymbolOrder::Asc => wrapper.symbol.base_asset.clone(),
-                // Ex: TRX:BTC -> BTC:TRX(reversed)
-                SymbolOrder::Desc => wrapper.symbol.quote_asset.clone(),
-            }
-        };
-
         const MAX_ASSETS_QTY: usize = 2;
 
         let base_assets_qty = base_assets
@@ -174,7 +255,7 @@ impl ChainBuilder {
 
         if base_assets_qty == MAX_ASSETS_QTY {
             wrapper.order = order;
-            return Some(get_base_asset_fn(wrapper));
+            return Some(Self::find_base_asset(wrapper));
         }
 
         if base_assets
@@ -182,7 +263,7 @@ impl ChainBuilder {
             .any(|x| x.asset == wrapper.symbol.base_asset.as_str())
         {
             wrapper.order = Default::default();
-            return Some(get_base_asset_fn(wrapper));
+            return Some(Self::find_base_asset(wrapper));
         };
 
         if base_assets
@@ -190,13 +271,13 @@ impl ChainBuilder {
             .any(|x| x.asset == wrapper.symbol.quote_asset.as_str())
         {
             wrapper.order = SymbolOrder::Desc;
-            return Some(get_base_asset_fn(wrapper));
+            return Some(Self::find_base_asset(wrapper));
         };
 
         None
     }
 
-    fn compare_symbols(&self, base: &ChainSymbol, quote: &mut ChainSymbol) -> bool {
+    fn compare_symbols(base: &ChainSymbol, quote: &mut ChainSymbol) -> bool {
         if base.symbol.symbol == quote.symbol.symbol {
             // Ex: BTC:USDT - BTC:USDT -> incorrect, must be skipped.
             return false;
@@ -232,7 +313,7 @@ impl ChainBuilder {
         false
     }
 
-    fn deduplicate_chains(&self, chains: Vec<[ChainSymbol; 3]>) -> Vec<[ChainSymbol; 3]> {
+    fn deduplicate_chains(chains: Vec<[ChainSymbol; 3]>) -> Vec<[ChainSymbol; 3]> {
         let mut m: BTreeMap<String, bool> = BTreeMap::new();
         let mut unique_chains: Vec<[ChainSymbol; 3]> = Vec::new();
 

@@ -1,6 +1,6 @@
 [package]
 name = "arb-bot-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [[bin]]
@@ -8,29 +8,36 @@ name = "bot"
 path = "src/bin/bot/main.rs"
 
 [dependencies]
-anyhow = "1.0.98"
-async-trait = { version = "0.1.88" }
+anyhow = "1.0.99"
+async-trait = { version = "0.1.89" }
 axum = { version = "0.8.4", features = ["http1", "http2", "json", "macros"] }
+dashmap = { version = "6.1.0" }
+futures-util = { version = "0.3.31" }
 hex = { version = "0.4.3" }
 hmac = { version = "0.12.1" }
+itertools = { version = "0.14.0" }
 openssl = { version = "0.10", features = ["vendored"] }
-reqwest = { version = "0.12.22", features = ["json"] }
+reqwest = { version = "0.12.23", features = ["json"] }
 rust_decimal = { version = "1.37.2", features = ["serde-with-float"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.142"
+serde_json = "1.0.143"
+serde_with = { version = "3.14.0", features = ["macros"] }
 sha2 = { version = "0.10.9" }
-strum = "0.27.2"
-strum_macros = "0.27.2"
+strum = { version = "0.27.2" }
+strum_macros = { version = "0.27.2" }
+thiserror = { version = "2.0.16" }
 tokio = { version = "1.47.1", features = ["rt", "rt-multi-thread", "macros", "net", "signal"] }
-tokio-util = { version = "0.7.15" }
-toml = { version = "0.9.4" }
+tokio-tungstenite = { version = "0.27.0", features = ["native-tls"] }
+tokio-util = { version = "0.7.16" }
+toml = { version = "0.9.5" }
 tracing = { version = "0.1.41", default-features = false }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter", "registry", "std", "fmt", "json"] }
-uuid = { version = "1.17.0", features = ["v4"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "registry", "std", "fmt", "json"] }
+url = { version = "2.5.7" }
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [dev-dependencies]
-futures = { version = "0.3.31" }
-mockito = { version = "1.7.0" }
+criterion = { version = "0.7.0" }
+serde_json = "1.0.143"
 
 [profile.release-lto]
 inherits = "release"
@@ -39,3 +46,7 @@ strip = true
 
 [lints.rust]
 unsafe_code = "forbid"
+
+[[bench]]
+name = "benches"
+harness = false

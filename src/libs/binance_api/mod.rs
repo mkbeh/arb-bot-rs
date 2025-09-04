@@ -5,12 +5,13 @@ mod enums;
 pub mod general;
 pub mod market;
 pub mod models;
+pub mod stream;
 pub mod trade;
 mod utils;
-
+pub mod ws;
 pub use account::Account;
 pub use api::Binance;
-pub use client::{Config, HttpConfig};
+pub use client::{ClientConfig, HttpConfig};
 pub use enums::*;
 pub use general::General;
 pub use market::Market;

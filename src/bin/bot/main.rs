@@ -3,7 +3,6 @@ extern crate arb_bot_rs as app;
 use crate::entrypoint::Entrypoint;
 
 mod entrypoint;
-
 use app::libs::setup_application;
 use tracing::error;
 

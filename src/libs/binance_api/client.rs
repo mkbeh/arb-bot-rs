@@ -2,12 +2,10 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail};
 use axum::http::{HeaderMap, HeaderName, HeaderValue};
-use hmac::{Hmac, Mac};
 use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
-use sha2::Sha256;
 
-use crate::libs::binance_api::{api::Api, utils};
+use crate::libs::binance_api::{api::Api, utils::generate_signature};
 
 #[derive(Clone)]
 pub struct Client {
@@ -18,7 +16,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn from_config(cfg: Config) -> anyhow::Result<Self, anyhow::Error> {
+    pub fn from_config(cfg: ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
         let client = Self {
             host: cfg.api_url.clone(),
             api_key: cfg.api_token.clone(),
@@ -87,7 +85,7 @@ impl Client {
         let mut query_params = String::new();
 
         if let Some(v) = query {
-            query_params.push_str(utils::build_query(v).as_str());
+            query_params.push_str(build_query(v).as_str());
         }
 
         if with_signature {
@@ -100,16 +98,15 @@ impl Client {
     }
 
     fn build_signature(&self, query_params: String) -> String {
+        let signature = if query_params.is_empty() {
+            generate_signature(&self.secret_key, None)
+        } else {
+            generate_signature(&self.secret_key, Some(&query_params))
+        };
+
         if query_params.is_empty() {
-            let sign_key = Hmac::<Sha256>::new_from_slice(self.secret_key.as_bytes())
-                .expect("invalid length of secret key");
-            let signature = hex::encode(sign_key.finalize().into_bytes());
             format!("?signature={signature}")
         } else {
-            let mut sign_key = Hmac::<Sha256>::new_from_slice(self.secret_key.as_bytes())
-                .expect("invalid length of secret key");
-            sign_key.update(query_params.as_bytes());
-            let signature = hex::encode(sign_key.finalize().into_bytes());
             format!("{query_params}&signature={signature}")
         }
     }
@@ -126,7 +123,10 @@ impl Client {
 
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
     match resp.status() {
-        StatusCode::OK => resp.json::<T>().await.map_err(|e| anyhow!(e)),
+        StatusCode::OK => {
+            let body = resp.bytes().await?;
+            Ok(serde_json::from_slice::<T>(&body)?)
+        }
         StatusCode::INTERNAL_SERVER_ERROR => bail!("Internal Server Error"),
         StatusCode::SERVICE_UNAVAILABLE => bail!("Service Unavailable"),
         StatusCode::UNAUTHORIZED => bail!("Unauthorized"),
@@ -140,8 +140,17 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
     }
 }
 
+fn build_query(params: &Vec<(String, String)>) -> String {
+    let mut query = String::new();
+    for (k, v) in params {
+        query.push_str(&format!("{k}={v}&"));
+    }
+    query.pop();
+    query
+}
+
 #[derive(Default, Clone)]
-pub struct Config {
+pub struct ClientConfig {
     pub api_url: String,
     pub api_token: String,
     pub api_secret_key: String,

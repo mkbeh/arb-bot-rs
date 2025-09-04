@@ -1,12 +1,19 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn build_query(params: &Vec<(String, String)>) -> String {
-    let mut query = String::new();
-    for (k, v) in params {
-        query.push_str(&format!("{k}={v}&"));
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+
+type HmacSha256 = Hmac<Sha256>;
+
+pub fn generate_signature(secret: &str, query: Option<&str>) -> String {
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("invalid length of secret key");
+
+    if let Some(q) = query {
+        mac.update(q.as_bytes());
     }
-    query.pop();
-    query
+
+    hex::encode(mac.finalize().into_bytes())
 }
 
 pub fn get_timestamp(start: SystemTime) -> anyhow::Result<u64> {

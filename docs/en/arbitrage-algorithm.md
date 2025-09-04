@@ -67,5 +67,205 @@ The arbitrage cycle starts with $100,000 and ends with $119,000, thus securing a
 transactions. This example highlights the profit potential when discrepancies between the implied and actual exchange
 rates are efficiently and quickly exploited.
 
+## Algorithm Explanation
+
+### 🔗 Building Ticker Chains
+
+Ticker chains are constructed based on base assets to identify triangular arbitrage opportunities.
+
+#### Example Base Assets
+
+* **Major assets:** BTC, ETH, BNB, USDT, USDC, FDUSD
+
+* **Fiat currencies:** EUR, TRY, BRL, JPY
+
+* **Other cryptocurrencies:** LTC, ADA, DOT, XRP, and other major pairs
+
+### Chain Construction Algorithm
+
+**Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
+
+#### Examples
+
+**Case #1 - Standard Chain**
+
+```text
+BTC/USDT → USDT/ETH → ETH/BTC
+```
+
+**Case #2 - First Symbol Reversed**
+
+```text
+USDT/BTC → BTC/ETH → ETH/USDT
+```
+
+**Case #3 - Second Symbol Reversed**
+
+```text
+BTC/USDT → USDT/ETH → ETH/BTC
+```
+
+**Case #4 - Third Symbol Reversed**
+
+```text
+ETH/BTC → BTC/USDT → USDT/ETH
+```
+
+**Case #5 - First & Second Symbols Reversed**
+
+```text
+USDT/BTC → BTC/BNB → BNB/USDT
+```
+
+**Case #6 - Second & Third Symbols Reversed**
+
+```text
+ETH/BTC → BTC/QTUM → QTUM/ETH
+```
+
+**Case #7 - All Symbols Reversed**
+
+```text
+BTC/ETH → ETH/RLC → RLC/BTC
+```
+
+### Validation Rules
+
+1. **Non-matching Constraint:** A reversed symbol should not create a circular reference
+    * ❌ **Invalid:** ETH/BTC → BTC/ETH → ...
+    * ✅ **Valid:** ETH/BTC → BTC/QTUM → ...
+2. **Base Asset Consistency:** The exit from the third symbol must return to the base asset of the first symbol
+    * ❌ **Invalid:** ETH/BTC → BTC/QTUM → QTUM/USDT
+    * ✅ **Valid:** ETH/BTC → BTC/QTUM → QTUM/ETH
+
+### 📊 Profit Calculation Algorithm
+
+#### Example Calculation Scenario
+
+* **Trading Pair Chain:** BTC/USDT (ASC) → ETH/USDT (DESC) → ETH/BTC (ASC)
+
+* **Volume Limit:** 0.00027 BTC (~$30)
+
+* **Fee Structure:** Maker/Taker 0.075% (with BNB discount)
+
+#### Order Book Data Snippets
+
+BTC/USDT Order Book
+
+```json
+
+{
+  "lastUpdateId": 72224518924,
+  "bids": [
+    [
+      "109615.46",
+      "7.27795"
+    ],
+    [
+      "109614.96",
+      "0.00046"
+    ]
+  ],
+  "asks": [
+    [
+      "109615.47",
+      "2.22969"
+    ],
+    [
+      "109615.48",
+      "0.00028"
+    ]
+  ]
+}
+```
+
+ETH/USDT Order Book
+
+```json
+{
+  "lastUpdateId": 54622041690,
+  "bids": [
+    [
+      "2585.70",
+      "14.64600"
+    ],
+    [
+      "2585.69",
+      "0.00210"
+    ]
+  ],
+  "asks": [
+    [
+      "2585.71",
+      "19.28810"
+    ],
+    [
+      "2585.72",
+      "0.40280"
+    ]
+  ]
+}
+```
+
+ETH/BTC Order Book
+
+```json
+{
+  "lastUpdateId": 8215337504,
+  "bids": [
+    [
+      "0.02358",
+      "105.74550"
+    ],
+    [
+      "0.02357",
+      "57.30640"
+    ]
+  ],
+  "asks": [
+    [
+      "0.02359",
+      "25.63400"
+    ],
+    [
+      "0.02360",
+      "53.22680"
+    ]
+  ]
+}
+```
+
+### Step-by-Step Calculation
+
+1. **BTC/USDT (ASC) - Sell BTC for USDT**
+
+    ```text
+    0.00027 BTC × 109,615.46 USDT/BTC = 29.59 USDT
+    ```
+2. **ETH/USDT (DESC) - Buy ETH with USDT**
+
+    ```text
+    29.59 USDT ÷ 2,585.71 USDT/ETH = 0.01144371 ETH
+    ```
+3. **ETH/BTC (ASC) - Sell ETH for BTC**
+
+    ```text
+    0.01144371 ETH × 0.02358 BTC/ETH = 0.00026984 BTC
+    ```
+   
+4. Profit Calculation
+
+    ```text
+    Initial: 0.00027000 BTC
+    Final:   0.00026984 BTC
+    Profit: -0.00000016 BTC (Negative)
+    ```
+### Volume Aggregation Strategy
+
+Volume summation is employed in these scenarios:
+
+* When the top order volume is insufficient for minimum transaction requirements
+* When the top order volume exceeds minimum requirements but falls below maximum single-transaction limits
+* To account for situations where profit exists without aggregation but disappears with aggregated volumes
 
 
