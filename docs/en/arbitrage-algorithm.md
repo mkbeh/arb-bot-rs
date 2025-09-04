@@ -73,9 +73,7 @@ rates are efficiently and quickly exploited.
 
 ## Binance
 
-[TODO]
-
-## 🔗 Building Ticker Chains
+### 🔗 Building Ticker Chains
 
 Ticker chains are constructed based on base assets to identify triangular arbitrage opportunities.
 
@@ -87,11 +85,11 @@ Ticker chains are constructed based on base assets to identify triangular arbitr
 
 * **Other cryptocurrencies:** LTC, ADA, DOT, XRP, and other major pairs
 
-### Chain Construction Algorithm
+#### Chain Construction Algorithm
 
 **Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
 
-#### **Examples**
+ **Examples:**
 
 **Case #1 - Standard Chain**
 
@@ -144,9 +142,9 @@ BTC/ETH → ETH/RLC → RLC/BTC
     * ❌ **Invalid:** ETH/BTC → BTC/QTUM → QTUM/USDT
     * ✅ **Valid:** ETH/BTC → BTC/QTUM → QTUM/ETH
 
-## 📊 Profit Calculation Algorithm
+### 📊 Profit Calculation Algorithm
 
-### Example Calculation Scenario
+**Example Calculation Scenario:**
 
 **Trading Pair Chain:** BTC/USDT (ASC) → ETH/USDT (DESC) → ETH/BTC (ASC)
 
@@ -161,12 +159,24 @@ BTC/ETH → ETH/RLC → RLC/BTC
 {
   "lastUpdateId": 72224518924,
   "bids": [
-    ["109615.46", "7.27795"],
-    ["109614.96", "0.00046"]
+    [
+      "109615.46",
+      "7.27795"
+    ],
+    [
+      "109614.96",
+      "0.00046"
+    ]
   ],
   "asks": [
-    ["109615.47", "2.22969"],
-    ["109615.48", "0.00028"]
+    [
+      "109615.47",
+      "2.22969"
+    ],
+    [
+      "109615.48",
+      "0.00028"
+    ]
   ]
 }
 ```
@@ -176,12 +186,24 @@ BTC/ETH → ETH/RLC → RLC/BTC
 {
   "lastUpdateId": 54622041690,
   "bids": [
-    ["2585.70", "14.64600"],
-    ["2585.69", "0.00210"]
+    [
+      "2585.70",
+      "14.64600"
+    ],
+    [
+      "2585.69",
+      "0.00210"
+    ]
   ],
   "asks": [
-    ["2585.71", "19.28810"],
-    ["2585.72", "0.40280"]
+    [
+      "2585.71",
+      "19.28810"
+    ],
+    [
+      "2585.72",
+      "0.40280"
+    ]
   ]
 }
 ```
@@ -191,17 +213,29 @@ BTC/ETH → ETH/RLC → RLC/BTC
 {
   "lastUpdateId": 8215337504,
   "bids": [
-    ["0.02358", "105.74550"],
-    ["0.02357", "57.30640"]
+    [
+      "0.02358",
+      "105.74550"
+    ],
+    [
+      "0.02357",
+      "57.30640"
+    ]
   ],
   "asks": [
-    ["0.02359", "25.63400"],
-    ["0.02360", "53.22680"]
+    [
+      "0.02359",
+      "25.63400"
+    ],
+    [
+      "0.02360",
+      "53.22680"
+    ]
   ]
 }
 ```
 
-### Step-by-Step Calculation
+#### Step-by-Step Calculation
 
 [TODO]
 
