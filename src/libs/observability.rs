@@ -17,6 +17,7 @@ pub fn setup_opentelemetry(name: &'static str) {
         .add_directive("reqwest=error".parse().unwrap())
         .add_directive("tower_http=error".parse().unwrap())
         .add_directive("axum::rejection=trace".parse().unwrap())
+        .add_directive("tungstenite=info".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap());
     let fmt_layer = tracing_subscriber::fmt::layer()
         .compact()
