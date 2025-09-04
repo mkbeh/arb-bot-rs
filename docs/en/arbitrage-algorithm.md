@@ -85,11 +85,11 @@ Ticker chains are constructed based on base assets to identify triangular arbitr
 
 * **Other cryptocurrencies:** LTC, ADA, DOT, XRP, and other major pairs
 
-#### Chain Construction Algorithm
+**Chain Construction Algorithm:**
 
 **Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
 
- **Examples:**
+**Examples:**
 
 **Case #1 - Standard Chain**
 
