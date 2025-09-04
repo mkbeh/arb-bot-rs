@@ -152,9 +152,9 @@ BTC/ETH → ETH/RLC → RLC/BTC
 
 **Fee Structure:** Maker/Taker 0.075% (with BNB discount)
 
-#### Order Book Data Snippets
+**Order Book Data Snippets:**
 
-BTC/USDT Order Book:
+BTC/USDT Order Book
 
 ```json
 
@@ -183,7 +183,7 @@ BTC/USDT Order Book:
 }
 ```
 
-ETH/USDT Order Book:
+ETH/USDT Order Book
 
 ```json
 {
@@ -211,7 +211,7 @@ ETH/USDT Order Book:
 }
 ```
 
-ETH/BTC Order Book:
+ETH/BTC Order Book
 
 ```json
 {
