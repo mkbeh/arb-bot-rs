@@ -154,8 +154,10 @@ BTC/ETH → ETH/RLC → RLC/BTC
 
 #### Order Book Data Snippets
 
+BTC/USDT Order Book:
+
 ```json
-// BTC/USDT Order Book
+
 {
   "lastUpdateId": 72224518924,
   "bids": [
@@ -181,8 +183,9 @@ BTC/ETH → ETH/RLC → RLC/BTC
 }
 ```
 
+ETH/USDT Order Book:
+
 ```json
-// ETH/USDT Order Book
 {
   "lastUpdateId": 54622041690,
   "bids": [
@@ -208,8 +211,9 @@ BTC/ETH → ETH/RLC → RLC/BTC
 }
 ```
 
+ETH/BTC Order Book:
+
 ```json
-// ETH/BTC Order Book
 {
   "lastUpdateId": 8215337504,
   "bids": [
