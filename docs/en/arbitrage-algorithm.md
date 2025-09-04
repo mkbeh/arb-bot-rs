@@ -73,8 +73,21 @@ rates are efficiently and quickly exploited.
 
 ## Binance
 
+### 🔗 Building Ticker Chains
+
+Ticker chains are constructed based on base assets to identify triangular arbitrage opportunities.
+
+#### Supported Base Assets
+
+**Major Assets:** BTC, ETH, BNB, USDT, USDC, FDUSD
+
+**Fiat Currencies:** EUR, TRY, BRL, JPY
+
+**Other Cryptocurrencies:** LTC, ADA, DOT, XRP, and other major pairs
+
+#### Chain Construction Algorithm
+
+**Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
+
 [TODO]
-
-
-
 
