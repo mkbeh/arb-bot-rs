@@ -1,5 +1,8 @@
 # System overview
 
+This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
+comprehensive monitoring capabilities while maintaining modularity and scalability.
+
 ### 📊 Architecture Levels
 
 #### Level 1 - Context
@@ -224,6 +227,3 @@ quadrantChart
     "Tracing": [0.7, 0.3]
     "WebSocket": [0.8, 0.2]
 ```
-
-This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
-comprehensive monitoring capabilities while maintaining modularity and scalability.
