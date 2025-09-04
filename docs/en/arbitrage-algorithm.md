@@ -67,11 +67,7 @@ The arbitrage cycle starts with $100,000 and ends with $119,000, thus securing a
 transactions. This example highlights the profit potential when discrepancies between the implied and actual exchange
 rates are efficiently and quickly exploited.
 
-### Exchanges
-
-* [Binance](#binance)
-
-## Binance
+## Algorithm Explanation
 
 ### 🔗 Building Ticker Chains
 
