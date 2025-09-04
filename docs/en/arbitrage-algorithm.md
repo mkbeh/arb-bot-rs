@@ -89,5 +89,46 @@ Ticker chains are constructed based on base assets to identify triangular arbitr
 
 **Symbol Pattern:** BTC/USDT → USDT/ETH → ETH/BTC
 
-[TODO]
+**Examples:**
+
+#### Case #1 - Standard Chain
+
+```text
+BTC/USDT → USDT/ETH → ETH/BTC
+```
+
+#### Case #2 - First Symbol Reversed
+
+```text
+USDT/BTC → BTC/ETH → ETH/USDT
+```
+
+#### Case #3 - Second Symbol Reversed
+
+```text
+BTC/USDT → USDT/ETH → ETH/BTC
+```
+#### Case #4 - Third Symbol Reversed
+
+```text
+ETH/BTC → BTC/USDT → USDT/ETH
+```
+
+#### Case #5 - First & Second Symbols Reversed
+
+```text
+USDT/BTC → BTC/BNB → BNB/USDT
+```
+
+#### Case #6 - Second & Third Symbols Reversed
+
+```text
+ETH/BTC → BTC/QTUM → QTUM/ETH
+```
+
+#### Case #7 - All Symbols Reversed
+
+```text
+BTC/ETH → ETH/RLC → RLC/BTC
+```
 
