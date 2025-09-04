@@ -5,5 +5,5 @@ pub mod storage;
 pub mod weight;
 
 pub use exchange::{BinanceExchangeConfig, BinanceExchangeService};
-pub use sender::{BinanceSenderService, BinanceSenderConfig};
+pub use sender::{BinanceSenderConfig, BinanceSenderService};
 pub use weight::REQUEST_WEIGHT;
