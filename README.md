@@ -237,19 +237,18 @@ sequenceDiagram
 
 ```mermaid
 quadrantChart
-  title "Application Technology Stack"
-  x-axis "Low-level Infrastructure" --> "High-level Application"
-  y-axis "Foundation" --> "Specialized"
-
-  "Rust": [0.2, 0.8]
-  "Tokio": [0.3, 0.7]
-  "Reqwest": [0.4, 0.6]
-  "Serde": [0.5, 0.5]
-  "Axum": [0.6, 0.4]
-  "Tracing": [0.7, 0.3]
-  "WebSocket": [0.8, 0.2]
-  "Dashmap": [0.4, 0.4]
-  "Redis": [0.3, 0.3]
+    title "Application Technology Stack"
+    x-axis "Low-level Infrastructure" --> "High-level Application"
+    y-axis "Foundation" --> "Specialized"
+    "Rust": [0.2, 0.8]
+    "Tokio": [0.3, 0.7]
+    "Reqwest": [0.4, 0.6]
+    "Serde": [0.5, 0.5]
+    "Axum": [0.6, 0.4]
+    "Tracing": [0.7, 0.3]
+    "WebSocket": [0.8, 0.2]
+    "Dashmap": [0.4, 0.4]
+    "Redis": [0.3, 0.3]
 ```
 
 This architecture enables high-frequency arbitrage trading with robust error handling, real-time processing, and
@@ -274,9 +273,8 @@ cargo build --release
 Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
 file to `config.toml`.
 
-*
-*_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
-`send_orders = true`._**
+_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
+`send_orders = true`._
 
 Run app:
 
