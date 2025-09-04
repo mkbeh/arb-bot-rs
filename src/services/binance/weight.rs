@@ -9,9 +9,9 @@ pub static REQUEST_WEIGHT: LazyLock<Mutex<RequestWeight>> =
 
 pub struct RequestWeight {
     timestamp: u64,
-    pub weight: usize,
-    pub weight_limit: usize,
-    pub weight_reset_secs: u64,
+    weight: usize,
+    weight_limit: usize,
+    weight_reset_secs: u64,
 }
 
 impl Default for RequestWeight {
