@@ -54,9 +54,9 @@ pub struct PreOrder {
 
 #[derive(Clone, Debug, Default)]
 pub struct SymbolFilter {
-    lot_size_step: u32,
-    tick_size: u32,
-    lot_size_min_qty: Decimal,
+    pub lot_size_step: u32,
+    pub tick_size: u32,
+    pub lot_size_min_qty: Decimal,
 }
 
 pub struct OrderBuilder {
@@ -196,7 +196,7 @@ impl OrderBuilder {
     }
 
     /// Build orders info and calculate profit.
-    async fn process_chain(
+    pub async fn process_chain(
         base_assets: &[Asset],
         chain: &[ChainSymbol; 3],
         order_book: &[BookTickerEvent],
@@ -250,7 +250,7 @@ impl OrderBuilder {
         Ok(())
     }
 
-    fn calculate_chain_profit(
+    pub fn calculate_chain_profit(
         order_symbols: &[OrderSymbol],
         market_depth_limit: usize,
         fee_percent: Decimal,

@@ -10,6 +10,7 @@ tasks:
       - lint
       - test
       - coverage
+      - bench
 
   lint:
     desc: "lint"
@@ -41,3 +42,14 @@ tasks:
         --security-opt seccomp=unconfined
         xd009642/tarpaulin:develop-nightly
         cargo +nightly tarpaulin --all-features --workspace --timeout 120
+
+  bench:
+    desc: "bench"
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo bench --bench benches
+
