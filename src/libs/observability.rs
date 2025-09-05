@@ -22,11 +22,7 @@ pub fn setup_opentelemetry(name: &'static str) {
     let fmt_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_span_events(FmtSpan::CLOSE)
-        .with_thread_names(true)
-        .json()
-        .flatten_event(true)
         .with_level(true)
-        .with_line_number(true)
         .with_filter(filter_fmt);
 
     // Initialize the tracing subscriber with the OpenTelemetry layer and the
