@@ -13,6 +13,10 @@ fee_percent = 0.075
 # Timeout seconds on error. Max: 5000.
 error_timeout = 30
 
+# Innterval in milliseconds between chain of tickers processing.
+# Increasing the value reduces CPU consumption when there are a large number of chains.
+process_chain_interval = 5
+
 # Time in seconds after which the placed order can be considered
 # invalid and the chain processing can be skipped.
 order_lifetime = 300
