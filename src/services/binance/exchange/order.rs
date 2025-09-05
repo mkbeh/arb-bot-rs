@@ -74,11 +74,11 @@ macro_rules! record_message {
 }
 
 impl OrderBuilder {
-    pub fn new(market_depth_limit: usize, fee_percent: Decimal) -> Self {
+    pub fn new(market_depth_limit: usize, fee_percent: Decimal, check_interval: u64) -> Self {
         Self {
             market_depth_limit,
             fee_percent,
-            check_interval: Duration::from_millis(5),
+            check_interval: Duration::from_millis(check_interval),
         }
     }
 

@@ -30,6 +30,7 @@ pub struct Settings {
     #[serde(with = "rust_decimal::serde::float")]
     pub fee_percent: Decimal,
     pub error_timeout: u64,
+    pub process_chain_interval: u64,
     pub order_lifetime: u64,
     pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]
@@ -66,7 +67,12 @@ pub struct Asset {
 }
 
 impl Asset {
-    fn check(&mut self, min_profit_qty: Decimal, max_order_qty: Decimal) -> anyhow::Result<()> {
+    fn check(
+        &mut self,
+        min_profit_qty: Decimal,
+        max_order_qty: Decimal,
+        min_ticker_qty_24h: Decimal,
+    ) -> anyhow::Result<()> {
         match self.symbol.as_ref() {
             Some(symbol) => {
                 if !symbol.contains("USDT") {
@@ -75,9 +81,13 @@ impl Asset {
             }
             None => {
                 // Set default limits if symbol not present in config.
-                if self.max_order_qty == Decimal::zero() && self.min_profit_qty == Decimal::zero() {
+                if self.max_order_qty == Decimal::zero()
+                    && self.min_profit_qty == Decimal::zero()
+                    && self.min_ticker_qty_24h == Decimal::zero()
+                {
                     self.min_profit_qty = min_profit_qty;
                     self.max_order_qty = max_order_qty;
+                    self.min_ticker_qty_24h = min_ticker_qty_24h;
                 }
             }
         }
@@ -133,7 +143,11 @@ impl Config {
         }
 
         for asset in &mut self.binance.assets {
-            asset.check(self.settings.min_profit_qty, self.settings.max_order_qty)?;
+            asset.check(
+                self.settings.min_profit_qty,
+                self.settings.max_order_qty,
+                self.settings.min_ticker_qty_24h,
+            )?;
         }
 
         Ok(())
