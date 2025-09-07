@@ -1,12 +1,14 @@
-use std::{net::SocketAddr, sync::LazyLock, time::Duration};
+use std::{future::ready, net::SocketAddr, sync::LazyLock, time::Duration};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use axum::{Router, routing::get};
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tokio::{signal, time::timeout};
 use tokio_util::sync::CancellationToken;
 
 const ADDR: &str = "127.0.0.1:9000";
+const METRICS_ADDR: &str = "127.0.0.1:9001";
 const PROCESS_PRE_RUN_TIMEOUT: Duration = Duration::from_secs(60);
 static SHUTDOWN_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
 
@@ -19,6 +21,7 @@ pub trait ServerProcess: Send + Sync {
 #[derive(Default)]
 pub struct Server<'a> {
     addr: String,
+    metrics_addr: String,
     processes: Option<&'a Vec<&'static dyn ServerProcess>>,
 }
 
@@ -26,6 +29,7 @@ impl<'a> Server<'a> {
     pub fn new() -> Self {
         Self {
             addr: ADDR.to_owned(),
+            metrics_addr: METRICS_ADDR.to_owned(),
             processes: None,
         }
     }
@@ -37,6 +41,7 @@ impl<'a> Server<'a> {
 
     pub async fn run(&self) -> anyhow::Result<()> {
         let srv = bootstrap_server(self.addr.clone(), get_default_router());
+        let metrics_srv = bootstrap_server(self.metrics_addr.clone(), get_metrics_router());
 
         let processes = match self.processes {
             Some(processes) => processes,
@@ -72,7 +77,7 @@ impl<'a> Server<'a> {
                 .map(|p| tokio::spawn(async { p.run(SHUTDOWN_TOKEN.clone()).await }))
                 .collect();
 
-            tokio::try_join!(srv)
+            tokio::try_join!(srv, metrics_srv)
                 .map_err(|e| anyhow!("Failed to bootstrap server. Reason: {:?}", e))?;
 
             SHUTDOWN_TOKEN.cancel();
@@ -156,4 +161,15 @@ fn get_default_router() -> Router {
     Router::new()
         .route("/readiness", get(|| async {}))
         .route("/liveness", get(|| async {}))
+}
+
+fn get_metrics_router() -> Router {
+    let recorder_handle = setup_metrics_recorder();
+    get_default_router().route("/metrics", get(move || ready(recorder_handle.render())))
+}
+
+fn setup_metrics_recorder() -> PrometheusHandle {
+    PrometheusBuilder::new()
+        .install_recorder()
+        .expect("Failed to install prometheus recorder")
 }
