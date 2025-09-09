@@ -46,3 +46,9 @@ pub struct Order {
     pub base_qty: Decimal,
     pub quote_qty: Decimal,
 }
+
+impl Chain {
+    pub fn extract_symbols(&self) -> Vec<&str> {
+        self.orders.iter().map(|o| o.symbol.as_str()).collect()
+    }
+}

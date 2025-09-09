@@ -15,7 +15,9 @@ use crate::{
         },
     },
     services::{
-        ORDERS_CHANNEL, Order, binance::REQUEST_WEIGHT, enums::SymbolOrder,
+        ORDERS_CHANNEL, Order,
+        binance::{REQUEST_WEIGHT, metrics::METRICS},
+        enums::SymbolOrder,
         service::OrderSenderService,
     },
 };
@@ -84,6 +86,7 @@ impl OrderSenderService for BinanceSenderService {
 
                 Ok(chain) = orders_rx.recv() => {
                     info!(chain = ?chain, send_orders = ?self.send_orders, "received chain orders");
+                    METRICS.increment_profit_orders(&chain.extract_symbols());
 
                     if !self.send_orders {
                         continue;
@@ -92,7 +95,6 @@ impl OrderSenderService for BinanceSenderService {
                     if last_chain_exec_ts.is_some_and(|t| t.elapsed() < self.process_chain_interval) {
                         continue;
                     }
-
 
                     for order in chain.orders.iter() {
                         if let Err(e) = self.process_order(order, &mut ws_writer).await {

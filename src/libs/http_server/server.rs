@@ -1,4 +1,4 @@
-use std::{future::ready, net::SocketAddr, sync::LazyLock, time::Duration};
+use std::{fmt::Display, future::ready, net::SocketAddr, sync::LazyLock, time::Duration};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -7,8 +7,6 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tokio::{signal, time::timeout};
 use tokio_util::sync::CancellationToken;
 
-const ADDR: &str = "127.0.0.1:9000";
-const METRICS_ADDR: &str = "127.0.0.1:9001";
 const PROCESS_PRE_RUN_TIMEOUT: Duration = Duration::from_secs(60);
 static SHUTDOWN_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
 
@@ -26,10 +24,10 @@ pub struct Server<'a> {
 }
 
 impl<'a> Server<'a> {
-    pub fn new() -> Self {
+    pub fn new(addr: String, metrics_addr: String) -> Self {
         Self {
-            addr: ADDR.to_owned(),
-            metrics_addr: METRICS_ADDR.to_owned(),
+            addr,
+            metrics_addr,
             processes: None,
         }
     }
@@ -40,8 +38,16 @@ impl<'a> Server<'a> {
     }
 
     pub async fn run(&self) -> anyhow::Result<()> {
-        let srv = bootstrap_server(self.addr.clone(), get_default_router());
-        let metrics_srv = bootstrap_server(self.metrics_addr.clone(), get_metrics_router());
+        let srv = bootstrap_server(
+            self.addr.clone(),
+            get_default_router(),
+            ServerKind::Application,
+        );
+        let metrics_srv = bootstrap_server(
+            self.metrics_addr.clone(),
+            get_metrics_router(),
+            ServerKind::Metrics,
+        );
 
         let processes = match self.processes {
             Some(processes) => processes,
@@ -93,12 +99,16 @@ impl<'a> Server<'a> {
     }
 }
 
-async fn bootstrap_server(addr: String, router: Router) -> anyhow::Result<()> {
+async fn bootstrap_server(
+    addr: String,
+    router: Router,
+    server_kind: ServerKind,
+) -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(addr.clone())
         .await
         .map_err(|e| anyhow!("failed to bind to address: {e}"))?;
 
-    tracing::info!("listening server on {addr}");
+    tracing::info!("listening {server_kind} server on {addr}");
 
     axum::serve(
         listener,
@@ -138,6 +148,20 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
         _ = quit => {},
+    }
+}
+
+enum ServerKind {
+    Application,
+    Metrics,
+}
+
+impl Display for ServerKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Application => write!(f, "application"),
+            Self::Metrics => write!(f, "metrics"),
+        }
     }
 }
 

@@ -29,7 +29,6 @@ pub struct BinanceExchangeConfig {
     pub max_order_qty: Decimal,
     pub fee_percentage: Decimal,
     pub min_ticker_qty_24h: Decimal,
-    pub process_chain_interval: u64,
 }
 
 pub struct BinanceExchangeService {
@@ -55,11 +54,7 @@ impl BinanceExchangeService {
         let chain_builder =
             ChainBuilder::new(config.general_api.clone(), config.market_api.clone());
 
-        let order_builder = OrderBuilder::new(
-            config.market_depth_limit,
-            config.fee_percentage,
-            config.process_chain_interval,
-        );
+        let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
 
         Self {
             asset_builder,

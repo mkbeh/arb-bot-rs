@@ -80,7 +80,7 @@ impl ChainBuilder {
             .await?;
 
         info!(
-            chains_num = filter_chains.len(),
+            chains_qty = filter_chains.len(),
             "successfully build chains",
         );
 
@@ -343,4 +343,11 @@ impl ChainBuilder {
 
         unique_chains
     }
+}
+
+pub fn extract_chain_symbols(chain_symbols: &[ChainSymbol]) -> Vec<&str> {
+    chain_symbols
+        .iter()
+        .map(|v| v.symbol.symbol.as_str())
+        .collect()
 }
