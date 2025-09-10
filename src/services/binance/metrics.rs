@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::{
+    fmt::{Display, Formatter},
+    sync::LazyLock,
+};
 
 use metrics::{counter, describe_counter};
 
@@ -42,13 +45,30 @@ impl Metrics {
         .increment(1);
     }
 
-    pub fn increment_profit_orders(&self, symbols: &[&str]) {
+    pub fn increment_profit_orders(&self, symbols: &[&str], status: ProcessChainStatus) {
         counter!(
             "profit_orders_total",
             "symbol_a" => symbols[0].to_string(),
             "symbol_b" => symbols[1].to_string(),
-            "symbol_c" => symbols[2].to_string()
+            "symbol_c" => symbols[2].to_string(),
+            "status" => status.to_string(),
         )
         .increment(1);
+    }
+}
+
+pub enum ProcessChainStatus {
+    New,
+    Filled,
+    Cancelled,
+}
+
+impl Display for ProcessChainStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProcessChainStatus::New => write!(f, "new"),
+            ProcessChainStatus::Filled => write!(f, "filled"),
+            ProcessChainStatus::Cancelled => write!(f, "cancelled"),
+        }
     }
 }

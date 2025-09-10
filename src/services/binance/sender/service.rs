@@ -16,7 +16,10 @@ use crate::{
     },
     services::{
         ORDERS_CHANNEL, Order,
-        binance::{REQUEST_WEIGHT, metrics::METRICS},
+        binance::{
+            REQUEST_WEIGHT,
+            metrics::{METRICS, ProcessChainStatus},
+        },
         enums::SymbolOrder,
         service::OrderSenderService,
     },
@@ -91,7 +94,7 @@ impl OrderSenderService for BinanceSenderService {
                     let chain = orders_rx.borrow().clone();
 
                     info!(chain = ?chain, send_orders = ?self.send_orders, "received chain orders");
-                    METRICS.increment_profit_orders(&chain.extract_symbols());
+                    METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::New);
 
                     if !self.send_orders {
                         continue;
@@ -104,11 +107,13 @@ impl OrderSenderService for BinanceSenderService {
                     for order in chain.orders.iter() {
                         if let Err(e) = self.process_order(order, &mut ws_writer).await {
                             error!(error = ?e, "Error processing order");
+                            METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::Cancelled);
                             break
                         };
                     }
 
                     last_chain_exec_ts = Some(Instant::now());
+                    METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::Filled);
                 }
 
                 result = &mut message_done_rx => match result {
