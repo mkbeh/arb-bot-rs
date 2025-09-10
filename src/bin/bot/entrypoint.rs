@@ -40,7 +40,7 @@ impl Entrypoint {
 
         let processes: Vec<&dyn ServerProcess> = vec![arbitrage_ps, sender_ps];
 
-        Server::new()
+        Server::new(settings.server_addr.clone(), settings.metrics_addr.clone())
             .with_processes(&processes)
             .run()
             .await
@@ -88,7 +88,6 @@ impl Entrypoint {
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
             min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
-            process_chain_interval: config.settings.process_chain_interval,
         };
 
         let service = BinanceExchangeService::from_config(service_config);

@@ -79,10 +79,7 @@ impl ChainBuilder {
             .filter_chains_by_24h_vol(&base_assets, unique_chains)
             .await?;
 
-        info!(
-            chains_num = filter_chains.len(),
-            "successfully build chains",
-        );
+        info!("successfully build chains: {}", filter_chains.len());
 
         Ok(filter_chains)
     }
@@ -343,4 +340,11 @@ impl ChainBuilder {
 
         unique_chains
     }
+}
+
+pub fn extract_chain_symbols(chain_symbols: &[ChainSymbol]) -> Vec<&str> {
+    chain_symbols
+        .iter()
+        .map(|v| v.symbol.symbol.as_str())
+        .collect()
 }

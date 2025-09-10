@@ -79,8 +79,6 @@ flowchart TD
     ArbitrageBot -->|REST API requests| CryptoExchange
     ArbitrageBot -->|WebSocket connections| CryptoExchange
     ArbitrageBot -->|Reads configuration| ConfigFile
-    style ArbBotRS fill: #e1f5fe, color: #000000
-    style ExternalSystems fill: #f3e5f5, color: #000000
     style ArbitrageBot fill: #c8e6c9, color: #000000
     style CryptoExchange fill: #ffcdd2, color: #000000
     style ConfigFile fill: #d7ccc8, color: #000000

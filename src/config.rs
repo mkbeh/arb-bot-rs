@@ -26,11 +26,12 @@ pub struct Config {
 
 #[derive(Clone, Deserialize)]
 pub struct Settings {
+    pub server_addr: String,
+    pub metrics_addr: String,
     pub exchange_name: String,
     #[serde(with = "rust_decimal::serde::float")]
     pub fee_percent: Decimal,
     pub error_timeout: u64,
-    pub process_chain_interval: u64,
     pub order_lifetime: u64,
     pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]

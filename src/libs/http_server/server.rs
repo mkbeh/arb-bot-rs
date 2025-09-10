@@ -1,12 +1,12 @@
-use std::{net::SocketAddr, sync::LazyLock, time::Duration};
+use std::{fmt::Display, future::ready, net::SocketAddr, sync::LazyLock, time::Duration};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use axum::{Router, routing::get};
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tokio::{signal, time::timeout};
 use tokio_util::sync::CancellationToken;
 
-const ADDR: &str = "127.0.0.1:9000";
 const PROCESS_PRE_RUN_TIMEOUT: Duration = Duration::from_secs(60);
 static SHUTDOWN_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
 
@@ -19,13 +19,15 @@ pub trait ServerProcess: Send + Sync {
 #[derive(Default)]
 pub struct Server<'a> {
     addr: String,
+    metrics_addr: String,
     processes: Option<&'a Vec<&'static dyn ServerProcess>>,
 }
 
 impl<'a> Server<'a> {
-    pub fn new() -> Self {
+    pub fn new(addr: String, metrics_addr: String) -> Self {
         Self {
-            addr: ADDR.to_owned(),
+            addr,
+            metrics_addr,
             processes: None,
         }
     }
@@ -36,7 +38,16 @@ impl<'a> Server<'a> {
     }
 
     pub async fn run(&self) -> anyhow::Result<()> {
-        let srv = bootstrap_server(self.addr.clone(), get_default_router());
+        let srv = bootstrap_server(
+            self.addr.clone(),
+            get_default_router(),
+            ServerKind::Application,
+        );
+        let metrics_srv = bootstrap_server(
+            self.metrics_addr.clone(),
+            get_metrics_router(),
+            ServerKind::Metrics,
+        );
 
         let processes = match self.processes {
             Some(processes) => processes,
@@ -72,7 +83,7 @@ impl<'a> Server<'a> {
                 .map(|p| tokio::spawn(async { p.run(SHUTDOWN_TOKEN.clone()).await }))
                 .collect();
 
-            tokio::try_join!(srv)
+            tokio::try_join!(srv, metrics_srv)
                 .map_err(|e| anyhow!("Failed to bootstrap server. Reason: {:?}", e))?;
 
             SHUTDOWN_TOKEN.cancel();
@@ -88,12 +99,16 @@ impl<'a> Server<'a> {
     }
 }
 
-async fn bootstrap_server(addr: String, router: Router) -> anyhow::Result<()> {
+async fn bootstrap_server(
+    addr: String,
+    router: Router,
+    server_kind: ServerKind,
+) -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(addr.clone())
         .await
         .map_err(|e| anyhow!("failed to bind to address: {e}"))?;
 
-    tracing::info!("listening server on {addr}");
+    tracing::info!("listening {server_kind} server on {addr}");
 
     axum::serve(
         listener,
@@ -136,6 +151,20 @@ async fn shutdown_signal() {
     }
 }
 
+enum ServerKind {
+    Application,
+    Metrics,
+}
+
+impl Display for ServerKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Application => write!(f, "application"),
+            Self::Metrics => write!(f, "metrics"),
+        }
+    }
+}
+
 fn setup_panic_hook() {
     std::panic::set_hook(Box::new(move |panic_info| {
         // If the panic has a source location, record it as structured fields.
@@ -156,4 +185,15 @@ fn get_default_router() -> Router {
     Router::new()
         .route("/readiness", get(|| async {}))
         .route("/liveness", get(|| async {}))
+}
+
+fn get_metrics_router() -> Router {
+    let recorder_handle = setup_metrics_recorder();
+    get_default_router().route("/metrics", get(move || ready(recorder_handle.render())))
+}
+
+fn setup_metrics_recorder() -> PrometheusHandle {
+    PrometheusBuilder::new()
+        .install_recorder()
+        .expect("Failed to install prometheus recorder")
 }

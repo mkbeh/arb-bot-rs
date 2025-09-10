@@ -3,12 +3,13 @@ use std::collections::HashSet;
 use anyhow::bail;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::{
     libs::binance_api::stream::{Events, StreamEvent, WebsocketStream, book_ticker_stream},
     services::binance::{
-        broadcast::TICKER_BROADCAST, exchange::chain::ChainSymbol, storage::BookTickerEvent,
+        broadcast::TICKER_BROADCAST, exchange::chain::ChainSymbol, metrics::METRICS,
+        storage::BookTickerEvent,
     },
 };
 
@@ -43,12 +44,15 @@ impl TickerBuilder {
             .map(|symbol| book_ticker_stream(symbol))
             .collect::<Vec<_>>();
 
-        let mut tasks_set: JoinSet<anyhow::Result<()>> = JoinSet::new();
+        info!("listening websocket streams: {}", streams.len());
+
         let chunk_size = if streams.len() >= self.ws_max_connections {
             streams.len() / self.ws_max_connections
         } else {
             streams.len()
         };
+
+        let mut tasks_set: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
         for chunk in streams.chunks(chunk_size) {
             let ws_url = self.ws_streams_url.clone();
@@ -73,6 +77,8 @@ impl TickerBuilder {
                                     error!(error = ?e, symbol = ?event.symbol, "Failed to broadcast ticker price");
                                     bail!("Failed to broadcast ticker price: {e}");
                                 }
+
+                                METRICS.increment_book_ticker_events(event.symbol.as_str());
                             };
 
                             Ok(())
@@ -97,31 +103,22 @@ impl TickerBuilder {
             });
         }
 
-        loop {
-            tokio::select! {
-                _ = token.cancelled() => {
-                    break;
+        while let Some(result) = tasks_set.join_next().await {
+            match result {
+                Ok(Err(e)) => {
+                    error!(error = ?e, "Task failed");
+                    token.cancel();
                 }
-                result = tasks_set.join_next() => match result {
-                    Some(Ok(Err(e))) => {
-                        error!(error = ?e, "Failed to run task");
-                        token.cancel();
-                        break;
-                    }
-                    Some(Err(e)) => {
-                        error!(error = ?e, "Failed to join task");
-                        token.cancel();
-                        break;
-                    }
-                    _ => {
-                        token.cancel();
-                        continue;
-                    }
+                Err(e) => {
+                    error!(error = ?e, "Join error");
+                    token.cancel();
+                }
+                _ => {
+                    token.cancel();
                 }
             }
         }
 
-        tasks_set.abort_all();
         Ok(())
     }
 }
