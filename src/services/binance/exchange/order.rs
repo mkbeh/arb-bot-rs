@@ -5,9 +5,9 @@ use rust_decimal::{
     Decimal,
     prelude::{FromPrimitive, Zero},
 };
-use tokio::{sync::broadcast::error::RecvError, task::JoinSet};
+use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, warn};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -65,39 +65,6 @@ pub struct OrderBuilder {
     fee_percent: Decimal,
 }
 
-macro_rules! handle_channel {
-    ($self:ident, $storage:ident, $chain:ident, $msg:expr, $last_prices:ident, $base_assets:ident, $rx:ident) => {
-        match $msg {
-            Ok(msg) => $self.handle_ticker_event(
-                &mut $storage,
-                &$chain,
-                msg,
-                &mut $last_prices,
-                &$base_assets,
-            ),
-            Err(RecvError::Lagged(_)) => {
-                let mut latest_msg = None;
-                while let Ok(msg) = $rx.try_recv() {
-                    latest_msg = Some(msg);
-                }
-                if let Some(msg) = latest_msg {
-                    $self.handle_ticker_event(
-                        &mut $storage,
-                        &$chain,
-                        msg,
-                        &mut $last_prices,
-                        &$base_assets,
-                    )
-                }
-            }
-            Err(RecvError::Closed) => {
-                warn!("channel closed");
-                break;
-            }
-        }
-    };
-}
-
 impl OrderBuilder {
     pub fn new(market_depth_limit: usize, fee_percent: Decimal) -> Self {
         Self {
@@ -131,20 +98,32 @@ impl OrderBuilder {
                     let mut storage = BookTickerStore::new();
                     let mut last_prices: Vec<Decimal> = vec![];
 
+                    // Read initial values from watch channel
+                    {
+                        _ = rx1.borrow().clone();
+                        _ = rx2.borrow().clone();
+                        _ = rx3.borrow().clone();
+                    }
+
                     loop {
                         tokio::select! {
                             _ = token.cancelled() => {
                                 break;
                             },
 
-                            msg = rx1.recv() => {
-                                handle_channel!(this, storage, chain, msg, last_prices, base_assets, rx1)
+                            _ = rx1.changed() => {
+                                let msg = rx1.borrow().clone();
+                                this.handle_ticker_event(&mut storage, &chain, msg, &mut last_prices, &base_assets);
                             },
-                            msg = rx2.recv() => {
-                                handle_channel!(this, storage, chain, msg, last_prices, base_assets, rx2)
+
+                            _ = rx2.changed() => {
+                                let msg = rx2.borrow().clone();
+                                this.handle_ticker_event(&mut storage, &chain, msg, &mut last_prices, &base_assets);
                             },
-                            msg = rx3.recv() => {
-                                handle_channel!(this, storage, chain, msg, last_prices, base_assets, rx3)
+
+                            _ = rx3.changed() => {
+                                let msg = rx3.borrow().clone();
+                                this.handle_ticker_event(&mut storage, &chain, msg, &mut last_prices, &base_assets);
                             },
                         }
                     }
@@ -245,15 +224,16 @@ impl OrderBuilder {
                 None
             };
 
+            let symbol = &chain_symbol.symbol;
             let order_symbol = OrderSymbol {
-                symbol: chain_symbol.symbol.symbol.clone(),
-                base_asset_precision: chain_symbol.symbol.base_asset_precision,
-                quote_precision: chain_symbol.symbol.quote_precision,
+                symbol: symbol.symbol.clone(),
+                base_asset_precision: symbol.base_asset_precision,
+                quote_precision: symbol.quote_precision,
                 symbol_order: chain_symbol.order,
                 min_profit_qty,
                 max_order_qty,
                 order_book: &order_book[i],
-                symbol_filter: define_symbol_filter(&chain_symbol.symbol.filters),
+                symbol_filter: define_symbol_filter(&symbol.filters),
             };
             order_symbols.push(order_symbol);
         }
@@ -279,7 +259,7 @@ impl OrderBuilder {
     }
 
     pub fn calculate_chain_profit(
-        order_symbols: &[OrderSymbol],
+        chain: &[OrderSymbol],
         market_depth_limit: usize,
         fee_percent: Decimal,
     ) -> Vec<Order> {
@@ -287,10 +267,10 @@ impl OrderBuilder {
         let mut start_depth_limit = 0;
 
         // Extract max order qty from first symbol in the chain.
-        let max_order_qty = get_max_order_qty(order_symbols.first().unwrap());
+        let max_order_qty = get_max_order_qty(chain.first().unwrap());
 
         while start_depth_limit < market_depth_limit {
-            for (i, order_symbol) in order_symbols.iter().enumerate() {
+            for (i, order_symbol) in chain.iter().enumerate() {
                 // Define list of orders according to the order of assets in symbol.
                 let order_units: &Vec<OrderBookUnit> = match order_symbol.symbol_order {
                     SymbolOrder::Asc => &vec![OrderBookUnit {
@@ -361,7 +341,7 @@ impl OrderBuilder {
 
             // Compare first chain order qty and first chain item qty limit.
             // If it is equal, there is no point in trying to sum up the qty, so break.
-            if orders[orders.len() - order_symbols.len()].base_qty == max_order_qty {
+            if orders[orders.len() - chain.len()].base_qty == max_order_qty {
                 break;
             }
 
@@ -370,14 +350,14 @@ impl OrderBuilder {
 
         // Round and recalculate quantities according to binance api rules.
         let mut profit_orders = vec![];
-        let mut min_profit_qty = get_min_profit_qty(order_symbols.first().unwrap());
+        let mut min_profit_qty = get_min_profit_qty(chain.first().unwrap());
 
         // Iterate over every first order in chain.
-        'outer_loop: for i in (0..).take(orders.len() - 1).step_by(order_symbols.len()) {
+        'outer_loop: for i in (0..).take(orders.len() - 1).step_by(chain.len()) {
             let mut count = 0;
             let mut tmp_orders: Vec<Order> = vec![];
 
-            while count < order_symbols.len() {
+            while count < chain.len() {
                 let price = orders[count]
                     .price
                     .trunc_with_scale(orders[count].symbol_filter.tick_size);
@@ -439,8 +419,8 @@ impl OrderBuilder {
         }
 
         // Return 3 last profit orders.
-        if profit_orders.len() >= order_symbols.len() {
-            let idx = profit_orders.len().sub(order_symbols.len());
+        if profit_orders.len() >= chain.len() {
+            let idx = profit_orders.len().sub(chain.len());
             profit_orders[idx..].to_vec()
         } else {
             profit_orders

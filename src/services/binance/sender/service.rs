@@ -78,13 +78,18 @@ impl OrderSenderService for BinanceSenderService {
         let mut orders_rx = ORDERS_CHANNEL.rx.lock().await;
         let mut last_chain_exec_ts: Option<Instant> = None;
 
+        // Get the initial value from watch channel
+        _ = orders_rx.borrow().clone();
+
         loop {
             tokio::select! {
                 _ = token.cancelled() => {
                     break;
                 }
 
-                Ok(chain) = orders_rx.recv() => {
+                _ = orders_rx.changed() => {
+                    let chain = orders_rx.borrow().clone();
+
                     info!(chain = ?chain, send_orders = ?self.send_orders, "received chain orders");
                     METRICS.increment_profit_orders(&chain.extract_symbols());
 
