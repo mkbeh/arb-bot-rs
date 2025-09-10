@@ -63,6 +63,43 @@ Run app:
 docker run --cpus="1" --cpuset-cpus="0" --memory="256m" arb-bot-rs:latest
 ```
 
+## Monitoring
+
+![Grafana](https://img.shields.io/badge/-Grafana-orange?logo=grafana&logoColor=white&style=flat)
+![Prometheus](https://img.shields.io/badge/-Prometheus-red?logo=prometheus&logoColor=white&style=flat)
+
+The bot's core performance is monitored in real-time using a Grafana dashboard, providing deep insights into market data
+processing and arbitrage efficiency.
+
+### 📊 Key Metrics Tracked
+
+* **Market Data Intensity:**
+
+    * Total rate of order book update events from exchanges.
+    * The most active trading pairs by update frequency.
+
+* **Arbitrage Engine Performance:**
+
+    * How many potential arbitrage chains the engine analyzes per second.
+    * The most frequently processed and profitable currency chains.
+
+* **Trading Strategy Effectiveness:**
+
+    * The percentage of profitable chains found versus all chains processed.
+    * The absolute count of profitable opportunities identified.
+
+* **Order Execution Status:**
+
+    * A real-time log of the most recent order execution attempts (success, failure, cancelled).
+
+### Dashboard Preview
+
+The dashboard provides a live look at the bot's decision-making process and market impact.
+
+![img](assets/img/grafana.jpg)
+
+_Live dashboard showing market data throughput, arbitrage processing rates, and trading performance._
+
 ## Running tests
 
 Application is relatively well-tested, including both unit tests and integration tests. To run the full test suite, use:
