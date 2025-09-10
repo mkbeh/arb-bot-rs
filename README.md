@@ -19,6 +19,7 @@ List of supported cryptocurrency exchanges.
 
 * [Installation](#installation)
 * [Usage](#usage)
+* [Monitoring](#monitoring)
 * [Translations](#translations)
 
 ## Installation
