@@ -97,7 +97,7 @@ processing and arbitrage efficiency.
 
 The dashboard provides a live look at the bot's decision-making process and market impact.
 
-![img](assets/img/grafana.jpg)
+![img](assets/img/grafana.png)
 
 _Live dashboard showing market data throughput, arbitrage processing rates, and trading performance._
 

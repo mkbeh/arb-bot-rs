@@ -29,4 +29,4 @@ target/
 .env
 tmp
 config.toml
-/docker-compose,infra.yml
+/docker-compose.infra.yml
