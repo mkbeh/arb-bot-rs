@@ -7,7 +7,7 @@ use anyhow::bail;
 use rust_decimal::{Decimal, prelude::Zero};
 use strum::IntoEnumIterator;
 use tokio::task::JoinSet;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     config::Asset,
@@ -183,10 +183,20 @@ impl ChainBuilder {
                     continue 'outer;
                 };
 
-                let (volume, last_price) = match chain_symbol.order {
+                let (volume, price) = match chain_symbol.order {
                     SymbolOrder::Asc => (stats.volume, stats.last_price),
                     SymbolOrder::Desc => (stats.quote_volume, stats.last_price),
                 };
+
+                if volume == Decimal::zero() || price == Decimal::zero() {
+                    debug!(
+                        symbol = ?chain_symbol.symbol.symbol.as_str(),
+                        volume = ?volume,
+                        price = ?price,
+                        "skip chain ticker price",
+                    );
+                    continue 'outer;
+                }
 
                 match i {
                     0 => {
@@ -201,7 +211,7 @@ impl ChainBuilder {
 
                         last_volume_limit = calc_volume_fn(
                             base_asset.min_ticker_qty_24h,
-                            last_price,
+                            price,
                             chain_symbol.order,
                         );
                     }
@@ -211,7 +221,7 @@ impl ChainBuilder {
                         }
 
                         last_volume_limit =
-                            calc_volume_fn(last_volume_limit, last_price, chain_symbol.order);
+                            calc_volume_fn(last_volume_limit, price, chain_symbol.order);
                     }
                 }
             }
