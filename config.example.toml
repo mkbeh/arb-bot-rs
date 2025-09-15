@@ -38,7 +38,7 @@ api_token = "<api_token>"
 api_secret_key = "<api_secret_key>"
 
 ws_url = "wss://ws-api.binance.com:443/ws-api/v3"
-ws_streams_url = "wss://stream.binance.com:9443"
+ws_streams_url = "wss://stream.binance.com:443"
 
 # Websocket Streams connections limit.
 ws_max_connections = 100
