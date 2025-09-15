@@ -61,7 +61,7 @@ docker build --build-arg SERVICE_NAME=bot --build-arg BUILD_PROFILE=release -t a
 Run app:
 
 ```shell
-docker run --cpus="1" --cpuset-cpus="0" --memory="256m" arb-bot-rs:latest
+docker run --cpus="1" --cpuset-cpus="0" --memory="512m" arb-bot-rs:latest
 ```
 
 ## Monitoring
