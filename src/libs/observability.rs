@@ -20,9 +20,12 @@ pub fn setup_opentelemetry(name: &'static str) {
         .add_directive("tungstenite=info".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap());
     let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_span_events(FmtSpan::NONE)
+        .with_target(true)
+        .with_line_number(true)
+        .with_thread_names(false)
         .compact()
-        .with_span_events(FmtSpan::CLOSE)
-        .with_level(true)
+        .with_writer(std::io::stdout)
         .with_filter(filter_fmt);
 
     // Initialize the tracing subscriber with the OpenTelemetry layer and the
