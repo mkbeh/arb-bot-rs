@@ -74,7 +74,7 @@ processing and arbitrage efficiency.
 
 ### 📊 Key Metrics Tracked
 
-| **Metric**                                                                                  | **Description**                                             |
+| Metric                                                                                      | Description                                                 |
 |---------------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | **📈 Market Data Intensity**                                                                |                                                             |
 | - Total rate of order book update events from exchanges                                     | 🔄 Rate of updates received from various exchanges.         |
@@ -86,7 +86,7 @@ processing and arbitrage efficiency.
 | - The percentage of profitable chains found versus all chains processed                     | 📊 Success rate of profitable detections (%).               |
 | - The absolute count of profitable opportunities identified                                 | ✅ Total number of viable arbitrage opportunities found.     |
 | **🛠️ Order Execution Status**                                                              |                                                             |
-| - A real-time log of the most recent order execution attempts (success, failure, cancelled) | 📝 Latest executions with status and timestamps.            |
+| - A real-time log of the most recent order execution attempts (success, failure, cancelled) | 📝 Latest executions with status and timestamps.            |            
 
 ### Dashboard Preview
 
