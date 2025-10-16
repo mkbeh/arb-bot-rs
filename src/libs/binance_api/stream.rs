@@ -84,11 +84,10 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
                             Self::handle_text_message(&mut self.callback, &message)?
                         }
                         Ok(Message::Ping(data)) => {
-                            if let Some(ref mut writer) = self.writer {
-                                if let Err(e) = writer.send(Message::Pong(data)).await {
+                            if let Some(ref mut writer) = self.writer
+                                && let Err(e) = writer.send(Message::Pong(data)).await {
                                     error!("Failed to send pong: {:?}", e);
                                 }
-                            }
                         }
                         Ok(Message::Close(_)) => {
                             debug!("Websocket stream closed");
