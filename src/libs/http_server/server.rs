@@ -6,6 +6,7 @@ use axum::{Router, routing::get};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tokio::{signal, time::timeout};
 use tokio_util::sync::CancellationToken;
+use tracing::{error, info};
 
 const PROCESS_PRE_RUN_TIMEOUT: Duration = Duration::from_secs(60);
 static SHUTDOWN_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
@@ -90,7 +91,7 @@ impl<'a> Server<'a> {
 
             for task in runnable_tasks {
                 if let Err(e) = task.await? {
-                    tracing::error!("Failed to shutdown processes. Reason: {:?}", e);
+                    error!("Failed to shutdown processes. Reason: {:?}", e);
                 }
             }
         }
@@ -108,7 +109,7 @@ async fn bootstrap_server(
         .await
         .map_err(|e| anyhow!("failed to bind to address: {e}"))?;
 
-    tracing::info!("listening {server_kind} server on {addr}");
+    info!("Listening {server_kind} server on {addr}");
 
     axum::serve(
         listener,
@@ -159,7 +160,7 @@ enum ServerKind {
 impl Display for ServerKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::Application => write!(f, "application"),
+            Self::Application => write!(f, "app"),
             Self::Metrics => write!(f, "metrics"),
         }
     }
@@ -169,14 +170,14 @@ fn setup_panic_hook() {
     std::panic::set_hook(Box::new(move |panic_info| {
         // If the panic has a source location, record it as structured fields.
         if let Some(location) = panic_info.location() {
-            tracing::error!(
+            error!(
                 message = %panic_info,
                 panic.file = location.file(),
                 panic.line = location.line(),
                 panic.column = location.column(),
             );
         } else {
-            tracing::error!(message = %panic_info);
+            error!(message = %panic_info);
         }
     }))
 }

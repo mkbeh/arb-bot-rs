@@ -120,7 +120,7 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 24,
         "x": 0,
         "y": 0
@@ -156,7 +156,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(increase(profit_orders_total{status=\"new\"}[5m]))",
+          "expr": "sum(rate(profit_orders_total{status=\"new\"}[5m]))",
           "legendFormat": "new",
           "range": true,
           "refId": "A"
@@ -167,7 +167,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(increase(profit_orders_total{status=\"filled\"}[5m]))",
+          "expr": "sum(rate(profit_orders_total{status=\"filled\"}[5m]))",
           "legendFormat": "filled",
           "range": true,
           "refId": "B"
@@ -178,7 +178,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(increase(profit_orders_total{status=\"canceled\"}[5m]))",
+          "expr": "sum(rate(profit_orders_total{status=\"canceled\"}[5m]))",
           "legendFormat": "canceled",
           "range": true,
           "refId": "C"
@@ -222,10 +222,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 0,
-        "y": 8
+        "y": 7
       },
       "id": 7,
       "options": {
@@ -365,10 +365,10 @@
         ]
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 18,
         "x": 6,
-        "y": 8
+        "y": 7
       },
       "id": 6,
       "options": {
@@ -492,7 +492,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 12
       },
       "id": 1,
       "options": {
@@ -589,7 +589,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 12
       },
       "id": 3,
       "options": {
@@ -638,7 +638,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 100
               }
             ]
           },
@@ -672,10 +672,10 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 11,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 19
       },
       "id": 2,
       "options": {
@@ -686,8 +686,8 @@
           "placement": "bottom",
           "showLegend": false
         },
-        "maxVizHeight": 300,
-        "minVizHeight": 40,
+        "maxVizHeight": 0,
+        "minVizHeight": 42,
         "minVizWidth": 30,
         "namePlacement": "auto",
         "orientation": "horizontal",
@@ -768,7 +768,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 100
               }
             ]
           },
@@ -826,10 +826,10 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 11,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 19
       },
       "id": 4,
       "options": {
@@ -841,7 +841,7 @@
           "showLegend": false
         },
         "maxVizHeight": 300,
-        "minVizHeight": 35,
+        "minVizHeight": 42,
         "minVizWidth": 8,
         "namePlacement": "top",
         "orientation": "horizontal",

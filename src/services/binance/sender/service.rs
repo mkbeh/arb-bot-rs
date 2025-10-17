@@ -5,13 +5,14 @@ use async_trait::async_trait;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+use uuid::Uuid;
 
 use crate::{
     libs::binance_api::{
         OrderSide, OrderStatus, OrderType, TimeInForce, ws,
         ws::{
-            PlaceOrderRequest, QueryOrderRequest, WebsocketApi, WebsocketClientError,
-            WebsocketWriter, connect_ws,
+            PlaceOrderRequest, PlaceOrderResponse, QueryOrderRequest, QueryOrderResponse,
+            WebsocketApi, WebsocketClientError, WebsocketWriter, connect_ws,
         },
     },
     services::{
@@ -21,6 +22,7 @@ use crate::{
             metrics::{METRICS, ProcessChainStatus},
         },
         enums::SymbolOrder,
+        print_chain_info,
         service::OrderSenderService,
     },
 };
@@ -93,7 +95,7 @@ impl OrderSenderService for BinanceSenderService {
                 _ = orders_rx.changed() => {
                     let chain = orders_rx.borrow().clone();
 
-                    info!(chain = ?chain, send_orders = ?self.send_orders, "received chain orders");
+                    print_chain_info(&chain, self.send_orders);
                     METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::New);
 
                     if !self.send_orders {
@@ -104,8 +106,8 @@ impl OrderSenderService for BinanceSenderService {
                         continue;
                     }
 
-                    for order in chain.orders.iter() {
-                        if let Err(e) = self.process_order(order, &mut ws_writer).await {
+                    for (i, order) in chain.orders.iter().enumerate() {
+                        if let Err(e) = self.process_order(i, chain.chain_id, order, &mut ws_writer).await {
                             error!(error = ?e, "Error processing order");
                             METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::Cancelled);
                             break
@@ -142,6 +144,8 @@ impl OrderSenderService for BinanceSenderService {
 impl BinanceSenderService {
     async fn process_order(
         &self,
+        idx: usize,
+        chain_id: Uuid,
         order: &Order,
         ws_writer: &mut WebsocketWriter,
     ) -> anyhow::Result<()> {
@@ -181,7 +185,7 @@ impl BinanceSenderService {
 
         let (order_id, status) = match ws_writer.place_order(place_order_request).await {
             Ok(response) => {
-                info!(response = ?response, "Order placed successfully");
+                print_place_order(idx, chain_id, &response);
                 (response.order_id, response.status)
             }
             Err(e) => {
@@ -223,7 +227,7 @@ impl BinanceSenderService {
             match ws_writer.query_order(query_order_request.clone()).await {
                 Ok(response) => {
                     if response.status == OrderStatus::Filled {
-                        info!(response = ?response, "Order filled successfully");
+                        print_query_order(chain_id, &response);
                         break;
                     }
                 }
@@ -257,4 +261,46 @@ fn define_order_qty(order: &Order) -> Option<String> {
         SymbolOrder::Asc => Some(order.base_qty.to_string()),
         SymbolOrder::Desc => Some(order.quote_qty.to_string()),
     }
+}
+
+fn print_place_order(idx: usize, chain_id: Uuid, response: &PlaceOrderResponse) {
+    let status_emoji = if response.status == OrderStatus::Filled {
+        "✅"
+    } else {
+        "⏳"
+    };
+    info!(
+        chain_id = chain_id.to_string(),
+        order_index = idx + 1,
+        symbol = %response.symbol,
+        order_id = response.order_id,
+        client_order_id = %response.client_order_id,
+        transact_time_ms = response.transact_time,
+        price = ?response.price,
+        orig_qty = ?response.orig_qty,
+        executed_qty = ?response.executed_qty,
+        cummulative_quote_qty = ?response.cummulative_quote_qty,
+        status = %response.status,
+        order_type = %response.order_type,
+        order_side = %response.order_side,
+        fills_count = response.fills.len(),
+        "{} Order placed successfully",
+        status_emoji
+    );
+}
+
+fn print_query_order(chain_id: Uuid, response: &QueryOrderResponse) {
+    info!(
+        chain_id = chain_id.to_string(),
+        symbol = %response.symbol,
+        order_id = response.order_id,
+        client_order_id = %response.client_order_id,
+        price = ?response.price,
+        orig_qty = ?response.orig_qty,
+        executed_qty = ?response.executed_qty,
+        cummulative_quote_qty = ?response.cummulative_quote_qty,
+        status = %response.status,
+        update_time_ms = response.update_time,
+        "✅ Order filled successfully"
+    );
 }
