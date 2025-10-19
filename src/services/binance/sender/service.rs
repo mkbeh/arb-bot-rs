@@ -22,7 +22,6 @@ use crate::{
             metrics::{METRICS, ProcessChainStatus},
         },
         enums::SymbolOrder,
-        print_chain_info,
         service::OrderSenderService,
     },
 };
@@ -94,8 +93,8 @@ impl OrderSenderService for BinanceSenderService {
 
                 _ = orders_rx.changed() => {
                     let chain = orders_rx.borrow().clone();
+                    chain.print_info(self.send_orders);
 
-                    print_chain_info(&chain, self.send_orders);
                     METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::New);
 
                     if !self.send_orders {
