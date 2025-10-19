@@ -248,6 +248,7 @@ impl OrderBuilder {
         let orders_chain = Chain {
             ts: misc::time::get_current_timestamp().as_millis(),
             chain_id: Uuid::new_v4(),
+            fee_percent,
             orders,
         };
 
