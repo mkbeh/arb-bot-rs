@@ -8,6 +8,7 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
+    config::Config,
     libs::binance_api::{
         OrderSide, OrderStatus, OrderType, TimeInForce, ws,
         ws::{
@@ -42,6 +43,18 @@ pub struct BinanceSenderService {
     ws_url: String,
     api_token: String,
     api_secret_key: String,
+}
+
+impl BinanceSenderConfig {
+    pub fn build(config: Config) -> Self {
+        Self {
+            send_orders: config.settings.send_orders,
+            order_lifetime_secs: config.settings.order_lifetime,
+            ws_url: config.binance.ws_url,
+            api_token: config.binance.api_token.clone(),
+            api_secret_key: config.binance.api_secret_key.clone(),
+        }
+    }
 }
 
 impl BinanceSenderService {

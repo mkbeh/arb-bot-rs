@@ -1,6 +1,7 @@
 pub mod binance_api;
 pub mod hooks;
 pub mod http_server;
+mod kuckoin_api;
 pub mod misc;
 pub mod observability;
 pub mod toml;

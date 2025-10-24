@@ -14,6 +14,8 @@ const MAX_MARKET_DEPTH_LIMIT: usize = 20;
 pub enum Exchange {
     #[strum(serialize = "binance")]
     Binance,
+    #[strum(serialize = "kucoin")]
+    Kucoin,
 }
 
 #[derive(Clone, Deserialize)]

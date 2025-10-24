@@ -8,12 +8,19 @@ use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::{
-    config::Asset,
-    libs::binance_api::{General, Market},
+    config::{Asset, Config},
+    libs::{
+        binance_api,
+        binance_api::{Binance, General, Market},
+    },
     services::{
         ExchangeService,
-        binance::exchange::{
-            asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder, ticker::TickerBuilder,
+        binance::{
+            REQUEST_WEIGHT,
+            exchange::{
+                asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder,
+                ticker::TickerBuilder,
+            },
         },
     },
 };
@@ -36,6 +43,47 @@ pub struct BinanceExchangeService {
     ticker_builder: TickerBuilder,
     chain_builder: Arc<ChainBuilder>,
     order_builder: Arc<OrderBuilder>,
+}
+
+impl BinanceExchangeConfig {
+    pub async fn build(config: Config) -> anyhow::Result<Self> {
+        let api_config = binance_api::ClientConfig {
+            api_url: config.binance.api_url,
+            api_token: config.binance.api_token,
+            api_secret_key: config.binance.api_secret_key,
+            http_config: binance_api::HttpConfig::default(),
+        };
+
+        let general_api = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        let market_api = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        {
+            REQUEST_WEIGHT
+                .lock()
+                .await
+                .set_weight_limit(config.binance.api_weight_limit);
+        }
+
+        Ok(Self {
+            general_api,
+            market_api,
+            base_assets: config.binance.assets,
+            ws_streams_url: config.binance.ws_streams_url.clone(),
+            ws_max_connections: config.binance.ws_max_connections,
+            market_depth_limit: config.binance.market_depth_limit,
+            min_profit_qty: config.settings.min_profit_qty,
+            max_order_qty: config.settings.max_order_qty,
+            fee_percentage: config.settings.fee_percent,
+            min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
+        })
+    }
 }
 
 impl BinanceExchangeService {
