@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use rust_decimal::{Decimal, RoundingStrategy, prelude::FromPrimitive};
 use tokio::sync::{Mutex, watch};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, info_span};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::services::enums::SymbolOrder;
@@ -55,14 +55,6 @@ impl Chain {
     }
 
     pub fn print_info(&self, send_orders: bool) {
-        let span = info_span!(
-            "chain_received",
-            ts = self.ts,
-            chain_id = %self.chain_id,
-            send_orders = send_orders
-        );
-        let _enter = span.enter();
-
         let (profit, profit_percent) = {
             let input_qty = self.orders[0].base_qty;
             let output_qty = self.orders[2].quote_qty;
@@ -82,6 +74,9 @@ impl Chain {
         };
 
         info!(
+            ts = self.ts,
+            chain_id = %self.chain_id,
+            send_orders = send_orders,
             profit = ?profit,
             profit_percent = ?profit_percent,
             fee_percent = %self.fee_percent,
