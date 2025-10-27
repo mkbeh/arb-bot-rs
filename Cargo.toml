@@ -1,6 +1,6 @@
 [package]
 name = "arb-bot-rs"
-version = "0.4.0"
+version = "0.3.4"
 edition = "2024"
 
 [[bin]]
@@ -23,7 +23,7 @@ reqwest = { version = "0.12.24", default-features = false, features = ["json", "
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = "1.0.145"
-serde_with = { version = "3.15.0", features = ["macros"] }
+serde_with = { version = "3.15.1", features = ["macros"] }
 sha2 = { version = "0.10.9" }
 strum = { version = "0.27.2" }
 strum_macros = { version = "0.27.2" }
@@ -33,7 +33,7 @@ tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 tokio-util = { version = "0.7.16" }
 toml = { version = "0.9.8" }
 tracing = { version = "0.1.41", default-features = false }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "registry", "std", "fmt", "json"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "registry", "std", "fmt", "json", "ansi"] }
 url = { version = "2.5.7" }
 uuid = { version = "1.18.1", features = ["v4"] }
 

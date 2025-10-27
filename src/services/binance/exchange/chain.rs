@@ -79,7 +79,7 @@ impl ChainBuilder {
             .filter_chains_by_24h_vol(&base_assets, unique_chains)
             .await?;
 
-        info!("Successfully build chains: {}", filter_chains.len());
+        info!("🚀 Successfully build chains: {}", filter_chains.len());
 
         Ok(filter_chains)
     }

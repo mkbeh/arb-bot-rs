@@ -120,7 +120,7 @@ impl OrderSenderService for BinanceSenderService {
 
                     for (i, order) in chain.orders.iter().enumerate() {
                         if let Err(e) = self.process_order(i, chain.chain_id, order, &mut ws_writer).await {
-                            error!(error = ?e, "Error processing order");
+                            error!(error = ?e, "❌📦 Error processing order");
                             METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::Cancelled);
                             break
                         };
