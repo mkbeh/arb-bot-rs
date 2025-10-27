@@ -407,7 +407,7 @@ impl<T> ResponseContent<T> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct WebsocketError {
-    pub code: usize,
+    pub code: i32,
     pub msg: String,
 }
 

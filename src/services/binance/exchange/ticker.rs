@@ -44,7 +44,7 @@ impl TickerBuilder {
             .map(|symbol| book_ticker_stream(symbol))
             .collect::<Vec<_>>();
 
-        info!("Listening websocket streams: {}", streams.len());
+        info!("📡 Listening websocket streams: {}", streams.len());
 
         let chunk_size = if streams.len() >= self.ws_max_connections {
             streams.len() / self.ws_max_connections

@@ -1,13 +1,10 @@
 use std::env;
 
 use tracing_subscriber::{
-    EnvFilter, Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    EnvFilter, fmt::format::FmtSpan, layer::SubscriberExt, prelude::*, util::SubscriberInitExt,
 };
 
 pub fn setup_opentelemetry(name: &'static str) {
-    // Create a new tracing::Fmt layer to print the logs to stdout. It has a
-    // default filter of `info` level and above, and `debug` and above for logs
-    // from OpenTelemetry crates. The filter levels can be customized as needed.
     let fmt_log_level = env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_owned());
 
     let filter_fmt = EnvFilter::new(fmt_log_level.clone())
@@ -19,16 +16,16 @@ pub fn setup_opentelemetry(name: &'static str) {
         .add_directive("axum::rejection=trace".parse().unwrap())
         .add_directive("tungstenite=info".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap());
+
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_span_events(FmtSpan::NONE)
-        .with_target(true)
-        .with_line_number(true)
-        .with_thread_names(false)
-        .compact()
+        .with_level(true)
+        .with_target(false)
+        .with_line_number(false)
+        .with_file(false)
+        .with_ansi(true)
         .with_writer(std::io::stdout)
         .with_filter(filter_fmt);
 
-    // Initialize the tracing subscriber with the OpenTelemetry layer and the
-    // Fmt layer.
     tracing_subscriber::registry().with(fmt_layer).init();
 }
