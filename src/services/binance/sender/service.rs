@@ -18,11 +18,8 @@ use crate::{
     },
     services::{
         ORDERS_CHANNEL, Order,
-        binance::{
-            REQUEST_WEIGHT,
-            metrics::{METRICS, ProcessChainStatus},
-        },
-        enums::SymbolOrder,
+        binance::{REQUEST_WEIGHT, metrics::METRICS},
+        enums::{OrderChainStatus, SymbolOrder},
         service::OrderSenderService,
     },
 };
@@ -108,7 +105,7 @@ impl OrderSenderService for BinanceSenderService {
                     let chain = orders_rx.borrow().clone();
                     chain.print_info(self.send_orders);
 
-                    METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::New);
+                    METRICS.increment_profit_orders(&chain.extract_symbols(), OrderChainStatus::New);
 
                     if !self.send_orders {
                         continue;
@@ -119,15 +116,21 @@ impl OrderSenderService for BinanceSenderService {
                     }
 
                     for (i, order) in chain.orders.iter().enumerate() {
-                        if let Err(e) = self.process_order(i, chain.chain_id, order, &mut ws_writer).await {
+                        if let Err(e) = self
+                            .process_order(i, chain.chain_id, order, &mut ws_writer)
+                            .await
+                        {
                             error!(error = ?e, "❌📦 Error processing order");
-                            METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::Cancelled);
-                            break
+                            METRICS.increment_profit_orders(
+                                &chain.extract_symbols(),
+                                OrderChainStatus::Cancelled,
+                            );
+                            break;
                         };
                     }
 
                     last_chain_exec_ts = Some(Instant::now());
-                    METRICS.increment_profit_orders(&chain.extract_symbols(), ProcessChainStatus::Filled);
+                    METRICS.increment_profit_orders(&chain.extract_symbols(), OrderChainStatus::Filled);
                 }
 
                 result = &mut message_done_rx => match result {

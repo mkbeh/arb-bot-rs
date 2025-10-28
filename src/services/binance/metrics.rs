@@ -1,9 +1,8 @@
-use std::{
-    fmt::{Display, Formatter},
-    sync::LazyLock,
-};
+use std::sync::LazyLock;
 
 use metrics::{counter, describe_counter};
+
+use crate::services::enums::OrderChainStatus;
 
 pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
     describe_counter!(
@@ -45,7 +44,7 @@ impl Metrics {
         .increment(1);
     }
 
-    pub fn increment_profit_orders(&self, symbols: &[&str], status: ProcessChainStatus) {
+    pub fn increment_profit_orders(&self, symbols: &[&str], status: OrderChainStatus) {
         counter!(
             "profit_orders_total",
             "symbol_a" => symbols[0].to_string(),
@@ -54,21 +53,5 @@ impl Metrics {
             "status" => status.to_string(),
         )
         .increment(1);
-    }
-}
-
-pub enum ProcessChainStatus {
-    New,
-    Filled,
-    Cancelled,
-}
-
-impl Display for ProcessChainStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ProcessChainStatus::New => write!(f, "new"),
-            ProcessChainStatus::Filled => write!(f, "filled"),
-            ProcessChainStatus::Cancelled => write!(f, "cancelled"),
-        }
     }
 }
