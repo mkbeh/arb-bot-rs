@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use metrics::{counter, describe_counter};
 
-use crate::services::enums::OrderChainStatus;
+use crate::services::enums::ChainStatus;
 
 pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
     describe_counter!(
@@ -44,7 +44,7 @@ impl Metrics {
         .increment(1);
     }
 
-    pub fn increment_profit_orders(&self, symbols: &[&str], status: OrderChainStatus) {
+    pub fn increment_profit_orders(&self, symbols: &[&str], status: ChainStatus) {
         counter!(
             "profit_orders_total",
             "symbol_a" => symbols[0].to_string(),

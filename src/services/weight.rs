@@ -62,7 +62,7 @@ mod tests {
 
     use tokio::{sync::Mutex, task::JoinSet};
 
-    use crate::services::binance::weight::RequestWeight;
+    use crate::services::weight::RequestWeight;
 
     #[test]
     fn test_request_weight_add() -> anyhow::Result<()> {

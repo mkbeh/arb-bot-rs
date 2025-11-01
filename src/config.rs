@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::{anyhow, bail};
 use rust_decimal::{Decimal, prelude::Zero};
 use serde::Deserialize;
@@ -8,7 +6,6 @@ use strum_macros::EnumString;
 use crate::libs::toml;
 
 const CONFIG_FILE: &str = "config.toml";
-const MAX_MARKET_DEPTH_LIMIT: usize = 20;
 
 #[derive(Debug, PartialEq, EnumString)]
 pub enum Exchange {
@@ -24,6 +21,8 @@ pub struct Config {
     pub settings: Settings,
     #[serde(rename = "binance-settings")]
     pub binance: BinanceSettings,
+    #[serde(rename = "kucoin-settings")]
+    pub kucoin: KucoinSettings,
 }
 
 #[derive(Clone, Deserialize)]
@@ -33,6 +32,7 @@ pub struct Settings {
     pub exchange_name: String,
     #[serde(with = "rust_decimal::serde::float")]
     pub fee_percent: Decimal,
+    pub api_weight_limit: usize,
     pub error_timeout: u64,
     pub order_lifetime: u64,
     pub send_orders: bool,
@@ -42,6 +42,7 @@ pub struct Settings {
     pub max_order_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_ticker_qty_24h: Decimal,
+    pub assets: Vec<Asset>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -49,12 +50,15 @@ pub struct BinanceSettings {
     pub api_url: String,
     pub api_token: String,
     pub api_secret_key: String,
-    pub api_weight_limit: usize,
     pub ws_url: String,
     pub ws_streams_url: String,
     pub ws_max_connections: usize,
     pub market_depth_limit: usize,
-    pub assets: Vec<Asset>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct KucoinSettings {
+    pub api_url: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -67,6 +71,34 @@ pub struct Asset {
     pub max_order_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_ticker_qty_24h: Decimal,
+}
+
+impl Config {
+    pub fn parse() -> anyhow::Result<Self> {
+        let mut config: Config = toml::parse_file(CONFIG_FILE).map_err(|e| anyhow!("{}", e))?;
+
+        if let Err(e) = config.validate_settings() {
+            bail!("Config validation error: {}", e)
+        }
+
+        Ok(config)
+    }
+
+    fn validate_settings(&mut self) -> anyhow::Result<()> {
+        if self.settings.assets.is_empty() {
+            bail!("At least one asset must be specified");
+        }
+
+        for asset in &mut self.settings.assets {
+            asset.check(
+                self.settings.min_profit_qty,
+                self.settings.max_order_qty,
+                self.settings.min_ticker_qty_24h,
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Asset {
@@ -93,64 +125,6 @@ impl Asset {
                     self.min_ticker_qty_24h = min_ticker_qty_24h;
                 }
             }
-        }
-
-        Ok(())
-    }
-}
-
-impl Config {
-    pub fn parse() -> anyhow::Result<Self> {
-        let mut config: Config = toml::parse_file(CONFIG_FILE).map_err(|e| anyhow!("{}", e))?;
-
-        if let Err(e) = config.validate_settings() {
-            bail!("Config validation error: {}", e)
-        }
-
-        if let Err(e) = config.validate_binance_settings() {
-            bail!("Config validation error: {}", e)
-        }
-
-        Ok(config)
-    }
-
-    fn validate_settings(&self) -> anyhow::Result<()> {
-        Exchange::from_str(&self.settings.exchange_name).map_err(|_| {
-            anyhow!(
-                "exchange_name '{}' does not exist:",
-                self.settings.exchange_name
-            )
-        })?;
-
-        if self.settings.max_order_qty <= Decimal::zero() {
-            bail!("max_order_qty must be greater than 0");
-        }
-
-        Ok(())
-    }
-
-    fn validate_binance_settings(&mut self) -> anyhow::Result<()> {
-        if self.binance.assets.is_empty() {
-            bail!("At least one asset must be specified");
-        }
-
-        if self.binance.market_depth_limit > MAX_MARKET_DEPTH_LIMIT {
-            bail!(
-                "market_depth_limit is greater than {}",
-                MAX_MARKET_DEPTH_LIMIT
-            );
-        }
-
-        if self.binance.api_weight_limit == 0 {
-            bail!("weight_limit must be greater than 0");
-        }
-
-        for asset in &mut self.binance.assets {
-            asset.check(
-                self.settings.min_profit_qty,
-                self.settings.max_order_qty,
-                self.settings.min_ticker_qty_24h,
-            )?;
         }
 
         Ok(())

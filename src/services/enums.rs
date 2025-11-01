@@ -18,18 +18,18 @@ impl Display for SymbolOrder {
     }
 }
 
-pub enum OrderChainStatus {
+pub enum ChainStatus {
     New,
     Filled,
     Cancelled,
 }
 
-impl Display for OrderChainStatus {
+impl Display for ChainStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            OrderChainStatus::New => write!(f, "new"),
-            OrderChainStatus::Filled => write!(f, "filled"),
-            OrderChainStatus::Cancelled => write!(f, "cancelled"),
+            ChainStatus::New => write!(f, "new"),
+            ChainStatus::Filled => write!(f, "filled"),
+            ChainStatus::Cancelled => write!(f, "cancelled"),
         }
     }
 }

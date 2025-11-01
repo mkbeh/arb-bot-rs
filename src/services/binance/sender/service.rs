@@ -18,9 +18,10 @@ use crate::{
     },
     services::{
         ORDERS_CHANNEL, Order,
-        binance::{REQUEST_WEIGHT, metrics::METRICS},
-        enums::{OrderChainStatus, SymbolOrder},
+        binance::metrics::METRICS,
+        enums::{ChainStatus, SymbolOrder},
         service::OrderSenderService,
+        weight::REQUEST_WEIGHT,
     },
 };
 
@@ -42,12 +43,12 @@ pub struct BinanceSenderService {
     api_secret_key: String,
 }
 
-impl BinanceSenderConfig {
-    pub fn build(config: Config) -> Self {
+impl From<&Config> for BinanceSenderConfig {
+    fn from(config: &Config) -> Self {
         Self {
             send_orders: config.settings.send_orders,
             order_lifetime_secs: config.settings.order_lifetime,
-            ws_url: config.binance.ws_url,
+            ws_url: config.binance.ws_url.clone(),
             api_token: config.binance.api_token.clone(),
             api_secret_key: config.binance.api_secret_key.clone(),
         }
@@ -55,8 +56,8 @@ impl BinanceSenderConfig {
 }
 
 impl BinanceSenderService {
-    pub fn from_config(config: BinanceSenderConfig) -> Self {
-        Self {
+    pub fn from_config(config: BinanceSenderConfig) -> anyhow::Result<Self> {
+        Ok(Self {
             send_orders: config.send_orders,
             order_lifetime: Duration::from_secs(config.order_lifetime_secs),
             process_chain_interval: Duration::from_secs(60),
@@ -64,7 +65,7 @@ impl BinanceSenderService {
             ws_url: config.ws_url,
             api_token: config.api_token,
             api_secret_key: config.api_secret_key,
-        }
+        })
     }
 }
 
@@ -105,7 +106,7 @@ impl OrderSenderService for BinanceSenderService {
                     let chain = orders_rx.borrow().clone();
                     chain.print_info(self.send_orders);
 
-                    METRICS.increment_profit_orders(&chain.extract_symbols(), OrderChainStatus::New);
+                    METRICS.increment_profit_orders(&chain.extract_symbols(), ChainStatus::New);
 
                     if !self.send_orders {
                         continue;
@@ -123,14 +124,14 @@ impl OrderSenderService for BinanceSenderService {
                             error!(error = ?e, "❌📦 Error processing order");
                             METRICS.increment_profit_orders(
                                 &chain.extract_symbols(),
-                                OrderChainStatus::Cancelled,
+                                ChainStatus::Cancelled,
                             );
                             break;
                         };
                     }
 
                     last_chain_exec_ts = Some(Instant::now());
-                    METRICS.increment_profit_orders(&chain.extract_symbols(), OrderChainStatus::Filled);
+                    METRICS.increment_profit_orders(&chain.extract_symbols(), ChainStatus::Filled);
                 }
 
                 result = &mut message_done_rx => match result {

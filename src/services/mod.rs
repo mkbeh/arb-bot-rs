@@ -2,6 +2,7 @@ pub mod binance;
 pub mod enums;
 pub mod kucoin;
 pub mod service;
+pub mod weight;
 
 pub use binance::{
     BinanceExchangeConfig, BinanceExchangeService, BinanceSenderConfig, BinanceSenderService,

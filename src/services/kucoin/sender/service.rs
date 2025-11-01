@@ -11,21 +11,21 @@ pub struct KucoinSenderService {
     //
 }
 
-impl KucoinSenderConfig {
-    pub fn build(config: Config) -> Self {
+impl From<&Config> for KucoinSenderConfig {
+    fn from(config: &Config) -> Self {
         Self {}
     }
 }
 
 impl KucoinSenderService {
-    pub fn from_config(config: KucoinSenderConfig) -> Self {
-        Self {}
+    pub fn from_config(config: KucoinSenderConfig) -> anyhow::Result<Self> {
+        Ok(Self {})
     }
 }
 
 #[async_trait]
 impl OrderSenderService for KucoinSenderService {
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
-        todo!()
+        Ok(())
     }
 }

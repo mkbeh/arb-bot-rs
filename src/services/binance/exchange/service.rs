@@ -15,19 +15,16 @@ use crate::{
     },
     services::{
         ExchangeService,
-        binance::{
-            REQUEST_WEIGHT,
-            exchange::{
-                asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder,
-                ticker::TickerBuilder,
-            },
+        binance::exchange::{
+            asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder, ticker::TickerBuilder,
         },
     },
 };
 
 pub struct BinanceExchangeConfig {
-    pub general_api: General,
-    pub market_api: Market,
+    pub api_url: String,
+    pub api_token: String,
+    pub api_secret_key: String,
     pub base_assets: Vec<Asset>,
     pub ws_streams_url: String,
     pub ws_max_connections: usize,
@@ -45,36 +42,13 @@ pub struct BinanceExchangeService {
     order_builder: Arc<OrderBuilder>,
 }
 
-impl BinanceExchangeConfig {
-    pub async fn build(config: Config) -> anyhow::Result<Self> {
-        let api_config = binance_api::ClientConfig {
-            api_url: config.binance.api_url,
-            api_token: config.binance.api_token,
-            api_secret_key: config.binance.api_secret_key,
-            http_config: binance_api::HttpConfig::default(),
-        };
-
-        let general_api = match Binance::new(api_config.clone()) {
-            Ok(v) => v,
-            Err(e) => bail!("Failed init binance client: {e}"),
-        };
-
-        let market_api = match Binance::new(api_config.clone()) {
-            Ok(v) => v,
-            Err(e) => bail!("Failed init binance client: {e}"),
-        };
-
-        {
-            REQUEST_WEIGHT
-                .lock()
-                .await
-                .set_weight_limit(config.binance.api_weight_limit);
-        }
-
-        Ok(Self {
-            general_api,
-            market_api,
-            base_assets: config.binance.assets,
+impl From<&Config> for BinanceExchangeConfig {
+    fn from(config: &Config) -> Self {
+        Self {
+            api_url: config.binance.api_url.clone(),
+            api_token: config.binance.api_token.clone(),
+            api_secret_key: config.binance.api_secret_key.clone(),
+            base_assets: config.settings.assets.clone(),
             ws_streams_url: config.binance.ws_streams_url.clone(),
             ws_max_connections: config.binance.ws_max_connections,
             market_depth_limit: config.binance.market_depth_limit,
@@ -82,14 +56,31 @@ impl BinanceExchangeConfig {
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
             min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
-        })
+        }
     }
 }
 
 impl BinanceExchangeService {
-    pub fn from_config(config: BinanceExchangeConfig) -> Self {
+    pub fn from_config(config: BinanceExchangeConfig) -> anyhow::Result<Self> {
+        let api_config = binance_api::ClientConfig {
+            api_url: config.api_url,
+            api_token: config.api_token,
+            api_secret_key: config.api_secret_key,
+            http_config: binance_api::HttpConfig::default(),
+        };
+
+        let general_api: General = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
+        let market_api: Market = match Binance::new(api_config.clone()) {
+            Ok(v) => v,
+            Err(e) => bail!("Failed init binance client: {e}"),
+        };
+
         let asset_builder = AssetBuilder::new(
-            config.market_api.clone(),
+            market_api.clone(),
             config.base_assets,
             config.min_profit_qty,
             config.max_order_qty,
@@ -98,18 +89,15 @@ impl BinanceExchangeService {
 
         let ticker_builder =
             TickerBuilder::new(config.ws_streams_url.clone(), config.ws_max_connections);
-
-        let chain_builder =
-            ChainBuilder::new(config.general_api.clone(), config.market_api.clone());
-
+        let chain_builder = ChainBuilder::new(general_api.clone(), market_api.clone());
         let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
 
-        Self {
+        Ok(Self {
             asset_builder,
             ticker_builder,
             chain_builder: Arc::new(chain_builder),
             order_builder: Arc::new(order_builder),
-        }
+        })
     }
 }
 

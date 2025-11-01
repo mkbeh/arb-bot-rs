@@ -14,6 +14,7 @@ List of supported cryptocurrency exchanges.
 | Exchange | Status  |
 |:--------:|:-------:|
 | Binance  | &check; |
+|  Kucoin  | &check; |
 
 ### Content
 
@@ -26,7 +27,7 @@ List of supported cryptocurrency exchanges.
 
 Application is written in Rust, so you'll need to grab a
 [Rust installation](https://www.rust-lang.org/) in order to compile it.
-Application compiles with Rust 1.88.0 (stable) or newer.
+Application compiles with Rust 1.90.0 (stable) or newer.
 
 ### Build from source
 
