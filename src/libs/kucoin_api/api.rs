@@ -1,4 +1,4 @@
-use crate::libs::kucoin_api::{ClientConfig, Market, client::Client};
+use crate::libs::kucoin_api::{BaseInfo, ClientConfig, Market, client::Client};
 
 pub enum Api {
     Spot(Spot),
@@ -6,6 +6,8 @@ pub enum Api {
 
 pub enum Spot {
     GetAllSymbols,
+    GetBulletPublic,
+    GetBulletPrivate,
 }
 
 impl From<Api> for String {
@@ -13,6 +15,8 @@ impl From<Api> for String {
         String::from(match item {
             Api::Spot(route) => match route {
                 Spot::GetAllSymbols => "/api/v2/symbols",
+                Spot::GetBulletPublic => "/api/v1/bullet-public",
+                Spot::GetBulletPrivate => "/api/v1/bullet-private",
             },
         })
     }
@@ -27,6 +31,14 @@ pub trait Kucoin {
 impl Kucoin for Market {
     fn new(cfg: ClientConfig) -> anyhow::Result<Market> {
         Ok(Market {
+            client: Client::from_config(cfg)?,
+        })
+    }
+}
+
+impl Kucoin for BaseInfo {
+    fn new(cfg: ClientConfig) -> anyhow::Result<BaseInfo> {
+        Ok(BaseInfo {
             client: Client::from_config(cfg)?,
         })
     }

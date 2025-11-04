@@ -46,3 +46,20 @@ pub struct Symbol {
     pub st: bool,
     pub callauction_is_enabled: bool,
 }
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Token {
+    pub token: String,
+    pub instance_servers: Vec<InstanceServer>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceServer {
+    pub endpoint: String,
+    pub encrypt: bool,
+    pub protocol: String,
+    pub ping_interval: u64,
+    pub ping_timeout: u64,
+}

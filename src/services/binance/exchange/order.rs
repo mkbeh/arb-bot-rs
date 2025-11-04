@@ -21,10 +21,10 @@ use crate::{
         binance::{
             broadcast::TICKER_BROADCAST,
             exchange::{chain, chain::ChainSymbol},
-            metrics::METRICS,
             storage::{BookTickerEvent, BookTickerStore},
         },
         enums::SymbolOrder,
+        metrics::METRICS,
         service::ORDERS_CHANNEL,
     },
 };
@@ -176,8 +176,8 @@ impl OrderBuilder {
             .iter()
             .zip(&messages)
             .map(|(symbol, message)| match symbol.order {
-                SymbolOrder::Asc => message.best_bid_price,
-                SymbolOrder::Desc => message.best_ask_price,
+                SymbolOrder::Asc => message.bid_price,
+                SymbolOrder::Desc => message.ask_price,
             })
             .collect::<Vec<Decimal>>();
 
@@ -275,12 +275,12 @@ impl OrderBuilder {
                 // Define list of orders according to the order of assets in symbol.
                 let order_units: &Vec<OrderBookUnit> = match order_symbol.symbol_order {
                     SymbolOrder::Asc => &vec![OrderBookUnit {
-                        price: order_symbol.order_book.best_bid_price,
-                        qty: order_symbol.order_book.best_bid_qty,
+                        price: order_symbol.order_book.bid_price,
+                        qty: order_symbol.order_book.bid_qty,
                     }],
                     SymbolOrder::Desc => &vec![OrderBookUnit {
-                        price: order_symbol.order_book.best_ask_price,
-                        qty: order_symbol.order_book.best_ask_qty,
+                        price: order_symbol.order_book.ask_price,
+                        qty: order_symbol.order_book.ask_qty,
                     }],
                 };
 
@@ -550,28 +550,28 @@ mod tests {
         let order_book_1 = BookTickerEvent {
             update_id: 1,
             symbol: "BTCUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(7.27795000).unwrap(),
-            best_ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
+            bid_qty: Decimal::from_f64(7.27795000).unwrap(),
+            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
+            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(14.64600000).unwrap(),
-            best_ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(19.28810000).unwrap(),
+            bid_price: Decimal::from_f64(2585.70000000).unwrap(),
+            bid_qty: Decimal::from_f64(14.64600000).unwrap(),
+            ask_price: Decimal::from_f64(2585.71000000).unwrap(),
+            ask_qty: Decimal::from_f64(19.28810000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            best_bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            best_ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            bid_price: Decimal::from_f64(0.02858000).unwrap(),
+            bid_qty: Decimal::from_f64(105.74550000).unwrap(),
+            ask_price: Decimal::from_f64(0.02359000).unwrap(),
+            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
         };
 
         let order_symbols = vec![
@@ -655,28 +655,28 @@ mod tests {
         let order_book_1 = BookTickerEvent {
             update_id: 1,
             symbol: "BTCUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(0.00020000).unwrap(), // <---- here,
-            best_ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
+            bid_qty: Decimal::from_f64(0.00020000).unwrap(), // <---- here,
+            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
+            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(14.64600000).unwrap(),
-            best_ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(19.28810000).unwrap(),
+            bid_price: Decimal::from_f64(2585.70000000).unwrap(),
+            bid_qty: Decimal::from_f64(14.64600000).unwrap(),
+            ask_price: Decimal::from_f64(2585.71000000).unwrap(),
+            ask_qty: Decimal::from_f64(19.28810000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            best_bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            best_ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            bid_price: Decimal::from_f64(0.02858000).unwrap(),
+            bid_qty: Decimal::from_f64(105.74550000).unwrap(),
+            ask_price: Decimal::from_f64(0.02359000).unwrap(),
+            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
         };
 
         let order_symbols = vec![
@@ -760,28 +760,28 @@ mod tests {
         let order_book_1 = BookTickerEvent {
             update_id: 1,
             symbol: "BTCUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(0.20000000).unwrap(),
-            best_ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
+            bid_qty: Decimal::from_f64(0.20000000).unwrap(),
+            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
+            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(1585.70000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(19.28810000).unwrap(),
-            best_ask_price: Decimal::from_f64(1585.71000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(0.0033).unwrap(), // <---- here
+            bid_price: Decimal::from_f64(1585.70000000).unwrap(),
+            bid_qty: Decimal::from_f64(19.28810000).unwrap(),
+            ask_price: Decimal::from_f64(1585.71000000).unwrap(),
+            ask_qty: Decimal::from_f64(0.0033).unwrap(), // <---- here
         };
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            best_bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            best_ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            bid_price: Decimal::from_f64(0.02858000).unwrap(),
+            bid_qty: Decimal::from_f64(105.74550000).unwrap(),
+            ask_price: Decimal::from_f64(0.02359000).unwrap(),
+            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
         };
 
         let order_symbols = vec![
@@ -865,28 +865,28 @@ mod tests {
         let order_book_1 = BookTickerEvent {
             update_id: 1,
             symbol: "BTCUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(0.20000000).unwrap(),
-            best_ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
+            bid_qty: Decimal::from_f64(0.20000000).unwrap(),
+            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
+            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHUSDT".to_string(),
-            best_bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(19.28810000).unwrap(),
-            best_ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(0.9).unwrap(),
+            bid_price: Decimal::from_f64(2585.70000000).unwrap(),
+            bid_qty: Decimal::from_f64(19.28810000).unwrap(),
+            ask_price: Decimal::from_f64(2585.71000000).unwrap(),
+            ask_qty: Decimal::from_f64(0.9).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            best_bid_qty: Decimal::from_f64(0.01).unwrap(), // <---- here,
-            best_ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            best_ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            bid_price: Decimal::from_f64(0.02858000).unwrap(),
+            bid_qty: Decimal::from_f64(0.01).unwrap(), // <---- here,
+            ask_price: Decimal::from_f64(0.02359000).unwrap(),
+            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
         };
 
         let order_symbols = vec![
@@ -969,28 +969,28 @@ mod tests {
         let order_book_1 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.03615000).unwrap(),
-            best_bid_qty: Decimal::from_f64(0.20000000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.03216000).unwrap(),
-            best_ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            bid_price: Decimal::from_f64(0.03615000).unwrap(),
+            bid_qty: Decimal::from_f64(0.20000000).unwrap(),
+            ask_price: Decimal::from_f64(0.03216000).unwrap(),
+            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
             symbol: "WBTCBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.99920000).unwrap(),
-            best_bid_qty: Decimal::from_f64(19.28810000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.99930000).unwrap(),
-            best_ask_qty: Decimal::from_f64(0.9).unwrap(),
+            bid_price: Decimal::from_f64(0.99920000).unwrap(),
+            bid_qty: Decimal::from_f64(19.28810000).unwrap(),
+            ask_price: Decimal::from_f64(0.99930000).unwrap(),
+            ask_qty: Decimal::from_f64(0.9).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
             symbol: "WBTCETH".to_string(),
-            best_bid_price: Decimal::from_f64(31.07000000).unwrap(),
-            best_bid_qty: Decimal::from_f64(1.5).unwrap(), // <---- here
-            best_ask_price: Decimal::from_f64(31.08000000).unwrap(),
-            best_ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            bid_price: Decimal::from_f64(31.07000000).unwrap(),
+            bid_qty: Decimal::from_f64(1.5).unwrap(), // <---- here
+            ask_price: Decimal::from_f64(31.08000000).unwrap(),
+            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
         };
 
         let order_symbols = vec![
@@ -1053,28 +1053,28 @@ mod tests {
         let order_book_1 = BookTickerEvent {
             update_id: 1,
             symbol: "ETHBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.03402000).unwrap(),
-            best_bid_qty: Decimal::from_f64(23.09700000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.03203000).unwrap(),
-            best_ask_qty: Decimal::from_f64(23.09700000).unwrap(),
+            bid_price: Decimal::from_f64(0.03402000).unwrap(),
+            bid_qty: Decimal::from_f64(23.09700000).unwrap(),
+            ask_price: Decimal::from_f64(0.03203000).unwrap(),
+            ask_qty: Decimal::from_f64(23.09700000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
             symbol: "WBTCBTC".to_string(),
-            best_bid_price: Decimal::from_f64(0.00007820).unwrap(),
-            best_bid_qty: Decimal::from_f64(1.62000000).unwrap(),
-            best_ask_price: Decimal::from_f64(0.00007810).unwrap(),
-            best_ask_qty: Decimal::from_f64(1.62000000).unwrap(),
+            bid_price: Decimal::from_f64(0.00007820).unwrap(),
+            bid_qty: Decimal::from_f64(1.62000000).unwrap(),
+            ask_price: Decimal::from_f64(0.00007810).unwrap(),
+            ask_qty: Decimal::from_f64(1.62000000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
             symbol: "WBTCETH".to_string(),
-            best_bid_price: Decimal::from_f64(0.00243200).unwrap(),
-            best_bid_qty: Decimal::from_f64(0.54000000).unwrap(), // <---- here
-            best_ask_price: Decimal::from_f64(0.00243300).unwrap(),
-            best_ask_qty: Decimal::from_f64(0.54000000).unwrap(),
+            bid_price: Decimal::from_f64(0.00243200).unwrap(),
+            bid_qty: Decimal::from_f64(0.54000000).unwrap(), // <---- here
+            ask_price: Decimal::from_f64(0.00243300).unwrap(),
+            ask_qty: Decimal::from_f64(0.54000000).unwrap(),
         };
         let order_symbols = vec![
             OrderSymbol {

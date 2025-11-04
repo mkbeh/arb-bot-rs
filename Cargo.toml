@@ -30,7 +30,7 @@ strum_macros = { version = "0.27.2" }
 thiserror = { version = "2.0.17" }
 tokio = { version = "1.48.0", default-features = false, features = ["rt-multi-thread", "macros", "net", "signal"] }
 tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
-tokio-util = { version = "0.7.16" }
+tokio-util = { version = "0.7.17" }
 toml = { version = "0.9.8" }
 tracing = { version = "0.1.41", default-features = false }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "registry", "std", "fmt", "json", "ansi"] }

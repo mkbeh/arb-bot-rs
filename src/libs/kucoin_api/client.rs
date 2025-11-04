@@ -7,6 +7,7 @@ use serde::de::DeserializeOwned;
 
 use crate::libs::kucoin_api::api::Api;
 
+#[derive(Clone)]
 pub struct ClientConfig {
     pub host: String,
     pub http_config: HttpConfig,
@@ -43,6 +44,16 @@ impl Client {
     ) -> anyhow::Result<T> {
         let url = self.build_url(path, query);
         let response = self.inner_client.get(url).send().await?;
+        response_handler(response).await
+    }
+
+    pub async fn post<T: DeserializeOwned>(
+        &self,
+        path: Api,
+        query: Option<&Vec<(&str, &str)>>,
+    ) -> anyhow::Result<T> {
+        let url = self.build_url(path, query);
+        let response = self.inner_client.post(url).send().await?;
         response_handler(response).await
     }
 

@@ -1,6 +1,5 @@
 mod broadcast;
 pub mod exchange;
-pub mod metrics;
 pub mod sender;
 pub mod storage;
 

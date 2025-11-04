@@ -4,12 +4,18 @@ use rust_decimal::Decimal;
 
 #[derive(Debug, Clone, Default)]
 pub struct BookTickerEvent {
-    pub update_id: u64,
+    pub sequence_id: u64,
     pub symbol: String,
-    pub bid_price: Decimal,
-    pub bid_qty: Decimal,
-    pub ask_price: Decimal,
-    pub ask_qty: Decimal,
+    pub price: Decimal,
+    pub qty: Decimal,
+    pub order_side: OrderSide,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum OrderSide {
+    #[default]
+    Bid,
+    Asc,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -27,7 +33,7 @@ impl BookTickerStore {
     pub fn update(&mut self, event: BookTickerEvent) {
         match self.data.entry(event.symbol.clone()) {
             std::collections::hash_map::Entry::Occupied(mut entry) => {
-                if event.update_id > entry.get().update_id {
+                if event.sequence_id > entry.get().sequence_id {
                     entry.insert(event);
                 }
             }

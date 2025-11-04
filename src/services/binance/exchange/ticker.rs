@@ -7,9 +7,11 @@ use tracing::{error, info};
 
 use crate::{
     libs::binance_api::stream::{Events, StreamEvent, WebsocketStream, book_ticker_stream},
-    services::binance::{
-        broadcast::TICKER_BROADCAST, exchange::chain::ChainSymbol, metrics::METRICS,
-        storage::BookTickerEvent,
+    services::{
+        binance::{
+            broadcast::TICKER_BROADCAST, exchange::chain::ChainSymbol, storage::BookTickerEvent,
+        },
+        metrics::METRICS,
     },
 };
 
@@ -67,10 +69,10 @@ impl TickerBuilder {
                                 let ticker = BookTickerEvent {
                                     update_id: event.update_id,
                                     symbol: event.symbol.clone(),
-                                    best_bid_price: event.best_bid_price,
-                                    best_bid_qty: event.best_bid_qty,
-                                    best_ask_price: event.best_ask_price,
-                                    best_ask_qty: event.best_ask_qty,
+                                    bid_price: event.best_bid_price,
+                                    bid_qty: event.best_bid_qty,
+                                    ask_price: event.best_ask_price,
+                                    ask_qty: event.best_ask_qty,
                                 };
 
                                 if let Err(e) = TICKER_BROADCAST.broadcast_event(ticker) {

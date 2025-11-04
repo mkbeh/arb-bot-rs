@@ -18,8 +18,8 @@ use crate::{
     },
     services::{
         ORDERS_CHANNEL, Order,
-        binance::metrics::METRICS,
         enums::{ChainStatus, SymbolOrder},
+        metrics::METRICS,
         service::OrderSenderService,
         weight::REQUEST_WEIGHT,
     },
