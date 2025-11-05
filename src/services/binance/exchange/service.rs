@@ -86,7 +86,6 @@ impl BinanceExchangeService {
             config.max_order_qty,
             config.min_ticker_qty_24h,
         );
-
         let ticker_builder =
             TickerBuilder::new(config.ws_streams_url.clone(), config.ws_max_connections);
         let chain_builder = ChainBuilder::new(general_api.clone(), market_api.clone());

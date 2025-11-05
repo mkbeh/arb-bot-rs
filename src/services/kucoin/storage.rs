@@ -15,7 +15,7 @@ pub struct BookTickerEvent {
 pub enum OrderSide {
     #[default]
     Bid,
-    Asc,
+    Ask,
 }
 
 #[derive(Debug, Clone, Default)]

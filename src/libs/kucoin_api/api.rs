@@ -6,6 +6,7 @@ pub enum Api {
 
 pub enum Spot {
     GetAllSymbols,
+    GetAllTickers,
     GetBulletPublic,
     GetBulletPrivate,
 }
@@ -15,6 +16,7 @@ impl From<Api> for String {
         String::from(match item {
             Api::Spot(route) => match route {
                 Spot::GetAllSymbols => "/api/v2/symbols",
+                Spot::GetAllTickers => "/api/v1/market/allTickers",
                 Spot::GetBulletPublic => "/api/v1/bullet-public",
                 Spot::GetBulletPrivate => "/api/v1/bullet-private",
             },

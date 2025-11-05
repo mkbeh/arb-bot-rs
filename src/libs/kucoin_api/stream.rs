@@ -9,8 +9,11 @@ use futures_util::{
     Sink, SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
-use rust_decimal::{Decimal, prelude::ToPrimitive};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use rust_decimal::Decimal;
+use serde::{
+    Deserialize, Deserializer, Serialize, de,
+    de::{DeserializeOwned, SeqAccess},
+};
 use tokio::{
     net::TcpStream,
     sync::{Mutex, oneshot},
@@ -70,8 +73,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self.connect_ws(url).await?;
 
         let writer = Arc::clone(
-            self
-                .writer
+            self.writer
                 .as_ref()
                 .expect("Writer must be set in connect_ws"),
         );
@@ -329,35 +331,23 @@ pub struct Level2Update {
 }
 
 impl Level2Update {
-    /// Returns the most recent ask (price, size, seq) by max sequence, or None if asks is empty.
-    pub fn latest_ask(&self) -> Option<(Decimal, Decimal, u64)> {
-        self.changes
-            .asks
-            .iter()
-            .max_by_key(|row| row.2.to_u64().unwrap_or(0u64)) // Max по seq (0 если None)
-            .and_then(|row| {
-                // Фильтруем: только если to_u64() succeeds
-                row.2.to_u64().map(|seq| (row.0, row.1, seq)) // map: Option<u64> → Option<(D,D,u64)>
-            })
+    #[inline]
+    fn latest_row(rows: &[OrderRow]) -> Option<OrderRow> {
+        rows.iter().max_by_key(|row| row.2).cloned()
     }
 
-    /// Returns the most recent bid (price, size, seq) in the max sequence, or None if bids is
-    /// empty.
-    pub fn latest_bid(&self) -> Option<(Decimal, Decimal, u64)> {
-        self.changes
-            .bids
-            .iter()
-            .max_by_key(|row| row.2.to_u64().unwrap_or(0u64))
-            .and_then(|row| row.2.to_u64().map(|seq| (row.0, row.1, seq)))
+    #[inline]
+    pub fn latest_ask(&self) -> Option<OrderRow> {
+        Self::latest_row(&self.changes.asks)
     }
 
-    /// Returns latest asks and bids.
-    pub fn latest_top(
-        &self,
-    ) -> (
-        Option<(Decimal, Decimal, u64)>,
-        Option<(Decimal, Decimal, u64)>,
-    ) {
+    #[inline]
+    pub fn latest_bid(&self) -> Option<OrderRow> {
+        Self::latest_row(&self.changes.bids)
+    }
+
+    #[inline]
+    pub fn latest_top(&self) -> (Option<OrderRow>, Option<OrderRow>) {
         (self.latest_ask(), self.latest_bid())
     }
 }
@@ -365,6 +355,54 @@ impl Level2Update {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Changes {
-    pub asks: Vec<(Decimal, Decimal, Decimal)>, // price/size/sequence
-    pub bids: Vec<(Decimal, Decimal, Decimal)>,
+    pub asks: Vec<OrderRow>,
+    pub bids: Vec<OrderRow>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OrderRow(pub Decimal, pub Decimal, pub u64); // price, size, sequence
+
+impl<'de> Deserialize<'de> for OrderRow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct RowVisitor;
+
+        impl<'de> de::Visitor<'de> for RowVisitor {
+            type Value = OrderRow;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("array of 3 strings: [price str, size str, sequence str]")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let price_str: String = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let size_str: String = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let seq_str: String = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+
+                let price = price_str.parse::<Decimal>().map_err(de::Error::custom)?;
+                let size = size_str.parse::<Decimal>().map_err(de::Error::custom)?;
+                let sequence = seq_str.parse::<u64>().map_err(de::Error::custom)?;
+
+                // Проверяем, что больше элементов нет
+                if seq.next_element::<String>()?.is_some() {
+                    return Err(de::Error::invalid_length(3, &self));
+                }
+
+                Ok(OrderRow(price, size, sequence))
+            }
+        }
+
+        deserializer.deserialize_tuple(3, RowVisitor)
+    }
 }

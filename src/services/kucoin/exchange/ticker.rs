@@ -8,7 +8,7 @@ use tracing::error;
 use crate::{
     libs::kucoin_api::{
         BaseInfo,
-        stream::{Events, MessageEvents, WebsocketStream, order_book_increment_topic},
+        stream::{Events, MessageEvents, OrderRow, WebsocketStream, order_book_increment_topic},
     },
     services::{
         kucoin::{
@@ -74,21 +74,23 @@ impl TickerBuilder {
                             let MessageEvents::IncrementOrderBook(message) = *event;
                             let mut tickers = vec![];
 
-                            if let Some((price, qty, seq)) = message.latest_bid() {
+                            if let Some(row) = message.latest_bid() {
+                                let OrderRow(price, qty, sequence_id) = row;
                                 tickers.push(BookTickerEvent {
-                                    sequence_id: seq,
                                     symbol: message.symbol.clone(),
                                     order_side: OrderSide::Bid,
+                                    sequence_id,
                                     price,
                                     qty,
                                 });
                             }
 
-                            if let Some((price, qty, seq)) = message.latest_ask() {
+                            if let Some(row) = message.latest_ask() {
+                                let OrderRow(price, qty, sequence_id) = row;
                                 tickers.push(BookTickerEvent {
-                                    sequence_id: seq,
                                     symbol: message.symbol.clone(),
-                                    order_side: OrderSide::Asc,
+                                    order_side: OrderSide::Ask,
+                                    sequence_id,
                                     price,
                                     qty,
                                 });

@@ -63,3 +63,49 @@ pub struct InstanceServer {
     pub ping_interval: u64,
     pub ping_timeout: u64,
 }
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AllTickers {
+    pub time: u64,
+    pub ticker: Vec<Ticker>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Ticker {
+    pub symbol: String,
+    pub symbol_name: String,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub buy: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub best_bid_size: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub sell: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub best_ask_size: Decimal,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub change_rate: Option<Decimal>,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub high: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub low: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub vol: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub vol_value: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub last: Decimal,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub change_price: Option<Decimal>,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub average_price: Option<Decimal>,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub taker_fee_rate: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub maker_fee_rate: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub taker_coefficient: Decimal,
+    #[serde(with = "rust_decimal::serde::float")]
+    pub maker_coefficient: Decimal,
+}

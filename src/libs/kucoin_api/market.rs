@@ -2,7 +2,7 @@ use crate::libs::kucoin_api::{
     api::{Api, Spot},
     client::Client,
     enums::MarketType,
-    models::{RestResponse, Symbol},
+    models::{AllTickers, RestResponse, Symbol},
 };
 
 #[derive(Clone)]
@@ -24,5 +24,9 @@ impl Market {
         self.client
             .get(Api::Spot(Spot::GetAllSymbols), Some(&params))
             .await
+    }
+
+    pub async fn get_all_tickers(&self) -> anyhow::Result<RestResponse<AllTickers>> {
+        self.client.get(Api::Spot(Spot::GetAllTickers), None).await
     }
 }
