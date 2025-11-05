@@ -42,8 +42,8 @@ cargo build --release
 Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
 file to `config.toml`.
 
-_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
-`send_orders = true`._
+_For demo run you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
+`send_orders = true` in `config.toml`._
 
 Run app:
 
@@ -110,3 +110,15 @@ cargo test --all
 The following is a list of known translations of application documentation.
 
 * [English](https://github.com/mkbeh/arb-bot-rs/tree/main/docs/en)
+
+## License
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+This project is **open source** and distributed under the **MIT license**. You are free to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the project, subject to the conditions of retaining the copyright
+notice.
+
+Full details in the [LICENSE](https://github.com/mkbeh/arb-bot-rs/blob/main/LICENSE) file.
+
+> "Code is poetry. Share it generously!" — inspired by Richard Stallman (with a twist 😉)
