@@ -49,6 +49,11 @@ pub struct Order {
     pub quote_qty: Decimal,
 }
 
+pub struct OrderBookUnit {
+    pub price: Decimal,
+    pub qty: Decimal,
+}
+
 impl Chain {
     pub fn extract_symbols(&self) -> Vec<&str> {
         self.orders.iter().map(|o| o.symbol.as_str()).collect()

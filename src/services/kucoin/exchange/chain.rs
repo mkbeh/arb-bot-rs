@@ -241,3 +241,10 @@ impl ChainBuilder {
         unique_chains
     }
 }
+
+pub fn extract_chain_symbols(chain_symbols: &[ChainSymbol]) -> Vec<&str> {
+    chain_symbols
+        .iter()
+        .map(|v| v.symbol.symbol.as_str())
+        .collect()
+}

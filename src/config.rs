@@ -42,6 +42,7 @@ pub struct Settings {
     pub max_order_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_ticker_qty_24h: Decimal,
+    pub market_depth_limit: usize,
     pub assets: Vec<Asset>,
 }
 
@@ -53,7 +54,6 @@ pub struct BinanceSettings {
     pub ws_url: String,
     pub ws_streams_url: String,
     pub ws_max_connections: usize,
-    pub market_depth_limit: usize,
 }
 
 #[derive(Clone, Deserialize)]

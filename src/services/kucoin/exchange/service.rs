@@ -24,6 +24,7 @@ use crate::{
 pub struct KucoinExchangeConfig {
     pub base_assets: Vec<Asset>,
     pub api_url: String,
+    pub market_depth_limit: usize,
     pub min_profit_qty: Decimal,
     pub max_order_qty: Decimal,
     pub fee_percentage: Decimal,
@@ -42,6 +43,7 @@ impl From<&Config> for KucoinExchangeConfig {
         Self {
             base_assets: config.settings.assets.clone(),
             api_url: config.kucoin.api_url.clone(),
+            market_depth_limit: config.settings.market_depth_limit,
             min_profit_qty: config.settings.min_profit_qty,
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
@@ -76,7 +78,7 @@ impl KucoinExchangeService {
         );
         let chain_builder = ChainBuilder::new(market_api.clone());
         let ticker_builder = TickerBuilder::new(base_info_api);
-        let order_builder = OrderBuilder::new();
+        let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
 
         Ok(Self {
             asset_builder,

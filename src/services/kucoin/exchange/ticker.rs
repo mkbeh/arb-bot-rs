@@ -14,7 +14,7 @@ use crate::{
         kucoin::{
             broadcast::TICKER_BROADCAST,
             exchange::chain::ChainSymbol,
-            storage::{BookTickerEvent, OrderSide},
+            storage::{BookTickerEvent, BookTickerEventChanges},
         },
         metrics::METRICS,
     },
@@ -72,38 +72,28 @@ impl TickerBuilder {
                     .with_callback(|event: Events| {
                         if let Events::Message(event) = event {
                             let MessageEvents::IncrementOrderBook(message) = *event;
-                            let mut tickers = vec![];
+                            let symbol = &message.symbol;
+                            let mut changes = BookTickerEventChanges::new(symbol);
 
-                            if let Some(row) = message.latest_bid() {
-                                let OrderRow(price, qty, sequence_id) = row;
-                                tickers.push(BookTickerEvent {
-                                    symbol: message.symbol.clone(),
-                                    order_side: OrderSide::Bid,
-                                    sequence_id,
-                                    price,
-                                    qty,
-                                });
+                            if let Some(bid_row) = message.latest_bid() {
+                                changes.bid = Some(create_ticker_event(symbol, bid_row));
+                            }
+                            if let Some(ask_row) = message.latest_ask() {
+                                changes.ask = Some(create_ticker_event(symbol, ask_row));
                             }
 
-                            if let Some(row) = message.latest_ask() {
-                                let OrderRow(price, qty, sequence_id) = row;
-                                tickers.push(BookTickerEvent {
-                                    symbol: message.symbol.clone(),
-                                    order_side: OrderSide::Ask,
-                                    sequence_id,
-                                    price,
-                                    qty,
-                                });
-                            }
+                            if changes != BookTickerEventChanges::default()
+                                && let Err(e) = TICKER_BROADCAST.broadcast_event(changes)
+                            {
+                                error!(
+                                    error = ?e,
+                                    symbol = %symbol,
+                                    "Failed to broadcast changes event"
+                                );
+                                bail!("Failed to broadcast changes event: {e}");
+                            };
 
-                            for ticker in tickers {
-                                if let Err(e) = TICKER_BROADCAST.broadcast_event(ticker) {
-                                    error!(error = ?e, symbol = ?message.symbol.clone(), "Failed to broadcast ticker price");
-                                    bail!("Failed to broadcast ticker price: {e}");
-                                }
-                            }
-
-                            METRICS.increment_book_ticker_events(message.symbol.as_str());
+                            METRICS.increment_book_ticker_events(symbol);
                         }
                         Ok(())
                     });
@@ -144,5 +134,15 @@ impl TickerBuilder {
         }
 
         Ok(())
+    }
+}
+
+fn create_ticker_event(symbol: &str, row: OrderRow) -> BookTickerEvent {
+    let OrderRow(price, qty, sequence_id) = row;
+    BookTickerEvent {
+        symbol: symbol.to_string(),
+        sequence_id,
+        price,
+        qty,
     }
 }

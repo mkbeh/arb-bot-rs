@@ -12,12 +12,9 @@ use uuid::Uuid;
 
 use crate::{
     config::Asset,
-    libs::{
-        binance_api::{Filters, OrderBookUnit},
-        misc,
-    },
+    libs::{binance_api::Filters, misc},
     services::{
-        Chain, Order,
+        Chain, Order, OrderBookUnit,
         binance::{
             broadcast::TICKER_BROADCAST,
             exchange::{chain, chain::ChainSymbol},

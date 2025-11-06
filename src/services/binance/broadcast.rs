@@ -30,10 +30,8 @@ impl TickerBroadcast {
 
     pub fn broadcast_event(&self, event: BookTickerEvent) -> Result<(), String> {
         let tx = self.get_channel(&event.symbol);
-        if let Err(e) = tx.send(event) {
-            return Err(format!("Failed to broadcast: {e}"));
-        };
-        Ok(())
+        tx.send(event)
+            .map_err(|e| format!("Failed to broadcast: {e}"))
     }
 
     pub fn subscribe(&self, ticker: &str) -> watch::Receiver<BookTickerEvent> {

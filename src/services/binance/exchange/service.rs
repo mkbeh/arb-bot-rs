@@ -51,7 +51,7 @@ impl From<&Config> for BinanceExchangeConfig {
             base_assets: config.settings.assets.clone(),
             ws_streams_url: config.binance.ws_streams_url.clone(),
             ws_max_connections: config.binance.ws_max_connections,
-            market_depth_limit: config.binance.market_depth_limit,
+            market_depth_limit: config.settings.market_depth_limit,
             min_profit_qty: config.settings.min_profit_qty,
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
