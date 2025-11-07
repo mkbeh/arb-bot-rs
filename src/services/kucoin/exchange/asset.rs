@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use rust_decimal::Decimal;
+use anyhow::bail;
+use rust_decimal::{Decimal, prelude::Zero};
 
 use crate::{
     config::Asset,
@@ -56,7 +57,7 @@ impl AssetBuilder {
             .iter()
             .map(
                 |asset| match asset.symbol.as_ref().and_then(|s| stats_map.get(s)) {
-                    Some(stat) => self.set_asset_volumes(asset, stat),
+                    Some(stat) => self.set_asset_volumes(asset, stat).unwrap(),
                     None => asset.clone(),
                 },
             )
@@ -65,19 +66,23 @@ impl AssetBuilder {
         Ok(assets)
     }
 
-    fn set_asset_volumes(&self, asset: &Asset, stat: &Ticker) -> Asset {
+    fn set_asset_volumes(&self, asset: &Asset, stat: &Ticker) -> anyhow::Result<Asset> {
         let mut new_asset = asset.clone();
 
-        if asset.symbol.clone().unwrap().starts_with("USDT") {
-            new_asset.min_profit_qty = self.min_profit_qty * stat.buy;
-            new_asset.max_order_qty = self.max_order_qty * stat.buy;
-            new_asset.min_ticker_qty_24h = self.min_ticker_qty_24h * stat.buy;
-        } else {
-            new_asset.min_profit_qty = self.min_profit_qty / stat.buy;
-            new_asset.max_order_qty = self.max_order_qty / stat.buy;
-            new_asset.min_ticker_qty_24h = self.min_ticker_qty_24h / stat.buy;
+        if stat.high == Decimal::zero() {
+            bail!("Price for asset {} is zero", asset.symbol.clone().unwrap());
         }
 
-        new_asset
+        if asset.symbol.clone().unwrap().starts_with("USDT") {
+            new_asset.min_profit_qty = self.min_profit_qty * stat.high;
+            new_asset.max_order_qty = self.max_order_qty * stat.high;
+            new_asset.min_ticker_qty_24h = self.min_ticker_qty_24h * stat.high;
+        } else {
+            new_asset.min_profit_qty = self.min_profit_qty / stat.high;
+            new_asset.max_order_qty = self.max_order_qty / stat.high;
+            new_asset.min_ticker_qty_24h = self.min_ticker_qty_24h / stat.high;
+        }
+
+        Ok(new_asset)
     }
 }

@@ -76,14 +76,14 @@ pub struct AllTickers {
 pub struct Ticker {
     pub symbol: String,
     pub symbol_name: String,
-    #[serde(with = "rust_decimal::serde::float")]
-    pub buy: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
-    pub best_bid_size: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
-    pub sell: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
-    pub best_ask_size: Decimal,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub buy: Option<Decimal>,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub best_bid_size: Option<Decimal>,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub sell: Option<Decimal>,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub best_ask_size: Option<Decimal>,
     #[serde(with = "rust_decimal::serde::float_option")]
     pub change_rate: Option<Decimal>,
     #[serde(with = "rust_decimal::serde::float")]
@@ -94,8 +94,8 @@ pub struct Ticker {
     pub vol: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub vol_value: Decimal,
-    #[serde(with = "rust_decimal::serde::float")]
-    pub last: Decimal,
+    #[serde(with = "rust_decimal::serde::float_option")]
+    pub last: Option<Decimal>,
     #[serde(with = "rust_decimal::serde::float_option")]
     pub change_price: Option<Decimal>,
     #[serde(with = "rust_decimal::serde::float_option")]

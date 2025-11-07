@@ -1,16 +1,20 @@
 use std::{
-    collections::{BTreeMap, btree_map},
+    collections::{BTreeMap, HashMap, btree_map},
     sync::Arc,
 };
 
 use anyhow::bail;
+use rust_decimal::{Decimal, prelude::Zero};
 use strum::IntoEnumIterator;
 use tokio::task::JoinSet;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     config::Asset,
-    libs::kucoin_api::{Market, models::Symbol},
+    libs::kucoin_api::{
+        Market,
+        models::{Symbol, Ticker},
+    },
     services::enums::SymbolOrder,
 };
 
@@ -65,10 +69,13 @@ impl ChainBuilder {
         }
 
         let unique_chains = Self::deduplicate_chains(chains);
+        let filter_chains = self
+            .filter_chains_by_24h_vol(&base_assets, unique_chains)
+            .await?;
 
-        info!("🚀 Successfully build chains: {}", unique_chains.len());
+        info!("🚀 Successfully build chains: {}", filter_chains.len());
 
-        Ok(unique_chains)
+        Ok(filter_chains)
     }
 
     async fn build_chains(
@@ -239,6 +246,84 @@ impl ChainBuilder {
         }
 
         unique_chains
+    }
+
+    async fn filter_chains_by_24h_vol(
+        &self,
+        base_assets: &[Asset],
+        chains: Vec<[ChainSymbol; 3]>,
+    ) -> anyhow::Result<Vec<[ChainSymbol; 3]>> {
+        let calc_volume_fn = |volume: Decimal, price: Decimal, order: SymbolOrder| -> Decimal {
+            match order {
+                SymbolOrder::Asc => volume * price,
+                SymbolOrder::Desc => volume / price,
+            }
+        };
+
+        let ticker_prices: HashMap<String, Ticker> = match self.market_api.get_all_tickers().await {
+            Ok(resp) => resp
+                .data
+                .ticker
+                .into_iter()
+                .map(|ticker| (ticker.symbol.clone(), ticker))
+                .collect(),
+            Err(e) => bail!("failed to get all tickers: {}", e),
+        };
+
+        let mut filter_chains = vec![];
+        'outer: for chain in chains {
+            let mut last_volume_limit = Decimal::zero();
+
+            for (i, chain_symbol) in chain.iter().enumerate() {
+                let Some(stats) = ticker_prices.get(chain_symbol.symbol.symbol.as_str()) else {
+                    continue 'outer;
+                };
+
+                let (volume, price) = match chain_symbol.order {
+                    SymbolOrder::Asc => (stats.vol, stats.low),
+                    SymbolOrder::Desc => (stats.vol_value, stats.low),
+                };
+
+                if volume == Decimal::zero() || price == Decimal::zero() {
+                    debug!(
+                        symbol = ?chain_symbol.symbol.symbol.as_str(),
+                        volume = ?volume,
+                        price = ?price,
+                        "skip chain ticker price",
+                    );
+                    continue 'outer;
+                }
+
+                match i {
+                    0 => {
+                        let base_asset = base_assets
+                            .iter()
+                            .find(|v| v.asset == Self::find_base_asset(chain_symbol))
+                            .expect("base asset not found");
+
+                        if volume < base_asset.min_ticker_qty_24h {
+                            continue 'outer;
+                        }
+
+                        last_volume_limit = calc_volume_fn(
+                            base_asset.min_ticker_qty_24h,
+                            price,
+                            chain_symbol.order,
+                        );
+                    }
+                    _ => {
+                        if volume < last_volume_limit {
+                            continue 'outer;
+                        }
+
+                        last_volume_limit =
+                            calc_volume_fn(last_volume_limit, price, chain_symbol.order);
+                    }
+                }
+            }
+            filter_chains.push(chain);
+        }
+        Ok(filter_chains)
     }
 }
 

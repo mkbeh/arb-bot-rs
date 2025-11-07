@@ -74,7 +74,6 @@ impl ChainBuilder {
         }
 
         let unique_chains = Self::deduplicate_chains(chains);
-
         let filter_chains = self
             .filter_chains_by_24h_vol(&base_assets, unique_chains)
             .await?;
