@@ -4,9 +4,11 @@ use tokio::sync::Mutex;
 
 use crate::libs::misc;
 
+/// Global request weight limiter.
 pub static REQUEST_WEIGHT: LazyLock<Mutex<RequestWeight>> =
     LazyLock::new(|| Mutex::new(RequestWeight::default()));
 
+/// Manages request weight limits with time-based resets.
 pub struct RequestWeight {
     timestamp: u64,
     weight: usize,
@@ -30,13 +32,15 @@ impl RequestWeight {
         }
     }
 
+    /// Sets the maximum allowed weight.
     pub fn set_weight_limit(&mut self, weight_limit: usize) {
         self.weight_limit = weight_limit;
     }
 
+    /// Attempts to add weight; returns true if successful (under limit after reset check)
     pub fn add(&mut self, weight: usize) -> bool {
         let current_ts = misc::time::get_current_timestamp().as_secs();
-        if (current_ts - self.timestamp) > self.weight_reset_secs {
+        if current_ts - self.timestamp > self.weight_reset_secs {
             self.weight = 0;
             self.timestamp = current_ts;
         }
@@ -49,6 +53,7 @@ impl RequestWeight {
         true
     }
 
+    /// Subtracts weight if possible (no underflow).
     pub fn sub(&mut self, weight: usize) {
         if weight < self.weight {
             self.weight -= weight;

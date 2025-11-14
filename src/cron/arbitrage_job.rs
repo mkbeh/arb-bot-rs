@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, OnceLock},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
@@ -25,9 +22,8 @@ pub struct Process {
 }
 
 impl Process {
-    pub fn new(cfg: Config, service: Arc<dyn ExchangeService>) -> &'static Self {
-        static INSTANCE: OnceLock<Process> = OnceLock::new();
-        INSTANCE.get_or_init(|| Process {
+    pub fn create(cfg: Config, service: Arc<dyn ExchangeService>) -> Arc<dyn ServerProcess> {
+        Arc::new(Self {
             error_timeout_secs: Duration::from_secs(cfg.error_timeout_secs),
             service,
         })

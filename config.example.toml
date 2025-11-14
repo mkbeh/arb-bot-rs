@@ -5,20 +5,23 @@
 server_addr = "127.0.0.1:9000"
 metrics_addr = "127.0.0.1:9007"
 
-# Current crypto exchange name (binance).
+# Current crypto exchange name (binance,kucoin).
 # The process is launched only for one specific exchange from the available list.
 exchange_name = "binance"
 
 # Fee percentage.
-# https://www.binance.com/en/fee/schedule
+# Be sure to indicate the commission amount as in your personal account.
 fee_percent = 0.075
+
+# API request weight limit.
+api_weight_limit = 5000
 
 # Timeout seconds on error. Max: 5000.
 error_timeout = 30
 
 # Time in seconds after which the placed order can be considered
 # invalid and the chain processing can be skipped.
-order_lifetime = 300
+order_lifetime = 600
 
 # Enable send profit orders.
 send_orders = false
@@ -26,10 +29,15 @@ send_orders = false
 # Minimal profit qunatity limit in USD. Supports negative values.
 min_profit_qty = 0.1
 # Maximum order quantity limit in USD.
-max_order_qty = 500.0
+max_order_qty = 500
 
 # Min ticker 24h quantity.
 min_ticker_qty_24h = 0
+
+# Limit of order book depth.
+# Do not change it, it's system param.
+market_depth_limit = 1
+
 
 [binance-settings]
 
@@ -41,85 +49,90 @@ ws_url = "wss://ws-api.binance.com:443/ws-api/v3"
 ws_streams_url = "wss://stream.binance.com:443"
 
 # Websocket Streams connections limit.
-ws_max_connections = 100
+ws_max_connections = 50
 
-# API request weight limit.
-api_weight_limit = 5000
 
-# Limit of order book depth (DO NOT CHANGE).
-market_depth_limit = 1
+[kucoin-settings]
+
+api_url = "https://api.kucoin.com"
+api_token = "<api_token>"
+api_secret_key = "<api_secret_key>"
+api_passphrase = "<api_passphrase>"
+
+ws_private_url = "wss://wsapi.kucoin.com/v1/private"
+
 
 # List of base assets from which a chain of pairs can start.
 # Symbol must be specified in relation to the USD. If symbol not specify limit values
 # will be applied if they are greater than 0, otherwise the default limits will be applied.
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "BTC"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "BTCUSDT"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "ETH"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "ETHUSDT"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "LTC"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "LTCUSDT"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "BNB"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "BNBUSDT"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "USDT"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "USDC"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "FDUSD"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "EUR"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "EURUSDT"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "TRY"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "USDTTRY"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "BRL"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "USDTBRL"
 
-[[binance-settings.assets]]
+[[settings.assets]]
 asset = "JPY"
 min_profit_qty = 400
 max_order_qty = 4500

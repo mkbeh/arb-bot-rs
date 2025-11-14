@@ -77,7 +77,7 @@ impl KucoinSenderService {
 
         Ok(Self {
             send_orders: config.send_orders,
-            process_chain_interval: Duration::from_secs(5), // todo
+            process_chain_interval: Duration::from_secs(5),
             ws_url: config.ws_url.clone(),
             api_token: config.api_token.clone(),
             api_secret: config.api_secret.clone(),
@@ -147,9 +147,10 @@ impl KucoinSenderService {
             WebsocketStream::new(ws_endpoint.clone(), ping_interval).with_callback(|event| {
                 if let Events::Message(event) = event
                     && let MessageEvents::OrderChange(ref message) = *event
-                        && let Err(e) = order_change_tx.send(*message.clone()) {
-                            error!(error = ?e, "Failed to send order change");
-                        };
+                    && let Err(e) = order_change_tx.send(*message.clone())
+                {
+                    error!(error = ?e, "Failed to send order change");
+                };
 
                 Ok(())
             });
@@ -298,7 +299,7 @@ impl KucoinSenderService {
         };
 
         let order = &chain.orders[order_idx];
-        let mut stats_filled_qty = Decimal::zero(); // todo: maybe stats filled qty?
+        let mut stats_filled_qty = Decimal::zero();
         let mut filled_qty = Decimal::zero();
 
         // Waits for the order from the channel to be filled and returns the final filled_qty

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use anyhow::bail;
+use anyhow::Context;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
@@ -34,26 +34,12 @@ impl TickerBuilder {
         token: CancellationToken,
         chains: Vec<[ChainSymbol; 3]>,
     ) -> anyhow::Result<()> {
-        let unique_symbols: HashSet<String> = chains
-            .iter()
-            .flat_map(|chain| chain.iter())
-            .map(|chain_symbol| chain_symbol.symbol.symbol.to_lowercase())
-            .collect();
-        let symbols: Vec<String> = unique_symbols.into_iter().collect();
-
-        let streams = symbols
-            .iter()
-            .map(|symbol| book_ticker_stream(symbol))
-            .collect::<Vec<_>>();
+        let symbols = self.collect_unique_symbols(&chains);
+        let streams = self.create_streams(&symbols);
 
         info!("📡 Listening websocket streams: {}", streams.len());
 
-        let chunk_size = if streams.len() >= self.ws_max_connections {
-            streams.len() / self.ws_max_connections
-        } else {
-            streams.len()
-        };
-
+        let chunk_size = (streams.len() as f64 / self.ws_max_connections as f64).ceil() as usize;
         let mut tasks_set: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
         for chunk in streams.chunks(chunk_size) {
@@ -61,47 +47,10 @@ impl TickerBuilder {
             let streams_chunk = chunk.to_vec();
             let token = token.clone();
 
-            tasks_set.spawn({
-                async move {
-                    let mut ws: WebsocketStream<'_, StreamEvent<_>> = WebsocketStream::new(ws_url.clone())
-                        .with_callback(|event: StreamEvent<Events>| {
-                            if let Events::BookTicker(event) = event.data {
-                                let ticker = BookTickerEvent {
-                                    update_id: event.update_id,
-                                    symbol: event.symbol.clone(),
-                                    bid_price: event.best_bid_price,
-                                    bid_qty: event.best_bid_qty,
-                                    ask_price: event.best_ask_price,
-                                    ask_qty: event.best_ask_qty,
-                                };
-
-                                if let Err(e) = TICKER_BROADCAST.broadcast_event(ticker) {
-                                    error!(error = ?e, symbol = ?event.symbol, "Failed to broadcast ticker price");
-                                    bail!("Failed to broadcast ticker price: {e}");
-                                }
-
-                                METRICS.add_book_ticker_event(event.symbol.as_str());
-                            };
-
-                            Ok(())
-                        });
-
-                    match ws.connect_multiple(&streams_chunk).await {
-                        Ok(()) => {
-                            if let Err(e) = ws.handle_messages(token).await {
-                                error!(error = ?e, ws_url = ?ws_url, "Error while running websocket");
-                                bail!("Error while running websocket: {e}");
-                            };
-                        }
-                        Err(e) => {
-                            error!(error = ?e, ws_url = ?ws_url, "Failed to connect websocket");
-                            bail!("Failed to connect websocket: {e}");
-                        }
-                    };
-
-                    ws.disconnect().await;
-                    Ok(())
-                }
+            tasks_set.spawn(async move {
+                Self::handle_ticker_events(ws_url, streams_chunk, token)
+                    .await
+                    .context("WS chunk task failed")
             });
         }
 
@@ -122,5 +71,63 @@ impl TickerBuilder {
         }
 
         Ok(())
+    }
+
+    async fn handle_ticker_events(
+        ws_url: String,
+        streams_chunk: Vec<String>,
+        token: CancellationToken,
+    ) -> anyhow::Result<()> {
+        let mut ws: WebsocketStream<'_, StreamEvent<_>> = WebsocketStream::new(ws_url.clone())
+            .with_callback(|event: StreamEvent<Events>| {
+                if let Events::BookTicker(event) = event.data {
+                    let ticker = BookTickerEvent {
+                        update_id: event.update_id,
+                        symbol: event.symbol.clone(),
+                        bid_price: event.best_bid_price,
+                        bid_qty: event.best_bid_qty,
+                        ask_price: event.best_ask_price,
+                        ask_qty: event.best_ask_qty,
+                    };
+
+                    if let Err(e) = TICKER_BROADCAST.broadcast_event(ticker) {
+                        error!(error = ?e, symbol = ?event.symbol, "Failed to broadcast ticker price");
+                        return Err(anyhow::anyhow!("Failed to broadcast ticker price: {e}"));
+                    }
+
+                    METRICS.add_book_ticker_event(event.symbol.as_str());
+                };
+
+                Ok(())
+            });
+
+        ws.connect_multiple(&streams_chunk)
+            .await
+            .context("Failed to connect WS")?;
+
+        ws.handle_messages(token)
+            .await
+            .context("Error while running WS")?;
+
+        ws.disconnect().await;
+
+        Ok(())
+    }
+
+    fn collect_unique_symbols(&self, chains: &[[ChainSymbol; 3]]) -> Vec<String> {
+        chains
+            .iter()
+            .flat_map(|chain| chain.iter())
+            .map(|chain_symbol| chain_symbol.symbol.symbol.to_lowercase())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    fn create_streams(&self, symbols: &[String]) -> Vec<String> {
+        symbols
+            .iter()
+            .map(|symbol| book_ticker_stream(symbol))
+            .collect()
     }
 }

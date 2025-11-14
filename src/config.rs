@@ -1,5 +1,5 @@
-use anyhow::{anyhow, bail};
-use rust_decimal::{Decimal, prelude::Zero};
+use anyhow::{Context, bail};
+use rust_decimal::Decimal;
 use serde::Deserialize;
 use strum_macros::EnumString;
 
@@ -78,51 +78,54 @@ pub struct Asset {
 }
 
 impl Config {
+    /// Parses the configuration from the TOML file and performs validation.
     pub fn parse() -> anyhow::Result<Self> {
-        let mut config: Config = toml::parse_file(CONFIG_FILE).map_err(|e| anyhow!("{}", e))?;
+        let config = toml::parse_file::<Config>(CONFIG_FILE)
+            .with_context(|| format!("Failed to parse config file: {}", CONFIG_FILE))?;
 
-        if let Err(e) = config.validate_settings() {
-            bail!("Config validation error: {}", e)
+        config.validate_settings()
+    }
+
+    /// Validates settings: checks the presence of assets and their parameters.
+    fn validate_settings(self) -> anyhow::Result<Self> {
+        let mut config = self;
+
+        if config.settings.assets.is_empty() {
+            bail!("At least one asset must be specified in config");
+        }
+
+        let min_profit_qty = config.settings.min_profit_qty;
+        let max_order_qty = config.settings.max_order_qty;
+        let min_ticker_qty_24h = config.settings.min_ticker_qty_24h;
+
+        for asset in &mut config.settings.assets {
+            asset.validate(min_profit_qty, max_order_qty, min_ticker_qty_24h)?;
         }
 
         Ok(config)
     }
-
-    fn validate_settings(&mut self) -> anyhow::Result<()> {
-        if self.settings.assets.is_empty() {
-            bail!("At least one asset must be specified");
-        }
-
-        for asset in &mut self.settings.assets {
-            asset.check(
-                self.settings.min_profit_qty,
-                self.settings.max_order_qty,
-                self.settings.min_ticker_qty_24h,
-            )?;
-        }
-
-        Ok(())
-    }
 }
 
 impl Asset {
-    fn check(
+    /// Validates the asset parameters and sets default values if symbol is missing.
+    fn validate(
         &mut self,
         min_profit_qty: Decimal,
         max_order_qty: Decimal,
         min_ticker_qty_24h: Decimal,
     ) -> anyhow::Result<()> {
-        match self.symbol.as_ref() {
+        match &self.symbol {
             Some(symbol) => {
                 if !symbol.contains("USDT") {
-                    bail!("Symbol must contains USDT asset: {}", symbol);
+                    bail!("Symbol must contain 'USDT': {}", symbol);
                 }
             }
             None => {
-                // Set default limits if symbol not present in config.
-                if self.max_order_qty == Decimal::zero()
-                    && self.min_profit_qty == Decimal::zero()
-                    && self.min_ticker_qty_24h == Decimal::zero()
+                // Set default limits only if all fields
+                // are zero (signal of no overrides).
+                if self.min_profit_qty.is_zero()
+                    && self.max_order_qty.is_zero()
+                    && self.min_ticker_qty_24h.is_zero()
                 {
                     self.min_profit_qty = min_profit_qty;
                     self.max_order_qty = max_order_qty;

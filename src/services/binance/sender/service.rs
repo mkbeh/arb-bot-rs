@@ -1,8 +1,11 @@
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::{Context, bail};
 use async_trait::async_trait;
-use tokio::time::Instant;
+use tokio::{
+    sync::{oneshot, watch},
+    time::Instant,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -17,7 +20,7 @@ use crate::{
         },
     },
     services::{
-        ORDERS_CHANNEL, Order,
+        Chain, ORDERS_CHANNEL, Order,
         enums::{ChainStatus, SymbolOrder},
         metrics::METRICS,
         service::OrderSenderService,
@@ -31,6 +34,22 @@ pub struct BinanceSenderConfig {
     pub ws_url: String,
     pub api_token: String,
     pub api_secret_key: String,
+    pub process_chain_interval_secs: u64,
+    pub poll_interval_secs: u64,
+}
+
+impl From<&Config> for BinanceSenderConfig {
+    fn from(config: &Config) -> Self {
+        Self {
+            send_orders: config.settings.send_orders,
+            order_lifetime_secs: config.settings.order_lifetime,
+            ws_url: config.binance.ws_url.clone(),
+            api_token: config.binance.api_token.clone(),
+            api_secret_key: config.binance.api_secret_key.clone(),
+            process_chain_interval_secs: 60,
+            poll_interval_secs: 5,
+        }
+    }
 }
 
 pub struct BinanceSenderService {
@@ -43,52 +62,11 @@ pub struct BinanceSenderService {
     api_secret_key: String,
 }
 
-impl From<&Config> for BinanceSenderConfig {
-    fn from(config: &Config) -> Self {
-        Self {
-            send_orders: config.settings.send_orders,
-            order_lifetime_secs: config.settings.order_lifetime,
-            ws_url: config.binance.ws_url.clone(),
-            api_token: config.binance.api_token.clone(),
-            api_secret_key: config.binance.api_secret_key.clone(),
-        }
-    }
-}
-
-impl BinanceSenderService {
-    pub fn from_config(config: BinanceSenderConfig) -> anyhow::Result<Self> {
-        Ok(Self {
-            send_orders: config.send_orders,
-            order_lifetime: Duration::from_secs(config.order_lifetime_secs),
-            process_chain_interval: Duration::from_secs(60),
-            poll_interval: Duration::from_secs(5),
-            ws_url: config.ws_url,
-            api_token: config.api_token,
-            api_secret_key: config.api_secret_key,
-        })
-    }
-}
-
 #[async_trait]
 impl OrderSenderService for BinanceSenderService {
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
-        let (mut ws_writer, ws_reader) = connect_ws(ws::ConnectConfig::new(
-            self.ws_url.clone(),
-            self.api_token.clone(),
-            self.api_secret_key.clone(),
-        ))
-        .await?;
-
-        // Create a channel to track messages handler completion
-        let (message_done_tx, mut message_done_rx) = tokio::sync::oneshot::channel();
-
-        let message_handler = tokio::spawn({
-            let token = token.clone();
-            async move {
-                let result = ws_reader.handle_messages(token).await;
-                let _ = message_done_tx.send(result);
-            }
-        });
+        let (mut ws_writer, message_handler, mut message_done_rx) =
+            self.setup_websocket(token.clone()).await?;
 
         let mut orders_rx = ORDERS_CHANNEL.rx.lock().await;
         let mut last_chain_exec_ts: Option<Instant> = None;
@@ -101,49 +79,17 @@ impl OrderSenderService for BinanceSenderService {
                 _ = token.cancelled() => {
                     break;
                 }
-
-                _ = orders_rx.changed() => {
-                    let chain = orders_rx.borrow().clone();
-                    let chain_symbols = chain.extract_symbols();
-
-                    chain.print_info(self.send_orders);
-                    METRICS.add_chain_status(&chain_symbols, ChainStatus::New);
-
-                    if !self.send_orders {
-                        continue;
-                    }
-
-                    if last_chain_exec_ts.is_some_and(|t| t.elapsed() < self.process_chain_interval) {
-                        continue;
-                    }
-
-                    for (i, order) in chain.orders.iter().enumerate() {
-                        if let Err(e) = self
-                            .process_order(i, chain.chain_id, order, &mut ws_writer)
-                            .await
-                        {
-                            error!(error = ?e, "❌📦 Error processing order");
-                            METRICS.add_chain_status(&chain_symbols, ChainStatus::Cancelled);
-                            break;
-                        };
-                    }
-
-                    last_chain_exec_ts = Some(Instant::now());
-                    METRICS.add_chain_status(&chain_symbols, ChainStatus::Filled);
-                }
-
+                _ = orders_rx.changed() => self.process_chain_orders(&mut orders_rx, &mut ws_writer, &mut last_chain_exec_ts).await?,
                 result = &mut message_done_rx => match result {
                     Ok(Err(e)) => {
-                        error!("Message handler failed: {}", e);
+                        error!("Message handler failed: {e}");
                         break;
                     }
                     Err(_) => {
                         error!("Message handler channel closed unexpectedly");
                         break;
                     }
-                    _ => {
-                        break
-                    }
+                    _ => break,
                 }
             }
         }
@@ -156,6 +102,88 @@ impl OrderSenderService for BinanceSenderService {
 }
 
 impl BinanceSenderService {
+    pub fn from_config(config: BinanceSenderConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            send_orders: config.send_orders,
+            order_lifetime: Duration::from_secs(config.order_lifetime_secs),
+            process_chain_interval: Duration::from_secs(config.process_chain_interval_secs),
+            poll_interval: Duration::from_secs(config.poll_interval_secs),
+            ws_url: config.ws_url,
+            api_token: config.api_token,
+            api_secret_key: config.api_secret_key,
+        })
+    }
+
+    async fn setup_websocket(
+        &self,
+        token: CancellationToken,
+    ) -> anyhow::Result<(
+        WebsocketWriter,
+        tokio::task::JoinHandle<()>,
+        oneshot::Receiver<anyhow::Result<()>>,
+    )> {
+        let (ws_writer, ws_reader) = connect_ws(ws::ConnectConfig::new(
+            self.ws_url.clone(),
+            self.api_token.clone(),
+            self.api_secret_key.clone(),
+        ))
+        .await
+        .context("Failed to connect WS")?;
+
+        let (message_done_tx, message_done_rx) = oneshot::channel();
+
+        let message_handler = tokio::spawn({
+            let token = token.clone();
+            async move {
+                let result = ws_reader.handle_messages(token).await;
+                let _ = message_done_tx.send(result);
+            }
+        });
+
+        Ok((ws_writer, message_handler, message_done_rx))
+    }
+
+    async fn process_chain_orders(
+        &self,
+        orders_rx: &mut watch::Receiver<Chain>,
+        ws_writer: &mut WebsocketWriter,
+        last_chain_exec_ts: &mut Option<Instant>,
+    ) -> anyhow::Result<()> {
+        let chain = orders_rx.borrow().clone();
+        let chain_symbols = chain.extract_symbols();
+
+        if !self.send_orders {
+            chain.print_info(self.send_orders);
+            return Ok(());
+        }
+
+        if last_chain_exec_ts
+            .as_ref()
+            .is_some_and(|t| t.elapsed() < self.process_chain_interval)
+        {
+            return Ok(());
+        }
+
+        chain.print_info(self.send_orders);
+        METRICS.add_chain_status(&chain_symbols, ChainStatus::New);
+
+        for (i, order) in chain.orders.iter().enumerate() {
+            if let Err(e) = self
+                .process_order(i, chain.chain_id, order, ws_writer)
+                .await
+            {
+                error!(error = ?e, "❌📦 Error processing order");
+                METRICS.add_chain_status(&chain_symbols, ChainStatus::Cancelled);
+                return Ok(()); // Не bail, чтобы продолжить другие chains
+            }
+        }
+
+        *last_chain_exec_ts = Some(Instant::now());
+        METRICS.add_chain_status(&chain_symbols, ChainStatus::Filled);
+
+        Ok(())
+    }
+
     async fn process_order(
         &self,
         idx: usize,
@@ -163,20 +191,83 @@ impl BinanceSenderService {
         order: &Order,
         ws_writer: &mut WebsocketWriter,
     ) -> anyhow::Result<()> {
-        loop {
-            if REQUEST_WEIGHT
-                .lock()
-                .await
-                .add(WebsocketApi::PlaceOrder.weight() as usize)
-            {
-                break;
-            }
+        self.wait_for_weight(WebsocketApi::PlaceOrder).await?;
 
-            tokio::time::sleep(Duration::from_secs(1)).await;
+        let place_order_request = self.build_place_order_request(order);
+        let response = ws_writer
+            .place_order(place_order_request)
+            .await
+            .context("Failed to place order")?;
+
+        print_place_order(idx, chain_id, &response);
+
+        if response.status == OrderStatus::Filled {
+            return Ok(());
         }
 
-        let place_order_request = PlaceOrderRequest {
-            symbol: order.symbol.to_owned(),
+        self.poll_order_status(ws_writer, order.symbol.clone(), response.order_id, chain_id)
+            .await
+    }
+
+    async fn wait_for_weight(&self, api: WebsocketApi) -> anyhow::Result<()> {
+        loop {
+            if REQUEST_WEIGHT.lock().await.add(api.weight() as usize) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        Ok(())
+    }
+
+    async fn poll_order_status(
+        &self,
+        ws_writer: &mut WebsocketWriter,
+        symbol: String,
+        order_id: u64,
+        chain_id: Uuid,
+    ) -> anyhow::Result<()> {
+        let start_time = Instant::now();
+
+        loop {
+            if start_time.elapsed() >= self.order_lifetime {
+                bail!("Timed out polling order status");
+            }
+
+            self.wait_for_weight(WebsocketApi::QueryOrder).await?;
+
+            let query_request = QueryOrderRequest {
+                symbol: symbol.clone(),
+                order_id: Some(order_id),
+                orig_client_order_id: None,
+                recv_window: None,
+                timestamp: None,
+                api_key: None,
+                signature: None,
+            };
+
+            match ws_writer.query_order(query_request).await {
+                Ok(response) => {
+                    if response.status == OrderStatus::Filled {
+                        print_query_order(chain_id, &response);
+                        return Ok(());
+                    }
+                }
+                Err(e) => {
+                    if let Some(WebsocketClientError::Timeout(_)) = e.downcast_ref() {
+                        // Continue on timeout
+                    } else {
+                        return Err(e.context("Failed to query order status"));
+                    }
+                }
+            }
+
+            tokio::time::sleep(self.poll_interval).await;
+        }
+    }
+
+    fn build_place_order_request(&self, order: &Order) -> PlaceOrderRequest {
+        PlaceOrderRequest {
+            symbol: order.symbol.clone(),
             order_side: define_order_side(order),
             order_type: OrderType::Limit,
             time_in_force: Some(TimeInForce::Gtc),
@@ -195,69 +286,7 @@ impl BinanceSenderService {
             timestamp: None,
             api_key: None,
             signature: None,
-        };
-
-        let (order_id, status) = match ws_writer.place_order(place_order_request).await {
-            Ok(response) => {
-                print_place_order(idx, chain_id, &response);
-                (response.order_id, response.status)
-            }
-            Err(e) => bail!("Error try placing order: {e}"),
-        };
-
-        if status == OrderStatus::Filled {
-            return Ok(());
         }
-
-        // Check order status
-        let start_time = Instant::now();
-
-        loop {
-            if start_time.elapsed() >= self.order_lifetime {
-                bail!("Timed out trying to poll order status");
-            }
-
-            if !REQUEST_WEIGHT
-                .lock()
-                .await
-                .add(WebsocketApi::QueryOrder.weight() as usize)
-            {
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                continue;
-            }
-
-            let query_order_request = QueryOrderRequest {
-                symbol: order.symbol.to_owned(),
-                order_id: Some(order_id),
-                orig_client_order_id: None,
-                recv_window: None,
-                timestamp: None,
-                api_key: None,
-                signature: None,
-            };
-
-            match ws_writer.query_order(query_order_request.clone()).await {
-                Ok(response) => {
-                    if response.status == OrderStatus::Filled {
-                        print_query_order(chain_id, &response);
-                        break;
-                    }
-                }
-                Err(e) => {
-                    if e.downcast_ref::<WebsocketClientError>()
-                        .map(|e| matches!(e, WebsocketClientError::Timeout(_)))
-                        .unwrap_or(false)
-                    {
-                        continue;
-                    }
-                    bail!("Failed to query order status: {e}");
-                }
-            }
-
-            tokio::time::sleep(self.poll_interval).await;
-        }
-
-        Ok(())
     }
 }
 

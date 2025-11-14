@@ -122,9 +122,10 @@ impl TickerBuilder {
     fn handle_events_callback() -> impl Fn(Events) -> anyhow::Result<()> + Send + Sync + 'static {
         move |event: Events| {
             if let Events::Message(event) = event
-                && let MessageEvents::IncrementOrderBook(message) = *event {
-                    Self::process_order_book_update(&message)?;
-                }
+                && let MessageEvents::IncrementOrderBook(message) = *event
+            {
+                Self::process_order_book_update(&message)?;
+            }
             Ok(())
         }
     }

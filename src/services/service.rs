@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::services::enums::SymbolOrder;
 
+/// Global channel for distributing order chains
 pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
     let (tx, rx) = watch::channel::<Chain>(Chain::default());
     OrdersSingleton {
@@ -19,11 +20,13 @@ pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
 
 #[async_trait]
 pub trait ExchangeService: Send + Sync {
+    /// Starts the arbitration process.
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()>;
 }
 
 #[async_trait]
 pub trait OrderSenderService: Send + Sync {
+    /// Starts the process of sending orders.
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()>;
 }
 
@@ -32,6 +35,7 @@ pub struct OrdersSingleton {
     pub rx: Mutex<watch::Receiver<Chain>>,
 }
 
+/// Chain of orders for arbitrage (buy/sell sequence).
 #[derive(Clone, Debug, Default)]
 pub struct Chain {
     pub ts: u128,
@@ -40,6 +44,7 @@ pub struct Chain {
     pub orders: Vec<Order>,
 }
 
+/// Order in a chain (buy/sell with qty/price).
 #[derive(Clone, Debug)]
 pub struct Order {
     pub symbol: String,
@@ -51,34 +56,43 @@ pub struct Order {
     pub quote_increment: Decimal,
 }
 
+/// Order book unit (price + qty)
 pub struct OrderBookUnit {
     pub price: Decimal,
     pub qty: Decimal,
 }
 
 impl Chain {
+    /// Extracts symbols from orders.
     pub fn extract_symbols(&self) -> Vec<&str> {
         self.orders.iter().map(|o| o.symbol.as_str()).collect()
     }
 
+    /// Calculates the chain's profit taking into account the fee.
+    pub fn compute_profit(&self) -> (Decimal, Decimal) {
+        if self.orders.is_empty() {
+            return (Decimal::ZERO, Decimal::ZERO);
+        }
+
+        let input_qty = self.orders[0].base_qty;
+        let output_qty = self.orders.last().unwrap().quote_qty; // Assume last is output
+
+        let fee_rate = self.fee_percent / Decimal::ONE_HUNDRED;
+        let scale_factor = Decimal::from_usize(self.orders.len()).unwrap_or(Decimal::ONE);
+
+        let fee = (scale_factor * (input_qty * fee_rate))
+            .round_dp_with_strategy(8, RoundingStrategy::MidpointAwayFromZero);
+        let profit = (output_qty - input_qty - fee)
+            .round_dp_with_strategy(8, RoundingStrategy::MidpointAwayFromZero);
+        let profit_percent = ((profit / input_qty) * Decimal::ONE_HUNDRED)
+            .round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
+
+        (profit, profit_percent)
+    }
+
+    /// Logs information about the chain.
     pub fn print_info(&self, send_orders: bool) {
-        let (profit, profit_percent) = {
-            let input_qty = self.orders[0].base_qty;
-            let output_qty = self.orders[2].quote_qty;
-
-            // Commission calculation: subtract a percentage from the output amount
-            let fee_rate = self.fee_percent / Decimal::ONE_HUNDRED;
-            let scale_factor = Decimal::from_usize(self.orders.len()).unwrap();
-
-            let fee = (scale_factor * (input_qty * fee_rate))
-                .round_dp_with_strategy(8, RoundingStrategy::MidpointAwayFromZero);
-            let profit = (output_qty - input_qty - fee)
-                .round_dp_with_strategy(8, RoundingStrategy::MidpointAwayFromZero);
-            (
-                profit,
-                ((profit / input_qty) * Decimal::ONE_HUNDRED).round_dp(2),
-            )
-        };
+        let (profit, profit_percent) = self.compute_profit();
 
         let orders_fmt = self
             .orders

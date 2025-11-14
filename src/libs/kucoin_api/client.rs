@@ -32,7 +32,6 @@ pub struct Client {
 impl Client {
     pub fn from_config(conf: ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
         let signed_passphrase = if !conf.api_passphrase.is_empty() && !conf.api_secret.is_empty() {
-            
             utils::sign(&conf.api_passphrase, &conf.api_secret)
         } else {
             conf.api_passphrase.clone()

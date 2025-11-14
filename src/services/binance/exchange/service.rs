@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::bail;
+use anyhow::Context;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 use tokio::task::JoinSet;
@@ -69,15 +69,10 @@ impl BinanceExchangeService {
             http_config: binance_api::HttpConfig::default(),
         };
 
-        let general_api: General = match Binance::new(api_config.clone()) {
-            Ok(v) => v,
-            Err(e) => bail!("Failed init binance client: {e}"),
-        };
-
-        let market_api: Market = match Binance::new(api_config.clone()) {
-            Ok(v) => v,
-            Err(e) => bail!("Failed init binance client: {e}"),
-        };
+        let general_api: General =
+            Binance::new(api_config.clone()).context("Failed to init general Binance client")?;
+        let market_api: Market =
+            Binance::new(api_config).context("Failed to init market Binance client")?;
 
         let asset_builder = AssetBuilder::new(
             market_api.clone(),
@@ -104,21 +99,19 @@ impl BinanceExchangeService {
 impl ExchangeService for BinanceExchangeService {
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()> {
         // Get and update base assets limits.
-        let base_assets = match self.asset_builder.update_base_assets_info().await {
-            Ok(assets) => assets,
-            Err(e) => bail!("Failed to update base assets info: {e}"),
-        };
+        let base_assets = self
+            .asset_builder
+            .update_base_assets_info()
+            .await
+            .context("Failed to update base assets info")?;
 
         // Get all available symbols and build chains.
-        let chains = match self
+        let chains = self
             .chain_builder
             .clone()
             .build_symbols_chains(base_assets.clone())
             .await
-        {
-            Ok(chains) => chains,
-            Err(e) => bail!("failed to build symbols chains: {}", e),
-        };
+            .context("Failed to build symbols chains")?;
 
         let mut tasks_set = JoinSet::new();
 
@@ -142,26 +135,22 @@ impl ExchangeService for BinanceExchangeService {
             async move { ticker_builder.build_order_books(token, chains).await }
         });
 
-        loop {
-            tokio::select! {
-                _ = token.cancelled() => {
+        // Wait for tasks, cancel on first error
+        while let Some(result) = tasks_set.join_next().await {
+            match result {
+                Ok(Ok(())) => {
+                    token.cancel();
+                    continue;
+                }
+                Ok(Err(e)) => {
+                    error!(error = ?e, "Task failed");
+                    token.cancel();
                     break;
                 }
-                result = tasks_set.join_next() => match result {
-                    Some(Ok(Err(e))) => {
-                        error!(error = ?e, "Failed to run task");
-                        token.cancel();
-                        break;
-                    }
-                    Some(Err(e)) => {
-                        error!(error = ?e, "Failed to join task");
-                        token.cancel();
-                        break;
-                    }
-                    _ => {
-                        token.cancel();
-                        continue;
-                    }
+                Err(e) => {
+                    error!(error = ?e, "Join error");
+                    token.cancel();
+                    break;
                 }
             }
         }
