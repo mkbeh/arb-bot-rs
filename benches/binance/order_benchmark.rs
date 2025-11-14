@@ -1,4 +1,4 @@
-use std::{hint::black_box, str::FromStr};
+use std::hint::black_box;
 
 use arb_bot_rs::services::{
     binance::{
@@ -84,9 +84,9 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
     ];
 
     let market_depth_limit: usize = 1;
-    let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
+    let fee_percent: Decimal = Decimal::from_f64(0.075).unwrap();
 
-    c.bench_function("calculate_chain_profit", |b| {
+    c.bench_function("binance::calculate_chain_profit", |b| {
         b.iter(|| {
             OrderBuilder::calculate_chain_profit(
                 black_box(&order_symbols),

@@ -1,6 +1,6 @@
 pub mod asset;
 mod chain;
-mod order;
+pub mod order;
 pub mod service;
 mod ticker;
 
