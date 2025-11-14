@@ -6,6 +6,7 @@ pub mod models;
 pub mod stream;
 mod token;
 mod utils;
+pub mod ws;
 
 pub use api::Kucoin;
 pub use client::{Client, ClientConfig, HttpConfig};

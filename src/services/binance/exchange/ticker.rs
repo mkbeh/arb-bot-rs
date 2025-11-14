@@ -80,7 +80,7 @@ impl TickerBuilder {
                                     bail!("Failed to broadcast ticker price: {e}");
                                 }
 
-                                METRICS.increment_book_ticker_events(event.symbol.as_str());
+                                METRICS.add_book_ticker_event(event.symbol.as_str());
                             };
 
                             Ok(())

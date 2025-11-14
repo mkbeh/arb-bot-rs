@@ -14,6 +14,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, de,
     de::{DeserializeOwned, SeqAccess},
 };
+use serde_json::json;
 use tokio::{
     net::TcpStream,
     sync::{Mutex, oneshot},
@@ -24,11 +25,14 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 use url::Url;
 
-use crate::libs::kucoin_api::utils;
+use crate::libs::kucoin_api::{
+    enums::{FeeType, Liquidity, OrderChangeType, OrderSide, OrderStatus, OrderType},
+    utils::get_timestamp,
+};
 
 type EventCallback<'a, T> = Box<dyn FnMut(T) -> anyhow::Result<()> + 'a + Send>;
-type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
-type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
+pub(crate) type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+pub(crate) type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
 pub struct WebsocketStream<'a, Event> {
     ws_url: String,
@@ -61,13 +65,8 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self
     }
 
-    pub async fn connect(
-        &mut self,
-        topic: String,
-        token: String,
-        private_channel: bool,
-    ) -> anyhow::Result<()> {
-        let timestamp = utils::get_timestamp(SystemTime::now())?;
+    pub async fn connect(&mut self, topics: &[Topic], token: String) -> anyhow::Result<()> {
+        let timestamp = get_timestamp(SystemTime::now())?;
         let ws_url = format!("{}?token={}&connectId={}", self.ws_url, token, timestamp);
         let url = Url::parse(&ws_url)?;
         self.connect_ws(url).await?;
@@ -87,7 +86,13 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
             self.ping_interval,
         )));
 
-        self.subscribe(timestamp, topic, private_channel).await
+        for topic in topics {
+            if let Err(e) = self.subscribe(timestamp, topic).await {
+                bail!(e);
+            }
+        }
+
+        Ok(())
     }
 
     pub async fn disconnect(&mut self) {
@@ -105,13 +110,8 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self.ping_handle = None;
     }
 
-    pub async fn subscribe(
-        &mut self,
-        ts: u64,
-        topic: String,
-        private_channel: bool,
-    ) -> anyhow::Result<()> {
-        let subscribe_msg = SubscribeMessage::new(topic, ts, private_channel);
+    pub async fn subscribe(&mut self, ts: u64, topic: &Topic) -> anyhow::Result<()> {
+        let subscribe_msg = SubscribeMessage::new(topic.stream.clone(), ts, topic.private);
         let json_msg = serde_json::to_string(&subscribe_msg)?;
         if let Some(ref writer) = self.writer {
             let mut w = writer.lock().await;
@@ -192,7 +192,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
     }
 }
 
-async fn ping_loop<S>(
+pub async fn ping_loop<S>(
     writer: Arc<Mutex<S>>,
     mut shutdown_rx: oneshot::Receiver<()>,
     ping_interval: Duration,
@@ -200,27 +200,25 @@ async fn ping_loop<S>(
     S: SinkExt<Message> + Unpin,
     <S as Sink<Message>>::Error: fmt::Debug,
 {
-    let mut interval = interval(ping_interval);
+    let mut ping_timer = interval(ping_interval);
+    ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
         tokio::select! {
             _ = &mut shutdown_rx => {
-                let mut w = writer.lock().await;
-                let _ = w.send(Message::Close(None)).await;
+                let _ = writer.lock().await.send(Message::Close(None)).await;
                 break;
             }
-            _ = interval.tick() => {
-                let ts = utils::get_timestamp(SystemTime::now()).unwrap();
-                match serde_json::to_string(&PingMessage::new(ts)) {
-                    Ok(ping_msg) => {
-                        let mut w = writer.lock().await;
-                        if let Err(e) = w.send(Message::from(ping_msg)).await {
+            _ = ping_timer.tick() => {
+                match ping_message() {
+                    Ok(payload) => {
+                        if let Err(e) = writer.lock().await.send(Message::Text(payload.into())).await {
                             error!("Failed to send ping: {:?}", e);
                             break;
                         }
-                    },
+                    }
                     Err(e) => {
-                        error!("Failed to serialize ping message: {:?}", e);
+                        error!("Failed to generate ping message: {:?}", e);
                         break;
                     }
                 }
@@ -229,12 +227,38 @@ async fn ping_loop<S>(
     }
 }
 
+fn ping_message() -> anyhow::Result<String> {
+    let timestamp = get_timestamp(SystemTime::now())?;
+    let ping = json!({
+        "id": timestamp,
+        "op": "ping"
+    });
+    Ok(ping.to_string())
+}
+
 /// # Arguments
 ///
 /// * `symbol`: the market symbol
-pub fn order_book_increment_topic(symbols: &[&str]) -> String {
+pub fn order_book_increment_topic(symbols: &[&str]) -> Topic {
     let s = symbols_to_comma_separated(symbols);
-    format!("/market/level2:{}", s)
+    Topic {
+        stream: format!("/market/level2:{}", s),
+        private: false,
+    }
+}
+
+pub fn order_change_topic() -> Topic {
+    Topic {
+        stream: String::from("/spotMarket/tradeOrdersV2"),
+        private: true,
+    }
+}
+
+pub fn account_balance_topic() -> Topic {
+    Topic {
+        stream: String::from("/account/balance"),
+        private: true,
+    }
 }
 
 fn symbols_to_comma_separated(symbols: &[&str]) -> String {
@@ -245,21 +269,9 @@ fn symbols_to_comma_separated(symbols: &[&str]) -> String {
         .join(",")
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PingMessage {
-    id: u64,
-    #[serde(rename = "type")]
-    event_type: String,
-}
-
-impl PingMessage {
-    fn new(ts: u64) -> Self {
-        Self {
-            id: ts,
-            event_type: "ping".to_string(),
-        }
-    }
+pub struct Topic {
+    stream: String,
+    private: bool,
 }
 
 #[derive(Serialize)]
@@ -309,14 +321,16 @@ pub enum Events {
 pub enum MessageEvents {
     #[serde(alias = "trade.l2update")]
     IncrementOrderBook(Box<Level2Update>),
+    #[serde(alias = "orderChange")]
+    OrderChange(Box<OrderChange>),
+    #[serde(alias = "account.balance")]
+    AccountBalance(Box<AccountBalance>),
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct WebsocketError {
     pub id: String,
     pub code: Option<i32>,
-    #[serde(rename = "type")]
-    pub event_type: String,
     pub data: Option<String>,
 }
 
@@ -404,5 +418,152 @@ impl<'de> Deserialize<'de> for OrderRow {
         }
 
         deserializer.deserialize_tuple(3, RowVisitor)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderChange {
+    pub status: OrderStatus,
+    #[serde(rename = "type")]
+    pub order_change_type: OrderChangeType,
+    pub symbol: String,
+    pub side: OrderSide,
+    pub order_type: OrderType,
+    pub fee_type: Option<FeeType>,
+    pub liquidity: Option<Liquidity>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub price: Option<Decimal>,
+    pub order_id: String,
+    pub client_oid: String,
+    pub trade_id: Option<String>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub origin_size: Option<Decimal>, // limit/market sell
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub origin_funds: Option<Decimal>, // market buy/sell
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub size: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub filled_size: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub match_size: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub match_price: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub canceled_size: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub old_size: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub remain_size: Option<Decimal>,
+    #[serde(default, with = "rust_decimal::serde::float_option")]
+    pub remain_funds: Option<Decimal>,
+    pub pt: Option<u64>,
+    pub ts: u64,
+    pub order_time: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountBalance {
+    pub account_id: String,
+    pub currency: String,
+    #[serde(default, with = "rust_decimal::serde::float")]
+    pub total: Decimal,
+    #[serde(default, with = "rust_decimal::serde::float")]
+    pub available: Decimal,
+    #[serde(default, with = "rust_decimal::serde::float")]
+    pub hold: Decimal,
+    #[serde(default, with = "rust_decimal::serde::float")]
+    pub available_change: Decimal,
+    #[serde(default, with = "rust_decimal::serde::float")]
+    pub hold_change: Decimal,
+    pub relation_context: Option<RelationContext>,
+    pub relation_event: String,
+    pub relation_event_id: String,
+    pub time: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelationContext {
+    pub symbol: String,
+    pub order_id: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::libs::kucoin_api::stream::OrderChange;
+
+    #[test]
+    fn test_deserialize_order_change_received() {
+        let data = r#"
+        {
+           "clientOid":"26d2ebe0-691d-463b-8258-5862b28c050b",
+           "orderId":"69137565e554ab000700f8ae",
+           "orderTime":1762882917049,
+           "orderType":"market",
+           "originFunds":"15",
+           "pt":1762882917070,
+           "side":"buy",
+           "status":"new",
+           "symbol":"BTC-USDT",
+           "ts":1762882917069000000,
+           "type":"received"
+        }
+        "#;
+        serde_json::from_str::<OrderChange>(data).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_order_change_match() {
+        let data = r#"
+        {
+           "canceledSize":"0",
+           "clientOid":"5c52e11203aa677f33e493fc",
+           "feeType":"takerFee",
+           "filledSize":"0.00001",
+           "liquidity":"taker",
+           "matchPrice":"71171.9",
+           "matchSize":"0.00001",
+           "orderId":"6720da3fa30a360007f5f832",
+           "orderTime":1730206271588,
+           "orderType":"market",
+           "originSize":"0.00001",
+           "remainSize":"0",
+           "side":"buy",
+           "size":"0.00001",
+           "status":"match",
+           "symbol":"BTC-USDT",
+           "tradeId":"11116472408358913",
+           "ts":1730206271616000000,
+           "type":"match"
+        }
+        "#;
+        serde_json::from_str::<OrderChange>(data).unwrap();
+    }
+
+    #[test]
+    fn test_deserialize_order_change_canceled() {
+        let data = r#"
+        {
+           "canceledSize":"0.00002",
+           "clientOid":"5c52e11203aa677f33e493fb",
+           "filledSize":"0",
+           "orderId":"6720df7640e6fe0007b57696",
+           "orderTime":1730207606848,
+           "orderType":"limit",
+           "originSize":"0.00002",
+           "price":"50000",
+           "remainFunds":"0",
+           "remainSize":"0",
+           "side":"buy",
+           "size":"0.00001",
+           "status":"done",
+           "symbol":"BTC-USDT",
+           "ts":1730207624559000000,
+           "type":"canceled"
+        }
+        "#;
+        serde_json::from_str::<OrderChange>(data).unwrap();
     }
 }

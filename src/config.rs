@@ -59,6 +59,10 @@ pub struct BinanceSettings {
 #[derive(Clone, Deserialize)]
 pub struct KucoinSettings {
     pub api_url: String,
+    pub api_token: String,
+    pub api_secret_key: String,
+    pub api_passphrase: String,
+    pub ws_private_url: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]

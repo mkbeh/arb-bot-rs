@@ -221,7 +221,7 @@ impl OrderBuilder {
             };
 
             let symbol = &chain_symbol.symbol;
-            let order_symbol = OrderSymbol {
+            order_symbols.push(OrderSymbol {
                 symbol: symbol.symbol.clone(),
                 symbol_order: chain_symbol.order,
                 order_book: &order_book[i],
@@ -234,12 +234,11 @@ impl OrderBuilder {
                 price_increment: symbol.price_increment,
                 min_profit_qty,
                 max_order_qty,
-            };
-            order_symbols.push(order_symbol);
+            });
         }
 
         let orders = Self::calculate_chain_profit(&order_symbols, market_depth_limit, fee_percent);
-        METRICS.increment_processed_chains(&chain::extract_chain_symbols(chain));
+        METRICS.add_processed_chain(&chain::extract_chain_symbols(chain));
 
         if orders.is_empty() {
             return Ok(());
@@ -352,25 +351,26 @@ impl OrderBuilder {
             let mut tmp_orders: Vec<Order> = vec![];
 
             while count < chain.len() {
-                let price_scale = orders[count].price_increment.scale();
-                let base_scale = orders[count].base_increment.scale();
-                let quote_scale = orders[count].quote_increment.scale();
+                let order = &orders[count];
+                let price_scale = order.price_increment.scale();
+                let base_scale = order.base_increment.scale();
+                let quote_scale = order.quote_increment.scale();
 
-                let price = orders[count].price.trunc_with_scale(price_scale);
+                let price = order.price.trunc_with_scale(price_scale);
                 let base_qty = if count == 0 {
                     orders[i].base_qty
                 } else {
                     tmp_orders[count - 1].quote_qty
                 };
 
-                let (rounded_base_qty, rounded_quote_qty) = match orders[count].symbol_order {
+                let (rounded_base_qty, rounded_quote_qty) = match order.symbol_order {
                     SymbolOrder::Asc => {
                         let base_qty = base_qty.trunc_with_scale(base_scale);
                         let quote_qty = (base_qty * price).trunc_with_scale(quote_scale);
 
                         // If at least one order from the chain does not have enough quantity to
                         // reach the minimum, then skip the entire chain of orders.
-                        if orders[count].base_min_size > base_qty {
+                        if order.base_min_size > base_qty {
                             continue 'outer_loop;
                         }
 
@@ -380,7 +380,7 @@ impl OrderBuilder {
                         let base_qty = base_qty.trunc_with_scale(quote_scale);
                         let quote_qty = (base_qty / price).trunc_with_scale(base_scale);
 
-                        if orders[count].base_min_size > quote_qty {
+                        if order.base_min_size > quote_qty {
                             continue 'outer_loop;
                         }
 
@@ -389,10 +389,12 @@ impl OrderBuilder {
                 };
 
                 tmp_orders.push(Order {
-                    symbol: orders[count].symbol.clone(),
-                    symbol_order: orders[count].symbol_order,
+                    symbol: order.symbol.clone(),
+                    symbol_order: order.symbol_order,
                     base_qty: rounded_base_qty,
                     quote_qty: rounded_quote_qty,
+                    base_increment: order.base_increment,
+                    quote_increment: order.quote_increment,
                     price,
                 });
 
@@ -1006,7 +1008,6 @@ mod tests {
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.0),
                 max_order_qty: Decimal::from_f64(0.0079),

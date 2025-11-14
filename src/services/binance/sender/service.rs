@@ -104,9 +104,10 @@ impl OrderSenderService for BinanceSenderService {
 
                 _ = orders_rx.changed() => {
                     let chain = orders_rx.borrow().clone();
-                    chain.print_info(self.send_orders);
+                    let chain_symbols = chain.extract_symbols();
 
-                    METRICS.increment_profit_orders(&chain.extract_symbols(), ChainStatus::New);
+                    chain.print_info(self.send_orders);
+                    METRICS.add_chain_status(&chain_symbols, ChainStatus::New);
 
                     if !self.send_orders {
                         continue;
@@ -122,16 +123,13 @@ impl OrderSenderService for BinanceSenderService {
                             .await
                         {
                             error!(error = ?e, "❌📦 Error processing order");
-                            METRICS.increment_profit_orders(
-                                &chain.extract_symbols(),
-                                ChainStatus::Cancelled,
-                            );
+                            METRICS.add_chain_status(&chain_symbols, ChainStatus::Cancelled);
                             break;
                         };
                     }
 
                     last_chain_exec_ts = Some(Instant::now());
-                    METRICS.increment_profit_orders(&chain.extract_symbols(), ChainStatus::Filled);
+                    METRICS.add_chain_status(&chain_symbols, ChainStatus::Filled);
                 }
 
                 result = &mut message_done_rx => match result {
@@ -204,9 +202,7 @@ impl BinanceSenderService {
                 print_place_order(idx, chain_id, &response);
                 (response.order_id, response.status)
             }
-            Err(e) => {
-                bail!("Error try placing order: {e}")
-            }
+            Err(e) => bail!("Error try placing order: {e}"),
         };
 
         if status == OrderStatus::Filled {

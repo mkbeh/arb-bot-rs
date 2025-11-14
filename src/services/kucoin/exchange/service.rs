@@ -24,6 +24,9 @@ use crate::{
 pub struct KucoinExchangeConfig {
     pub base_assets: Vec<Asset>,
     pub api_url: String,
+    pub api_key: String,
+    pub api_secret: String,
+    pub api_passphrase: String,
     pub market_depth_limit: usize,
     pub min_profit_qty: Decimal,
     pub max_order_qty: Decimal,
@@ -43,6 +46,9 @@ impl From<&Config> for KucoinExchangeConfig {
         Self {
             base_assets: config.settings.assets.clone(),
             api_url: config.kucoin.api_url.clone(),
+            api_key: config.kucoin.api_token.clone(),
+            api_secret: config.kucoin.api_secret_key.clone(),
+            api_passphrase: config.kucoin.api_passphrase.clone(),
             market_depth_limit: config.settings.market_depth_limit,
             min_profit_qty: config.settings.min_profit_qty,
             max_order_qty: config.settings.max_order_qty,
@@ -56,6 +62,9 @@ impl KucoinExchangeService {
     pub fn from_config(config: KucoinExchangeConfig) -> anyhow::Result<Self> {
         let api_config = kucoin_api::ClientConfig {
             host: config.api_url,
+            api_key: config.api_key,
+            api_secret: config.api_secret,
+            api_passphrase: config.api_passphrase,
             http_config: kucoin_api::HttpConfig::default(),
         };
 

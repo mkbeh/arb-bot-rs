@@ -236,7 +236,7 @@ impl OrderBuilder {
         }
 
         let orders = Self::calculate_chain_profit(&order_symbols, market_depth_limit, fee_percent);
-        METRICS.increment_processed_chains(&chain::extract_chain_symbols(chain));
+        METRICS.add_processed_chain(&chain::extract_chain_symbols(chain));
 
         if orders.is_empty() {
             return Ok(());
@@ -397,6 +397,8 @@ impl OrderBuilder {
                     price,
                     base_qty: rounded_base_qty,
                     quote_qty: rounded_quote_qty,
+                    base_increment: Decimal::zero(), // set default because not used
+                    quote_increment: Decimal::zero(), // set default because not used
                 });
 
                 count += 1;

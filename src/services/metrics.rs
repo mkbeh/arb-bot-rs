@@ -26,7 +26,7 @@ pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
 pub struct Metrics;
 
 impl Metrics {
-    pub fn increment_book_ticker_events(&self, symbol: &str) {
+    pub fn add_book_ticker_event(&self, symbol: &str) {
         counter!(
             "book_ticker_events_total",
             "symbol" => symbol.to_string(),
@@ -34,7 +34,7 @@ impl Metrics {
         .increment(1);
     }
 
-    pub fn increment_processed_chains(&self, symbols: &[&str]) {
+    pub fn add_processed_chain(&self, symbols: &[&str]) {
         counter!(
             "processed_chains_total",
             "symbol_a" => symbols[0].to_string(),
@@ -44,7 +44,7 @@ impl Metrics {
         .increment(1);
     }
 
-    pub fn increment_profit_orders(&self, symbols: &[&str], status: ChainStatus) {
+    pub fn add_chain_status(&self, symbols: &[&str], status: ChainStatus) {
         counter!(
             "profit_orders_total",
             "symbol_a" => symbols[0].to_string(),

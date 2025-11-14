@@ -7,6 +7,13 @@ triangular arbitrage opportunities on cryptocurrency exchanges.
 
 Full documentation of the project can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
+### Content
+
+* [Installation](#installation)
+* [Usage](#usage)
+* [Monitoring](#monitoring)
+* [Translations](#translations)
+
 ### Supports
 
 List of supported cryptocurrency exchanges.
@@ -16,12 +23,21 @@ List of supported cryptocurrency exchanges.
 | Binance  | &check; |
 |  Kucoin  | &check; |
 
-### Content
+### ❤️ Support Us – Become Part of the Magic!
 
-* [Installation](#installation)
-* [Usage](#usage)
-* [Monitoring](#monitoring)
-* [Translations](#translations)
+Open-source projects thrive because of visionaries like you. If this code has sparked a flame of inspiration in your
+heart, share the spark! Your crypto support is the fuel for new features, bug fixes, and groundbreaking updates. We
+accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
+
+| Crypto             | Address                                               | QR Code                           |
+|--------------------|-------------------------------------------------------|-----------------------------------|
+| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | ![img](assets/img/btc_qr.png)     |
+| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | ![ETH QR](assets/img/eth_qr.png)  |
+| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | ![USDT QR](assets/img/eth_qr.png) |
+
+Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
+
+**Become a Star:** A GitHub star is free, but it means the world. ⭐
 
 ## Installation
 

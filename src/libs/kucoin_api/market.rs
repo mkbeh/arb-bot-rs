@@ -22,11 +22,13 @@ impl Market {
         };
 
         self.client
-            .get(Api::Spot(Spot::GetAllSymbols), Some(&params))
+            .get(Api::Spot(Spot::GetAllSymbols), Some(&params), false)
             .await
     }
 
     pub async fn get_all_tickers(&self) -> anyhow::Result<RestResponse<AllTickers>> {
-        self.client.get(Api::Spot(Spot::GetAllTickers), None).await
+        self.client
+            .get(Api::Spot(Spot::GetAllTickers), None, false)
+            .await
     }
 }

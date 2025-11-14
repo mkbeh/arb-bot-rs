@@ -1,28 +1,52 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use axum::http::StatusCode;
-use reqwest::Response;
+use reqwest::{
+    Method, RequestBuilder, Response,
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue},
+};
 use serde::de::DeserializeOwned;
+use tracing::warn;
 
-use crate::libs::kucoin_api::api::Api;
+use crate::libs::kucoin_api::{api::Api, utils};
 
 #[derive(Clone)]
 pub struct ClientConfig {
     pub host: String,
+    pub api_key: String,
+    pub api_secret: String,
+    pub api_passphrase: String,
     pub http_config: HttpConfig,
 }
 
 #[derive(Clone)]
 pub struct Client {
     host: String,
+    api_key: String,
+    api_secret: String,
+    api_passphrase: String,
     inner_client: reqwest::Client,
 }
 
 impl Client {
     pub fn from_config(conf: ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
+        let signed_passphrase = if !conf.api_passphrase.is_empty() && !conf.api_secret.is_empty() {
+            
+            utils::sign(&conf.api_passphrase, &conf.api_secret)
+        } else {
+            conf.api_passphrase.clone()
+        };
+
+        if conf.api_key.is_empty() || conf.api_secret.is_empty() || signed_passphrase.is_empty() {
+            warn!("API credentials incomplete. Public endpoints only.");
+        }
+
         let client = Self {
             host: conf.host,
+            api_key: conf.api_key,
+            api_secret: conf.api_secret,
+            api_passphrase: signed_passphrase,
             inner_client: reqwest::Client::builder()
                 .connect_timeout(conf.http_config.connect_timeout)
                 .pool_idle_timeout(conf.http_config.pool_idle_timeout)
@@ -41,42 +65,95 @@ impl Client {
         &self,
         path: Api,
         query: Option<&Vec<(&str, &str)>>,
+        private: bool,
     ) -> anyhow::Result<T> {
-        let url = self.build_url(path, query);
-        let response = self.inner_client.get(url).send().await?;
-        response_handler(response).await
+        self.process_request(Method::GET, path, query, None, private)
+            .await
     }
 
     pub async fn post<T: DeserializeOwned>(
         &self,
         path: Api,
         query: Option<&Vec<(&str, &str)>>,
+        body: Option<&str>,
+        private: bool,
     ) -> anyhow::Result<T> {
-        let url = self.build_url(path, query);
-        let response = self.inner_client.post(url).send().await?;
+        self.process_request(Method::POST, path, query, body, private)
+            .await
+    }
+
+    async fn process_request<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: Api,
+        query: Option<&Vec<(&str, &str)>>,
+        body: Option<&str>,
+        private: bool,
+    ) -> anyhow::Result<T> {
+        let (full_url, raw_url) = self.build_urls(&path, query)?;
+        let mut req_builder: RequestBuilder = self.inner_client.request(method.clone(), full_url);
+
+        if private {
+            let headers = self.build_headers(&method, &raw_url, body)?;
+            req_builder = req_builder.headers(headers);
+        }
+
+        if let Some(body_str) = body {
+            req_builder = req_builder.body(body_str.to_string());
+        }
+
+        let request = req_builder.build()?;
+
+        let response = self.inner_client.execute(request).await?;
         response_handler(response).await
     }
 
-    fn build_url(&self, path: Api, query: Option<&Vec<(&str, &str)>>) -> String {
-        let mut url = format!("{}{}", self.host, String::from(path));
-        let mut query_params = String::new();
+    fn build_urls(
+        &self,
+        path: &Api,
+        query: Option<&Vec<(&str, &str)>>,
+    ) -> anyhow::Result<(String, String)> {
+        let path_str = path.as_str();
+        let mut full_url = format!("{}{}", self.host, path_str);
+        let mut raw_url = path_str.to_string();
 
         if let Some(v) = query {
-            query_params.push_str(build_query(v).as_str());
-            url.push_str(format!("?{query_params}").as_str());
-        }
+            let encoded = serde_urlencoded::to_string(v)?;
+            full_url.push_str(format!("?{encoded}").as_str());
+            raw_url.push_str(format!("?{encoded}").as_str());
+        };
 
-        url
+        Ok((full_url, raw_url))
     }
-}
 
-fn build_query(params: &Vec<(&str, &str)>) -> String {
-    let mut query = String::new();
-    for (k, v) in params {
-        query.push_str(&format!("{k}={v}&"));
+    fn build_headers(
+        &self,
+        method: &Method,
+        raw_url: &str,
+        body: Option<&str>,
+    ) -> anyhow::Result<HeaderMap> {
+        let method_str = method.as_str().to_uppercase();
+        let body_str = body.unwrap_or("");
+        let payload = format!("{}{}{}", method_str, raw_url, body_str);
+
+        let timestamp = utils::get_timestamp(SystemTime::now())?;
+        let timestamp_str = timestamp.to_string();
+        let message = format!("{}{}", timestamp_str, payload);
+        let signature = utils::sign(&message, &self.api_secret);
+
+        let mut headers = HeaderMap::new();
+        headers.insert("KC-API-KEY", self.api_key.parse::<HeaderValue>()?);
+        headers.insert(
+            "KC-API-PASSPHRASE",
+            self.api_passphrase.parse::<HeaderValue>()?,
+        );
+        headers.insert("KC-API-TIMESTAMP", timestamp_str.parse::<HeaderValue>()?);
+        headers.insert("KC-API-SIGN", signature.parse::<HeaderValue>()?);
+        headers.insert("KC-API-KEY-VERSION", "2".parse::<HeaderValue>()?);
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        Ok(headers)
     }
-    query.pop();
-    query
 }
 
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
@@ -87,13 +164,13 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
         }
         StatusCode::INTERNAL_SERVER_ERROR => bail!("Internal Server Error"),
         StatusCode::SERVICE_UNAVAILABLE => bail!("Service Unavailable"),
-        StatusCode::UNAUTHORIZED => bail!("Unauthorized"),
+        StatusCode::UNAUTHORIZED => {
+            let err_body = resp.text().await.unwrap_or_default();
+            bail!("Unauthorized: {}", err_body)
+        }
         code => {
-            bail!(format!(
-                "Received error: code={} msg={}",
-                code,
-                resp.text().await.map_err(|e| anyhow!(e))?
-            ));
+            let err_body = resp.text().await.unwrap_or_default();
+            bail!("Error {}: {}", code, err_body)
         }
     }
 }

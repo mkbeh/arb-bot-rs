@@ -47,6 +47,8 @@ pub struct Order {
     pub price: Decimal,
     pub base_qty: Decimal,
     pub quote_qty: Decimal,
+    pub base_increment: Decimal,
+    pub quote_increment: Decimal,
 }
 
 pub struct OrderBookUnit {
@@ -78,6 +80,18 @@ impl Chain {
             )
         };
 
+        let orders_fmt = self
+            .orders
+            .iter()
+            .map(|o| {
+                format!(
+                    "{}(base:{:.8}@quote:{:.8}@price:{:.8})",
+                    o.symbol, o.base_qty, o.quote_qty, o.price
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" → ");
+
         info!(
             ts = self.ts,
             chain_id = %self.chain_id,
@@ -85,7 +99,7 @@ impl Chain {
             profit = ?profit,
             profit_percent = ?profit_percent,
             fee_percent = %self.fee_percent,
-            orders = ?self.orders.iter().map(|o| format!("{}(base:{:.8}@quote:{:.8}@price:{:.8})", o.symbol, o.base_qty, o.quote_qty, o.price)).collect::<Vec<_>>().join(" → "),
+            orders = ?orders_fmt,
             "📦 Received orders chain"
         );
     }

@@ -11,16 +11,22 @@ pub enum Spot {
     GetBulletPrivate,
 }
 
-impl From<Api> for String {
-    fn from(item: Api) -> Self {
-        String::from(match item {
+impl Api {
+    pub fn as_str(&self) -> &'static str {
+        match self {
             Api::Spot(route) => match route {
                 Spot::GetAllSymbols => "/api/v2/symbols",
                 Spot::GetAllTickers => "/api/v1/market/allTickers",
                 Spot::GetBulletPublic => "/api/v1/bullet-public",
                 Spot::GetBulletPrivate => "/api/v1/bullet-private",
             },
-        })
+        }
+    }
+}
+
+impl From<Api> for String {
+    fn from(item: Api) -> Self {
+        item.as_str().to_string()
     }
 }
 
