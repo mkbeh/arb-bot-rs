@@ -80,3 +80,55 @@ impl Metrics {
         .increment(1);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::enums::ChainStatus;
+
+    #[test]
+    fn test_add_book_ticker_event() {
+        // Smoke test: no panic on call
+        Metrics.add_book_ticker_event("BTCUSDT");
+    }
+
+    #[test]
+    fn test_add_processed_chain_valid() {
+        // Smoke test: no panic with 3+ symbols
+        let symbols = vec!["BTCUSDT", "ETHUSDT", "ADAUSDT"];
+        Metrics.add_processed_chain(&symbols);
+    }
+
+    #[test]
+    fn test_add_processed_chain_invalid_short() {
+        // Smoke test: no panic with short symbols (warn logged, but test passes if no panic)
+        let symbols = vec!["BTCUSDT"];
+        Metrics.add_processed_chain(&symbols);
+    }
+
+    #[test]
+    fn test_add_chain_status_valid() {
+        // Smoke test: no panic with 3+ symbols and status
+        let symbols = vec!["BTCUSDT", "ETHUSDT", "ADAUSDT"];
+        let status = ChainStatus::Filled;
+        Metrics.add_chain_status(&symbols, status);
+    }
+
+    #[test]
+    fn test_add_chain_status_invalid_short() {
+        // Smoke test: no panic with short symbols (warn logged)
+        let symbols = vec!["BTCUSDT"];
+        let status = ChainStatus::New;
+        Metrics.add_chain_status(&symbols, status);
+    }
+
+    #[test]
+    fn test_add_chain_status_different_status() {
+        // Smoke test: multiple calls with different statuses
+        let symbols = vec!["BTCUSDT", "ETHUSDT", "ADAUSDT"];
+
+        Metrics.add_chain_status(&symbols, ChainStatus::New);
+        Metrics.add_chain_status(&symbols, ChainStatus::Filled);
+        Metrics.add_chain_status(&symbols, ChainStatus::Cancelled);
+    }
+}

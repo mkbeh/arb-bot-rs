@@ -181,3 +181,396 @@ impl Default for HttpConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use mockito::Server;
+    use serde::{Deserialize, Serialize};
+
+    use super::*;
+    use crate::libs::binance_api::api::Spot;
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    struct TestResponse {
+        symbol: String,
+        price: String,
+    }
+
+    fn create_test_client(server_url: &str) -> Client {
+        let config = ClientConfig {
+            api_url: server_url.to_string(),
+            api_token: "test_api_key".to_string(),
+            api_secret_key: "test_secret_key".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        Client::from_config(config).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_client_creation() {
+        let config = ClientConfig {
+            api_url: "https://api.binance.com".to_string(),
+            api_token: "test_key".to_string(),
+            api_secret_key: "test_secret".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        let client = Client::from_config(config);
+        assert!(client.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_success() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "GET",
+                mockito::Matcher::AnyOf(vec![
+                    mockito::Matcher::Exact("/api/v3/ticker/price?".to_string()),
+                    mockito::Matcher::Regex(r"^/api/v3/ticker/price\?".to_string()),
+                ]),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"symbol": "BTCUSDT", "price": "50000.0"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let result: anyhow::Result<TestResponse> =
+            client.get(Api::Spot(Spot::Price), None, false).await;
+
+        mock.assert();
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.symbol, "BTCUSDT");
+        assert_eq!(response.price, "50000.0");
+    }
+
+    #[tokio::test]
+    async fn test_get_with_query_params() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "GET",
+                mockito::Matcher::Regex(
+                    r"^/api/v3/ticker/price\?.*symbol=BTCUSDT.*interval=1h".to_string(),
+                ),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"symbol": "BTCUSDT", "price": "50000.0"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let query_params = vec![
+            ("symbol".to_string(), "BTCUSDT".to_string()),
+            ("interval".to_string(), "1h".to_string()),
+        ];
+
+        let result: anyhow::Result<TestResponse> = client
+            .get(Api::Spot(Spot::Price), Some(&query_params), false)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_with_signature() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "GET",
+                mockito::Matcher::Regex(r"^/api/v3/account\?.*signature=[^&]+".to_string()),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"symbol": "BTCUSDT", "price": "50000.0"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let result: anyhow::Result<TestResponse> =
+            client.get(Api::Spot(Spot::Account), None, true).await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_with_query_and_signature() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "GET",
+                mockito::Matcher::Regex(
+                    r"^/api/v3/order\?.*symbol=BTCUSDT.*side=BUY.*signature=[^&]+".to_string(),
+                ),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"symbol": "BTCUSDT", "price": "50000.0"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let query_params = vec![
+            ("symbol".to_string(), "BTCUSDT".to_string()),
+            ("side".to_string(), "BUY".to_string()),
+        ];
+
+        let result: anyhow::Result<TestResponse> = client
+            .get(Api::Spot(Spot::Order), Some(&query_params), true)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_post_success() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "POST",
+                mockito::Matcher::Regex(r"^/api/v3/order\?".to_string()),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"symbol": "BTCUSDT", "price": "50000.0"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let result: anyhow::Result<TestResponse> =
+            client.post(Api::Spot(Spot::Order), None, false).await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_success() {
+        let expected_response = TestResponse {
+            symbol: "BTCUSDT".to_string(),
+            price: "50000.0".to_string(),
+        };
+
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(200)
+                .header("content-type", "application/json")
+                .body(serde_json::to_string(&expected_response).unwrap())
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected_response);
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_internal_server_error() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(500)
+                .body("Internal Server Error")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Internal Server Error")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_service_unavailable() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(503)
+                .body("Service Unavailable")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Service Unavailable")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_unauthorized() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(401)
+                .body("Unauthorized")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unauthorized"));
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_other_error() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(400)
+                .body("Bad Request: Invalid symbol")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Received error"));
+        assert!(error_msg.contains("code=400"));
+        assert!(error_msg.contains("Bad Request: Invalid symbol"));
+    }
+
+    #[test]
+    fn test_build_query() {
+        let params = vec![
+            ("key1".to_string(), "value1".to_string()),
+            ("key2".to_string(), "value2".to_string()),
+        ];
+
+        let query = build_query(&params);
+        assert!(query.contains("key1=value1"));
+        assert!(query.contains("key2=value2"));
+        assert!(query.contains('&'));
+        assert_eq!(query.len(), "key1=value1&key2=value2".len());
+    }
+
+    #[test]
+    fn test_build_query_empty() {
+        let params: Vec<(String, String)> = vec![];
+        let query = build_query(&params);
+        assert_eq!(query, "");
+    }
+
+    #[test]
+    fn test_build_query_single_param() {
+        let params = vec![("key1".to_string(), "value1".to_string())];
+        let query = build_query(&params);
+        assert_eq!(query, "key1=value1");
+    }
+
+    #[test]
+    fn test_build_headers() {
+        let client = create_test_client("https://api.binance.com");
+        let headers = client.build_headers().unwrap();
+
+        assert!(headers.contains_key("x-mbx-apikey"));
+        let api_key_value = headers.get("x-mbx-apikey").unwrap();
+        assert_eq!(api_key_value, "test_api_key");
+    }
+
+    #[test]
+    fn test_build_url_without_query_and_signature() {
+        let client = create_test_client("https://api.binance.com");
+        let url = client
+            .build_url(Api::Spot(Spot::Ping), None, false)
+            .unwrap();
+
+        assert_eq!(url, "https://api.binance.com/api/v3/ping?");
+    }
+
+    #[test]
+    fn test_build_url_with_query_without_signature() {
+        let client = create_test_client("https://api.binance.com");
+        let query_params = vec![("symbol".to_string(), "BTCUSDT".to_string())];
+
+        let url = client
+            .build_url(Api::Spot(Spot::Price), Some(&query_params), false)
+            .unwrap();
+
+        assert_eq!(
+            url,
+            "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+        );
+    }
+
+    #[test]
+    fn test_build_url_with_query_and_signature() {
+        let client = create_test_client("https://api.binance.com");
+        let query_params = vec![("symbol".to_string(), "BTCUSDT".to_string())];
+
+        let url = client
+            .build_url(Api::Spot(Spot::Order), Some(&query_params), true)
+            .unwrap();
+
+        assert!(url.starts_with("https://api.binance.com/api/v3/order?"));
+        assert!(url.contains("symbol=BTCUSDT"));
+        assert!(url.contains("signature="));
+        assert!(url.matches("signature=").count() == 1);
+    }
+
+    #[test]
+    fn test_build_url_without_query_with_signature() {
+        let client = create_test_client("https://api.binance.com");
+        let url = client
+            .build_url(Api::Spot(Spot::Account), None, true)
+            .unwrap();
+
+        assert!(url.starts_with("https://api.binance.com/api/v3/account?"));
+        assert!(url.contains("signature="));
+        assert!(url.contains("?signature="));
+    }
+
+    #[test]
+    fn test_http_config_default() {
+        let config = HttpConfig::default();
+
+        assert_eq!(config.connect_timeout, Duration::from_secs(10));
+        assert_eq!(config.pool_idle_timeout, Duration::from_secs(120));
+        assert_eq!(config.pool_max_idle_per_host, 5);
+        assert_eq!(config.tcp_keepalive, Duration::from_secs(120));
+        assert_eq!(config.tcp_keepalive_interval, Duration::from_secs(30));
+        assert_eq!(config.tcp_keepalive_retries, 5);
+        assert_eq!(config.timeout, Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_client_config_default() {
+        let config = ClientConfig::default();
+
+        assert_eq!(config.api_url, "");
+        assert_eq!(config.api_token, "");
+        assert_eq!(config.api_secret_key, "");
+        assert_eq!(config.http_config.connect_timeout, Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_build_headers_invalid_api_key() {
+        let client = Client {
+            host: "https://api.binance.com".to_string(),
+            api_key: "invalid\nkey".to_string(),
+            secret_key: "test_secret".to_string(),
+            inner_client: reqwest::Client::new(),
+        };
+
+        let result = client.build_headers();
+        assert!(result.is_err());
+    }
+}

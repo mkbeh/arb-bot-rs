@@ -198,3 +198,471 @@ impl Default for HttpConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use mockito::Server;
+    use serde::{Deserialize, Serialize};
+
+    use super::*;
+    use crate::libs::kucoin_api::api::Spot;
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    struct TestResponse {
+        code: String,
+        data: String,
+    }
+
+    fn create_test_client(server_url: &str) -> Client {
+        let config = ClientConfig {
+            host: server_url.to_string(),
+            api_key: "test_api_key".to_string(),
+            api_secret: "test_api_secret".to_string(),
+            api_passphrase: "test_passphrase".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        Client::from_config(config).unwrap()
+    }
+
+    fn create_client_without_credentials(server_url: &str) -> Client {
+        let config = ClientConfig {
+            host: server_url.to_string(),
+            api_key: "".to_string(),
+            api_secret: "".to_string(),
+            api_passphrase: "".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        Client::from_config(config).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_client_creation() {
+        let config = ClientConfig {
+            host: "https://api.kucoin.com".to_string(),
+            api_key: "test_key".to_string(),
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        let client = Client::from_config(config);
+        assert!(client.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_client_creation_with_incomplete_credentials() {
+        let config = ClientConfig {
+            host: "https://api.kucoin.com".to_string(),
+            api_key: "".to_string(), // Неполные credentials
+            api_secret: "test_secret".to_string(),
+            api_passphrase: "test_pass".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        let client = Client::from_config(config);
+        assert!(client.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_public_success() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v2/symbols")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"code": "200000", "data": "success"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let result: anyhow::Result<TestResponse> = client
+            .get(Api::Spot(Spot::GetAllSymbols), None, false)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.code, "200000");
+        assert_eq!(response.data, "success");
+    }
+
+    #[tokio::test]
+    async fn test_get_private_success() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v2/symbols")
+            .match_header("KC-API-KEY", "test_api_key")
+            .match_header("KC-API-PASSPHRASE", mockito::Matcher::Any)
+            .match_header("KC-API-TIMESTAMP", mockito::Matcher::Any)
+            .match_header("KC-API-SIGN", mockito::Matcher::Any)
+            .match_header("KC-API-KEY-VERSION", "2")
+            .match_header("content-type", "application/json")
+            .with_status(200)
+            .with_body(r#"{"code": "200000", "data": "accounts"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let result: anyhow::Result<TestResponse> = client
+            .get(
+                Api::Spot(Spot::GetAllSymbols),
+                None,
+                true, // private request
+            )
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_with_query_params() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v2/symbols?symbol=BTC-USDT&status=active")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"code": "200000", "data": "orders"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let query_params = vec![("symbol", "BTC-USDT"), ("status", "active")];
+
+        let result: anyhow::Result<TestResponse> = client
+            .get(Api::Spot(Spot::GetAllSymbols), Some(&query_params), false)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_post_public_success() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/v2/symbols")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"code": "200000", "data": "order_created"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let body = r#"{"symbol": "BTC-USDT", "side": "buy", "price": "50000"}"#;
+        let result: anyhow::Result<TestResponse> = client
+            .post(Api::Spot(Spot::GetAllSymbols), None, Some(body), false)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_post_private_success() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/v2/symbols")
+            .match_header("KC-API-KEY", "test_api_key")
+            .match_header("KC-API-PASSPHRASE", mockito::Matcher::Any)
+            .match_header("KC-API-TIMESTAMP", mockito::Matcher::Any)
+            .match_header("KC-API-SIGN", mockito::Matcher::Any)
+            .match_header("KC-API-KEY-VERSION", "2")
+            .match_header("content-type", "application/json")
+            .with_status(200)
+            .with_body(r#"{"code": "200000", "data": "order_created"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let body = r#"{"symbol": "BTC-USDT", "side": "buy", "price": "50000"}"#;
+        let result: anyhow::Result<TestResponse> = client
+            .post(Api::Spot(Spot::GetAllSymbols), None, Some(body), true)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_post_with_query_and_body() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/v2/symbols?type=limit")
+            .match_header("KC-API-KEY", "test_api_key")
+            .match_header("KC-API-SIGN", mockito::Matcher::Any)
+            .with_status(200)
+            .with_body(r#"{"code": "200000", "data": "order"}"#)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server.url());
+        let query_params = vec![("type", "limit")];
+        let body = r#"{"symbol": "BTC-USDT", "side": "buy"}"#;
+
+        let result: anyhow::Result<TestResponse> = client
+            .post(
+                Api::Spot(Spot::GetAllSymbols),
+                Some(&query_params),
+                Some(body),
+                true,
+            )
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_success() {
+        let expected_response = TestResponse {
+            code: "200000".to_string(),
+            data: "test_data".to_string(),
+        };
+
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(200)
+                .header("content-type", "application/json")
+                .body(serde_json::to_string(&expected_response).unwrap())
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected_response);
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_internal_server_error() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(500)
+                .body("Internal Server Error")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Internal Server Error")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_service_unavailable() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(503)
+                .body("Service Unavailable")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Service Unavailable")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_unauthorized() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(401)
+                .body("Invalid API key")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Unauthorized"));
+        assert!(error_msg.contains("Invalid API key"));
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_other_error() {
+        let response = reqwest::Response::from(
+            http::Response::builder()
+                .status(400)
+                .body("Bad Request: Invalid symbol")
+                .unwrap(),
+        );
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Error 400"));
+        assert!(error_msg.contains("Bad Request: Invalid symbol"));
+    }
+
+    #[tokio::test]
+    async fn test_response_handler_empty_body_error() {
+        let response =
+            reqwest::Response::from(http::Response::builder().status(429).body("").unwrap());
+
+        let result: anyhow::Result<TestResponse> = response_handler(response).await;
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Error 429"));
+    }
+
+    #[test]
+    fn test_build_urls_without_query() {
+        let client = create_test_client("https://api.kucoin.com");
+        let (full_url, raw_url) = client
+            .build_urls(&Api::Spot(Spot::GetAllSymbols), None)
+            .unwrap();
+
+        assert_eq!(full_url, "https://api.kucoin.com/api/v2/symbols");
+        assert_eq!(raw_url, "/api/v2/symbols");
+    }
+
+    #[test]
+    fn test_build_urls_with_query() {
+        let client = create_test_client("https://api.kucoin.com");
+        let query_params = vec![("symbol", "BTC-USDT"), ("limit", "10")];
+
+        let (full_url, raw_url) = client
+            .build_urls(&Api::Spot(Spot::GetAllSymbols), Some(&query_params))
+            .unwrap();
+
+        assert!(full_url.starts_with("https://api.kucoin.com/api/v2/symbols?"));
+        assert!(full_url.contains("symbol=BTC-USDT"));
+        assert!(full_url.contains("limit=10"));
+
+        assert!(raw_url.starts_with("/api/v2/symbols?"));
+        assert!(raw_url.contains("symbol=BTC-USDT"));
+        assert!(raw_url.contains("limit=10"));
+    }
+
+    #[test]
+    fn test_build_headers_get() {
+        let client = create_test_client("https://api.kucoin.com");
+        let headers = client
+            .build_headers(&Method::GET, "/api/v1/accounts", None)
+            .unwrap();
+
+        assert_eq!(headers.get("KC-API-KEY").unwrap(), "test_api_key");
+        assert!(headers.get("KC-API-PASSPHRASE").is_some());
+        assert!(headers.get("KC-API-TIMESTAMP").is_some());
+        assert!(headers.get("KC-API-SIGN").is_some());
+        assert_eq!(headers.get("KC-API-KEY-VERSION").unwrap(), "2");
+        assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
+    }
+
+    #[test]
+    fn test_build_headers_post_with_body() {
+        let client = create_test_client("https://api.kucoin.com");
+        let body = r#"{"symbol": "BTC-USDT"}"#;
+        let headers = client
+            .build_headers(&Method::POST, "/api/v1/orders", Some(body))
+            .unwrap();
+
+        assert_eq!(headers.get("KC-API-KEY").unwrap(), "test_api_key");
+        assert!(headers.get("KC-API-SIGN").is_some());
+        assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
+    }
+
+    #[test]
+    fn test_build_headers_with_query_in_url() {
+        let client = create_test_client("https://api.kucoin.com");
+        let headers = client
+            .build_headers(
+                &Method::GET,
+                "/api/v1/orders?symbol=BTC-USDT&limit=10",
+                None,
+            )
+            .unwrap();
+
+        assert_eq!(headers.get("KC-API-KEY").unwrap(), "test_api_key");
+        assert!(headers.get("KC-API-SIGN").is_some());
+    }
+
+    #[test]
+    fn test_http_config_default() {
+        let config = HttpConfig::default();
+
+        assert_eq!(config.connect_timeout, Duration::from_secs(10));
+        assert_eq!(config.pool_idle_timeout, Duration::from_secs(120));
+        assert_eq!(config.pool_max_idle_per_host, 5);
+        assert_eq!(config.tcp_keepalive, Duration::from_secs(120));
+        assert_eq!(config.tcp_keepalive_interval, Duration::from_secs(30));
+        assert_eq!(config.tcp_keepalive_retries, 5);
+        assert_eq!(config.timeout, Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_client_config_creation() {
+        let config = ClientConfig {
+            host: "https://api.kucoin.com".to_string(),
+            api_key: "key".to_string(),
+            api_secret: "secret".to_string(),
+            api_passphrase: "pass".to_string(),
+            http_config: HttpConfig::default(),
+        };
+
+        assert_eq!(config.host, "https://api.kucoin.com");
+        assert_eq!(config.api_key, "key");
+        assert_eq!(config.api_secret, "secret");
+        assert_eq!(config.api_passphrase, "pass");
+    }
+
+    #[tokio::test]
+    async fn test_network_error() {
+        let client = create_test_client("http://invalid-url-that-does-not-exist:9999");
+
+        let result: anyhow::Result<TestResponse> = client
+            .get(Api::Spot(Spot::GetAllSymbols), None, false)
+            .await;
+
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("error") || error_msg.contains("fail"));
+    }
+
+    #[tokio::test]
+    async fn test_public_only_with_empty_credentials() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v2/symbols")
+            .with_status(200)
+            .with_body(r#"{"code": "200000", "data": "time"}"#)
+            .create_async()
+            .await;
+
+        let client = create_client_without_credentials(&server.url());
+        let result: anyhow::Result<TestResponse> = client
+            .get(Api::Spot(Spot::GetAllSymbols), None, false)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_different_methods() {
+        let mut server = Server::new_async().await;
+
+        let _ = server
+            .mock("DELETE", "/api/v2symbols/123")
+            .match_header("KC-API-KEY", "test_api_key")
+            .with_status(200)
+            .with_body(r#"{"code": "200000", "data": "deleted"}"#)
+            .create_async()
+            .await;
+
+        let _ = create_test_client(&server.url());
+    }
+}
