@@ -9,14 +9,11 @@ use tracing::error;
 #[tokio::main]
 async fn main() {
     setup_application(env!("CARGO_PKG_NAME"));
-
-    let entry = Entrypoint;
-
-    match entry.run().await {
+    match Entrypoint.run().await {
         Ok(_) => std::process::exit(0),
         Err(e) => {
             error!("{:?}", e);
-            std::process::exit(1)
+            std::process::exit(1);
         }
     };
 }

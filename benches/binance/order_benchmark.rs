@@ -1,4 +1,4 @@
-use std::{hint::black_box, str::FromStr};
+use std::hint::black_box;
 
 use arb_bot_rs::services::{
     binance::{
@@ -14,28 +14,28 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
     let order_book_1 = BookTickerEvent {
         update_id: 1,
         symbol: "BTCUSDT".to_string(),
-        best_bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-        best_bid_qty: Decimal::from_f64(7.27795000).unwrap(),
-        best_ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-        best_ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+        bid_price: Decimal::from_f64(109615.46000000).unwrap(),
+        bid_qty: Decimal::from_f64(7.27795000).unwrap(),
+        ask_price: Decimal::from_f64(109615.47000000).unwrap(),
+        ask_qty: Decimal::from_f64(2.22969000).unwrap(),
     };
 
     let order_book_2 = BookTickerEvent {
         update_id: 1,
         symbol: "ETHUSDT".to_string(),
-        best_bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-        best_bid_qty: Decimal::from_f64(14.64600000).unwrap(),
-        best_ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-        best_ask_qty: Decimal::from_f64(19.28810000).unwrap(),
+        bid_price: Decimal::from_f64(2585.70000000).unwrap(),
+        bid_qty: Decimal::from_f64(14.64600000).unwrap(),
+        ask_price: Decimal::from_f64(2585.71000000).unwrap(),
+        ask_qty: Decimal::from_f64(19.28810000).unwrap(),
     };
 
     let order_book_3 = BookTickerEvent {
         update_id: 1,
         symbol: "ETHBTC".to_string(),
-        best_bid_price: Decimal::from_f64(0.02858000).unwrap(),
-        best_bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-        best_ask_price: Decimal::from_f64(0.02359000).unwrap(),
-        best_ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+        bid_price: Decimal::from_f64(0.02858000).unwrap(),
+        bid_qty: Decimal::from_f64(105.74550000).unwrap(),
+        ask_price: Decimal::from_f64(0.02359000).unwrap(),
+        ask_qty: Decimal::from_f64(25.63400000).unwrap(),
     };
 
     let order_symbols = vec![
@@ -84,9 +84,9 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
     ];
 
     let market_depth_limit: usize = 1;
-    let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
+    let fee_percent: Decimal = Decimal::from_f64(0.075).unwrap();
 
-    c.bench_function("calculate_chain_profit", |b| {
+    c.bench_function("binance::calculate_chain_profit", |b| {
         b.iter(|| {
             OrderBuilder::calculate_chain_profit(
                 black_box(&order_symbols),

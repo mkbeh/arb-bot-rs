@@ -3,14 +3,14 @@ use std::sync::{Arc, LazyLock};
 use dashmap::DashMap;
 use tokio::sync::watch;
 
-use crate::services::binance::storage::BookTickerEvent;
+use crate::services::kucoin::storage::BookTickerEventChanges;
 
 /// Global broadcast system for book ticker events using watch channels per symbol.
 pub static TICKER_BROADCAST: LazyLock<TickerBroadcast> = LazyLock::new(TickerBroadcast::new);
 
 /// Manages per-symbol watch channels for broadcasting ticker changes.
 pub struct TickerBroadcast {
-    channels: Arc<DashMap<String, watch::Sender<BookTickerEvent>>>,
+    channels: Arc<DashMap<String, watch::Sender<BookTickerEventChanges>>>,
 }
 
 impl TickerBroadcast {
@@ -22,25 +22,25 @@ impl TickerBroadcast {
     }
 
     /// Retrieves or creates a sender for the given symbol (clones if exists).
-    pub fn get_sender(&self, symbol: &str) -> watch::Sender<BookTickerEvent> {
+    pub fn get_sender(&self, symbol: &str) -> watch::Sender<BookTickerEventChanges> {
         self.channels
             .entry(symbol.to_string())
             .or_insert_with(|| {
-                let (tx, _rx) = watch::channel(BookTickerEvent::default());
+                let (tx, _rx) = watch::channel(BookTickerEventChanges::default());
                 tx
             })
             .clone()
     }
 
     /// Broadcasts an event to the symbol's channel.
-    pub fn broadcast_event(&self, event: BookTickerEvent) -> Result<(), String> {
+    pub fn broadcast_event(&self, event: BookTickerEventChanges) -> Result<(), String> {
         let tx = self.get_sender(&event.symbol);
         tx.send(event)
             .map_err(|e| format!("Failed to broadcast: {e}"))
     }
 
     /// Subscribes to changes for the given symbol (creates channel if missing).
-    pub fn subscribe(&self, ticker: &str) -> watch::Receiver<BookTickerEvent> {
+    pub fn subscribe(&self, ticker: &str) -> watch::Receiver<BookTickerEventChanges> {
         let tx = self.get_sender(ticker);
         tx.subscribe()
     }

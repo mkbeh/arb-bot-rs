@@ -7,14 +7,6 @@ triangular arbitrage opportunities on cryptocurrency exchanges.
 
 Full documentation of the project can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
-### Supports
-
-List of supported cryptocurrency exchanges.
-
-| Exchange | Status  |
-|:--------:|:-------:|
-| Binance  | &check; |
-
 ### Content
 
 * [Installation](#installation)
@@ -22,11 +14,36 @@ List of supported cryptocurrency exchanges.
 * [Monitoring](#monitoring)
 * [Translations](#translations)
 
+### Supports
+
+List of supported cryptocurrency exchanges.
+
+| Exchange | Status  |
+|:--------:|:-------:|
+| Binance  | &check; |
+|  Kucoin  | &check; |
+
+### ❤️ Support Us – Become Part of the Magic!
+
+Open-source projects thrive because of visionaries like you. If this code has sparked a flame of inspiration in your
+heart, share the spark! Your crypto support is the fuel for new features, bug fixes, and groundbreaking updates. We
+accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
+
+| Crypto             | Address                                               | QR Code                                       |
+|--------------------|-------------------------------------------------------|-----------------------------------------------|
+| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="assets/img/btc_qr.png" width="150"> |
+| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="assets/img/eth_qr.png" width="150"> |
+| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="assets/img/eth_qr.png" width="150"> |
+
+Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
+
+**Become a Star:** A GitHub star is free, but it means the world. ⭐
+
 ## Installation
 
 Application is written in Rust, so you'll need to grab a
 [Rust installation](https://www.rust-lang.org/) in order to compile it.
-Application compiles with Rust 1.88.0 (stable) or newer.
+Application compiles with Rust 1.90.0 (stable) or newer.
 
 ### Build from source
 
@@ -41,8 +58,8 @@ cargo build --release
 Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
 file to `config.toml`.
 
-_For a test run, you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
-`send_orders = true`._
+_For demo run you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
+`send_orders = true` in `config.toml`._
 
 Run app:
 
@@ -109,3 +126,15 @@ cargo test --all
 The following is a list of known translations of application documentation.
 
 * [English](https://github.com/mkbeh/arb-bot-rs/tree/main/docs/en)
+
+## License
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+This project is **open source** and distributed under the **MIT license**. You are free to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the project, subject to the conditions of retaining the copyright
+notice.
+
+Full details in the [LICENSE](https://github.com/mkbeh/arb-bot-rs/blob/main/LICENSE) file.
+
+> "Code is poetry. Share it generously!" — inspired by Richard Stallman (with a twist 😉)

@@ -12,30 +12,33 @@ use uuid::Uuid;
 
 use crate::{
     config::Asset,
-    libs::{binance_api::Filters, misc},
+    libs::misc,
     services::{
-        Chain, Order, OrderBookUnit,
-        binance::{
+        Chain, ORDERS_CHANNEL, Order, OrderBookUnit,
+        enums::SymbolOrder,
+        kucoin::{
             broadcast::TICKER_BROADCAST,
             exchange::{chain, chain::ChainSymbol},
-            storage::{BookTickerEvent, BookTickerStore},
+            storage::{BookTickerEvent, BookTickerEventChanges, BookTickerStore},
         },
-        enums::SymbolOrder,
         metrics::METRICS,
-        service::ORDERS_CHANNEL,
     },
 };
 
 #[derive(Clone, Debug)]
 pub struct OrderSymbol<'a> {
     pub symbol: String,
-    pub base_asset_precision: u32,
-    pub quote_precision: u32,
     pub symbol_order: SymbolOrder,
+    pub order_book: &'a BookTickerEvent,
+    pub base_min_size: Decimal,
+    pub quote_min_size: Decimal,
+    pub base_max_size: Decimal,
+    pub quote_max_size: Decimal,
+    pub base_increment: Decimal,
+    pub quote_increment: Decimal,
+    pub price_increment: Decimal,
     pub min_profit_qty: Option<Decimal>,
     pub max_order_qty: Option<Decimal>,
-    pub order_book: &'a BookTickerEvent,
-    pub symbol_filter: SymbolFilter,
 }
 
 #[derive(Clone, Debug)]
@@ -44,17 +47,14 @@ pub struct PreOrder {
     symbol_order: SymbolOrder,
     price: Decimal,
     base_qty: Decimal,
-    base_precision: u32,
     quote_qty: Decimal,
-    quote_precision: u32,
-    symbol_filter: SymbolFilter,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct SymbolFilter {
-    pub lot_size_step: u32,
-    pub tick_size: u32,
-    pub lot_size_min_qty: Decimal,
+    base_min_size: Decimal,
+    _quote_min_size: Decimal,
+    _base_max_size: Decimal,
+    _quote_max_size: Decimal,
+    base_increment: Decimal,
+    quote_increment: Decimal,
+    price_increment: Decimal,
 }
 
 pub struct OrderBuilder {
@@ -92,7 +92,8 @@ impl OrderBuilder {
                         .collect_tuple()
                         .expect("Invalid chain length");
 
-                    let mut storage = BookTickerStore::new();
+                    let mut bid_storage = BookTickerStore::new();
+                    let mut ask_storage = BookTickerStore::new();
                     let mut last_prices: Vec<Decimal> = vec![];
 
                     // Read initial values from watch channel
@@ -110,17 +111,17 @@ impl OrderBuilder {
 
                             _ = rx1.changed() => {
                                 let msg = rx1.borrow().clone();
-                                this.handle_ticker_event(&mut storage, &chain, msg, &mut last_prices, &base_assets);
+                                this.handle_ticker_event(&mut bid_storage, &mut ask_storage, &chain, msg, &mut last_prices, &base_assets);
                             },
 
                             _ = rx2.changed() => {
                                 let msg = rx2.borrow().clone();
-                                this.handle_ticker_event(&mut storage, &chain, msg, &mut last_prices, &base_assets);
+                                this.handle_ticker_event(&mut bid_storage, &mut ask_storage, &chain, msg, &mut last_prices, &base_assets);
                             },
 
                             _ = rx3.changed() => {
                                 let msg = rx3.borrow().clone();
-                                this.handle_ticker_event(&mut storage, &chain, msg, &mut last_prices, &base_assets);
+                                this.handle_ticker_event(&mut bid_storage, &mut ask_storage, &chain, msg, &mut last_prices, &base_assets);
                             },
                         }
                     }
@@ -150,18 +151,24 @@ impl OrderBuilder {
 
     pub fn handle_ticker_event(
         &self,
-        storage: &mut BookTickerStore,
+        bid_storage: &mut BookTickerStore,
+        ask_storage: &mut BookTickerStore,
         chain: &[ChainSymbol; 3],
-        msg: BookTickerEvent,
+        msg: BookTickerEventChanges,
         last_prices: &mut Vec<Decimal>,
         base_assets: &[Asset],
     ) {
-        storage.update(msg);
+        if !bid_storage.update_if_valid(msg.bid) || !ask_storage.update_if_valid(msg.ask) {
+            return;
+        }
 
         // Early return if not all data is available
         let messages: Vec<BookTickerEvent> = chain
             .iter()
-            .filter_map(|symbol| storage.get(symbol.symbol.symbol.as_str()).cloned())
+            .filter_map(|symbol| match symbol.order {
+                SymbolOrder::Asc => bid_storage.get(symbol.symbol.symbol.as_str()).cloned(),
+                SymbolOrder::Desc => ask_storage.get(symbol.symbol.symbol.as_str()).cloned(),
+            })
             .collect();
 
         if messages.len() != chain.len() {
@@ -169,14 +176,7 @@ impl OrderBuilder {
         }
 
         // Calculate prices
-        let prices = chain
-            .iter()
-            .zip(&messages)
-            .map(|(symbol, message)| match symbol.order {
-                SymbolOrder::Asc => message.bid_price,
-                SymbolOrder::Desc => message.ask_price,
-            })
-            .collect::<Vec<Decimal>>();
+        let prices = messages.iter().map(|m| m.price).collect::<Vec<Decimal>>();
 
         // Skip if prices haven't changed
         if *last_prices == prices {
@@ -208,7 +208,6 @@ impl OrderBuilder {
         let mut order_symbols = vec![];
 
         for (i, chain_symbol) in chain.iter().enumerate() {
-            // Define limits for 1st pair.
             let min_profit_qty = if i == 0 {
                 find_base_asset(base_assets, chain_symbol).map(|base| base.min_profit_qty)
             } else {
@@ -222,17 +221,20 @@ impl OrderBuilder {
             };
 
             let symbol = &chain_symbol.symbol;
-            let order_symbol = OrderSymbol {
+            order_symbols.push(OrderSymbol {
                 symbol: symbol.symbol.clone(),
-                base_asset_precision: symbol.base_asset_precision,
-                quote_precision: symbol.quote_precision,
                 symbol_order: chain_symbol.order,
+                order_book: &order_book[i],
+                base_min_size: symbol.base_min_size,
+                quote_min_size: symbol.quote_min_size,
+                base_max_size: symbol.base_max_size,
+                quote_max_size: symbol.quote_max_size,
+                base_increment: symbol.base_increment,
+                quote_increment: symbol.quote_increment,
+                price_increment: symbol.price_increment,
                 min_profit_qty,
                 max_order_qty,
-                order_book: &order_book[i],
-                symbol_filter: define_symbol_filter(&symbol.filters),
-            };
-            order_symbols.push(order_symbol);
+            });
         }
 
         let orders = Self::calculate_chain_profit(&order_symbols, market_depth_limit, fee_percent);
@@ -270,16 +272,10 @@ impl OrderBuilder {
         while start_depth_limit < market_depth_limit {
             for (i, order_symbol) in chain.iter().enumerate() {
                 // Define list of orders according to the order of assets in symbol.
-                let order_units: &Vec<OrderBookUnit> = match order_symbol.symbol_order {
-                    SymbolOrder::Asc => &vec![OrderBookUnit {
-                        price: order_symbol.order_book.bid_price,
-                        qty: order_symbol.order_book.bid_qty,
-                    }],
-                    SymbolOrder::Desc => &vec![OrderBookUnit {
-                        price: order_symbol.order_book.ask_price,
-                        qty: order_symbol.order_book.ask_qty,
-                    }],
-                };
+                let order_units: Vec<OrderBookUnit> = vec![OrderBookUnit {
+                    price: order_symbol.order_book.price,
+                    qty: order_symbol.order_book.qty,
+                }];
 
                 // Define qty limit for current symbol.
                 let max_order_qty = if i == 0 {
@@ -296,8 +292,7 @@ impl OrderBuilder {
                 for order_unit in order_units.iter().take(start_depth_limit + 1) {
                     let qty = match order_symbol.symbol_order {
                         SymbolOrder::Asc => order_unit.qty,
-                        SymbolOrder::Desc => (order_unit.qty * order_unit.price)
-                            .trunc_with_scale(order_symbol.quote_precision),
+                        SymbolOrder::Desc => order_unit.qty * order_unit.price,
                     };
 
                     price = order_unit.price;
@@ -310,23 +305,23 @@ impl OrderBuilder {
                 }
 
                 let quote_qty = match order_symbol.symbol_order {
-                    SymbolOrder::Asc => {
-                        (base_qty * price).trunc_with_scale(order_symbol.quote_precision)
-                    }
-                    SymbolOrder::Desc => {
-                        (base_qty / price).trunc_with_scale(order_symbol.base_asset_precision)
-                    }
+                    SymbolOrder::Asc => base_qty * price,
+                    SymbolOrder::Desc => base_qty / price,
                 };
 
                 orders.push(PreOrder {
                     symbol: order_symbol.symbol.clone(),
                     symbol_order: order_symbol.symbol_order,
+                    base_min_size: order_symbol.base_min_size,
+                    _quote_min_size: order_symbol.quote_min_size,
+                    _base_max_size: order_symbol.base_max_size,
+                    _quote_max_size: order_symbol.quote_max_size,
+                    base_increment: order_symbol.base_increment,
+                    quote_increment: order_symbol.quote_increment,
+                    price_increment: order_symbol.price_increment,
                     price,
                     base_qty,
-                    base_precision: order_symbol.base_asset_precision,
                     quote_qty,
-                    quote_precision: order_symbol.quote_precision,
-                    symbol_filter: order_symbol.symbol_filter.clone(),
                 });
 
                 // If first symbol and base qty does not match the max order qty, where max order
@@ -356,34 +351,36 @@ impl OrderBuilder {
             let mut tmp_orders: Vec<Order> = vec![];
 
             while count < chain.len() {
-                let price = orders[count]
-                    .price
-                    .trunc_with_scale(orders[count].symbol_filter.tick_size);
+                let order = &orders[count];
+                let price_scale = order.price_increment.scale();
+                let base_scale = order.base_increment.scale();
+                let quote_scale = order.quote_increment.scale();
 
+                let price = order.price.trunc_with_scale(price_scale);
                 let base_qty = if count == 0 {
                     orders[i].base_qty
                 } else {
                     tmp_orders[count - 1].quote_qty
                 };
 
-                let (rounded_base_qty, rounded_quote_qty) = match orders[count].symbol_order {
+                let (rounded_base_qty, rounded_quote_qty) = match order.symbol_order {
                     SymbolOrder::Asc => {
-                        let base_qty =
-                            base_qty.trunc_with_scale(orders[count].symbol_filter.lot_size_step);
+                        let base_qty = base_qty.trunc_with_scale(base_scale);
+                        let quote_qty = (base_qty * price).trunc_with_scale(quote_scale);
 
                         // If at least one order from the chain does not have enough quantity to
                         // reach the minimum, then skip the entire chain of orders.
-                        if orders[count].symbol_filter.lot_size_min_qty > base_qty {
+                        if order.base_min_size > base_qty {
                             continue 'outer_loop;
                         }
 
-                        (base_qty, base_qty * price)
+                        (base_qty, quote_qty)
                     }
                     SymbolOrder::Desc => {
-                        let quote_qty = (base_qty / price)
-                            .trunc_with_scale(orders[count].symbol_filter.lot_size_step);
+                        let base_qty = base_qty.trunc_with_scale(quote_scale);
+                        let quote_qty = (base_qty / price).trunc_with_scale(base_scale);
 
-                        if orders[count].symbol_filter.lot_size_min_qty > quote_qty {
+                        if order.base_min_size > quote_qty {
                             continue 'outer_loop;
                         }
 
@@ -392,13 +389,13 @@ impl OrderBuilder {
                 };
 
                 tmp_orders.push(Order {
-                    symbol: orders[count].symbol.clone(),
-                    symbol_order: orders[count].symbol_order,
-                    price,
+                    symbol: order.symbol.clone(),
+                    symbol_order: order.symbol_order,
                     base_qty: rounded_base_qty,
                     quote_qty: rounded_quote_qty,
-                    base_increment: Decimal::zero(), // set default because not used
-                    quote_increment: Decimal::zero(), // set default because not used
+                    base_increment: order.base_increment,
+                    quote_increment: order.quote_increment,
+                    price,
                 });
 
                 count += 1;
@@ -444,11 +441,6 @@ impl OrderBuilder {
                 return;
             }
 
-            let base_precision = match order_a.symbol_order {
-                SymbolOrder::Asc => order_a.base_precision,
-                SymbolOrder::Desc => order_a.quote_precision,
-            };
-
             let base_qty = match order_a.symbol_order {
                 SymbolOrder::Asc => order_b.base_qty / order_a.price,
                 SymbolOrder::Desc => order_b.base_qty * order_a.price,
@@ -456,7 +448,7 @@ impl OrderBuilder {
 
             {
                 orders[order_a_idx].quote_qty = order_b.base_qty;
-                orders[order_a_idx].base_qty = base_qty.trunc_with_scale(base_precision);
+                orders[order_a_idx].base_qty = base_qty;
             }
 
             count += 1;
@@ -469,44 +461,18 @@ fn find_base_asset(base_assets: &[Asset], chain_symbol: &ChainSymbol) -> Option<
         .iter()
         .find(|&x| {
             if chain_symbol.order == SymbolOrder::Asc {
-                x.asset == chain_symbol.symbol.base_asset
+                x.asset == chain_symbol.symbol.base_currency
             } else {
-                x.asset == chain_symbol.symbol.quote_asset
+                x.asset == chain_symbol.symbol.quote_currency
             }
         })
         .cloned()
 }
 
-fn define_symbol_filter(filters: &Vec<Filters>) -> SymbolFilter {
-    let mut symbol_filter = SymbolFilter::default();
-    for filter in filters {
-        match filter {
-            Filters::LotSize {
-                min_qty,
-                max_qty: _max_qty,
-                step_size,
-            } => {
-                symbol_filter.lot_size_step = step_size.normalize().scale();
-                symbol_filter.lot_size_min_qty = *min_qty;
-            }
-            Filters::PriceFilter {
-                min_price: _min_price,
-                max_price: _max_price,
-                tick_size,
-            } => {
-                symbol_filter.tick_size = tick_size.normalize().scale();
-            }
-            _ => continue,
-        };
-    }
-
-    symbol_filter
-}
-
 fn define_precision(order_symbol: &OrderSymbol) -> u32 {
     match order_symbol.symbol_order {
-        SymbolOrder::Asc => order_symbol.base_asset_precision,
-        SymbolOrder::Desc => order_symbol.quote_precision,
+        SymbolOrder::Asc => order_symbol.base_increment.scale(),
+        SymbolOrder::Desc => order_symbol.quote_increment.scale(),
     }
 }
 
@@ -547,74 +513,68 @@ mod tests {
         let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
 
         let order_book_1 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "BTCUSDT".to_string(),
-            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            bid_qty: Decimal::from_f64(7.27795000).unwrap(),
-            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            price: Decimal::from_f64(109615.46000000).unwrap(),
+            qty: Decimal::from_f64(7.27795000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHUSDT".to_string(),
-            bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-            bid_qty: Decimal::from_f64(14.64600000).unwrap(),
-            ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-            ask_qty: Decimal::from_f64(19.28810000).unwrap(),
+            price: Decimal::from_f64(2585.70000000).unwrap(),
+            qty: Decimal::from_f64(14.64600000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHBTC".to_string(),
-            bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-            ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            price: Decimal::from_f64(0.02858000).unwrap(),
+            qty: Decimal::from_f64(105.74550000).unwrap(),
         };
 
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "BTCUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.000030),
                 max_order_qty: Decimal::from_f64(0.00030),
                 order_book: &order_book_1,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 5,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00001000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_2,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_3,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 5,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
         ];
 
@@ -625,21 +585,21 @@ mod tests {
 
         assert_eq!(orders[0].symbol, "BTCUSDT");
         assert_eq!(orders[0].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[0].price.to_string(), "109615.46");
-        assert_eq!(orders[0].base_qty.to_string(), "0.00030");
-        assert_eq!(orders[0].quote_qty.to_string(), "32.8846380");
+        assert_eq!(orders[0].price.to_string(), "109615.46000000");
+        assert_eq!(orders[0].base_qty.to_string(), "0.00030000");
+        assert_eq!(orders[0].quote_qty.to_string(), "32.88463800");
 
         assert_eq!(orders[1].symbol, "ETHUSDT");
         assert_eq!(orders[1].symbol_order, SymbolOrder::Desc);
-        assert_eq!(orders[1].price.to_string(), "2585.71");
-        assert_eq!(orders[1].base_qty.to_string(), "32.8846380");
-        assert_eq!(orders[1].quote_qty.to_string(), "0.0127");
+        assert_eq!(orders[1].price.to_string(), "2585.70000000");
+        assert_eq!(orders[1].base_qty.to_string(), "32.88463800");
+        assert_eq!(orders[1].quote_qty.to_string(), "0.01271788");
 
         assert_eq!(orders[2].symbol, "ETHBTC");
         assert_eq!(orders[2].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[2].price.to_string(), "0.02858");
-        assert_eq!(orders[2].base_qty.to_string(), "0.0127");
-        assert_eq!(orders[2].quote_qty.to_string(), "0.000362966");
+        assert_eq!(orders[2].price.to_string(), "0.02858000");
+        assert_eq!(orders[2].base_qty.to_string(), "0.01271788");
+        assert_eq!(orders[2].quote_qty.to_string(), "0.00036347");
 
         Ok(())
     }
@@ -652,74 +612,68 @@ mod tests {
         let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
 
         let order_book_1 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "BTCUSDT".to_string(),
-            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            bid_qty: Decimal::from_f64(0.00020000).unwrap(), // <---- here,
-            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            price: Decimal::from_f64(109615.46000000).unwrap(),
+            qty: Decimal::from_f64(0.00020000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHUSDT".to_string(),
-            bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-            bid_qty: Decimal::from_f64(14.64600000).unwrap(),
-            ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-            ask_qty: Decimal::from_f64(19.28810000).unwrap(),
+            price: Decimal::from_f64(2585.70000000).unwrap(),
+            qty: Decimal::from_f64(14.64600000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHBTC".to_string(),
-            bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-            ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            price: Decimal::from_f64(0.02858000).unwrap(),
+            qty: Decimal::from_f64(105.74550000).unwrap(),
         };
 
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "BTCUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.0),
                 max_order_qty: Decimal::from_f64(0.00030),
                 order_book: &order_book_1,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 5,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00001000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_2,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_3,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 5,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
         ];
 
@@ -730,21 +684,21 @@ mod tests {
 
         assert_eq!(orders[0].symbol, "BTCUSDT");
         assert_eq!(orders[0].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[0].price.to_string(), "109615.46");
-        assert_eq!(orders[0].base_qty.to_string(), "0.00020");
-        assert_eq!(orders[0].quote_qty.to_string(), "21.9230920");
+        assert_eq!(orders[0].price.to_string(), "109615.46000000");
+        assert_eq!(orders[0].base_qty.to_string(), "0.00020000");
+        assert_eq!(orders[0].quote_qty.to_string(), "21.92309200");
 
         assert_eq!(orders[1].symbol, "ETHUSDT");
         assert_eq!(orders[1].symbol_order, SymbolOrder::Desc);
-        assert_eq!(orders[1].price.to_string(), "2585.71");
-        assert_eq!(orders[1].base_qty.to_string(), "21.9230920");
-        assert_eq!(orders[1].quote_qty.to_string(), "0.0084");
+        assert_eq!(orders[1].price.to_string(), "2585.70000000");
+        assert_eq!(orders[1].base_qty.to_string(), "21.92309200");
+        assert_eq!(orders[1].quote_qty.to_string(), "0.00847859");
 
         assert_eq!(orders[2].symbol, "ETHBTC");
         assert_eq!(orders[2].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[2].price.to_string(), "0.02858");
-        assert_eq!(orders[2].base_qty.to_string(), "0.0084");
-        assert_eq!(orders[2].quote_qty.to_string(), "0.000240072");
+        assert_eq!(orders[2].price.to_string(), "0.02858000");
+        assert_eq!(orders[2].base_qty.to_string(), "0.00847859");
+        assert_eq!(orders[2].quote_qty.to_string(), "0.00024231");
 
         Ok(())
     }
@@ -757,74 +711,68 @@ mod tests {
         let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
 
         let order_book_1 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "BTCUSDT".to_string(),
-            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            bid_qty: Decimal::from_f64(0.20000000).unwrap(),
-            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            price: Decimal::from_f64(109615.46000000).unwrap(),
+            qty: Decimal::from_f64(0.20000000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHUSDT".to_string(),
-            bid_price: Decimal::from_f64(1585.70000000).unwrap(),
-            bid_qty: Decimal::from_f64(19.28810000).unwrap(),
-            ask_price: Decimal::from_f64(1585.71000000).unwrap(),
-            ask_qty: Decimal::from_f64(0.0033).unwrap(), // <---- here
+            price: Decimal::from_f64(1585.71000000).unwrap(),
+            qty: Decimal::from_f64(0.0033).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHBTC".to_string(),
-            bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            bid_qty: Decimal::from_f64(105.74550000).unwrap(),
-            ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            price: Decimal::from_f64(0.02858000).unwrap(),
+            qty: Decimal::from_f64(105.74550000).unwrap(),
         };
 
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "BTCUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.000030),
                 max_order_qty: Decimal::from_f64(0.00030),
                 order_book: &order_book_1,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 5,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00001000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_2,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_3,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 5,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
         ];
 
@@ -835,21 +783,21 @@ mod tests {
 
         assert_eq!(orders[0].symbol, "BTCUSDT");
         assert_eq!(orders[0].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[0].price.to_string(), "109615.46");
-        assert_eq!(orders[0].base_qty.to_string(), "0.00004");
-        assert_eq!(orders[0].quote_qty.to_string(), "4.3846184");
+        assert_eq!(orders[0].price.to_string(), "109615.46000000");
+        assert_eq!(orders[0].base_qty.to_string(), "0.00004773");
+        assert_eq!(orders[0].quote_qty.to_string(), "5.23194590");
 
         assert_eq!(orders[1].symbol, "ETHUSDT");
         assert_eq!(orders[1].symbol_order, SymbolOrder::Desc);
-        assert_eq!(orders[1].price.to_string(), "1585.71");
-        assert_eq!(orders[1].base_qty.to_string(), "4.3846184");
-        assert_eq!(orders[1].quote_qty.to_string(), "0.0027");
+        assert_eq!(orders[1].price.to_string(), "1585.71000000");
+        assert_eq!(orders[1].base_qty.to_string(), "5.23194590");
+        assert_eq!(orders[1].quote_qty.to_string(), "0.00329943");
 
         assert_eq!(orders[2].symbol, "ETHBTC");
         assert_eq!(orders[2].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[2].price.to_string(), "0.02858");
-        assert_eq!(orders[2].base_qty.to_string(), "0.0027");
-        assert_eq!(orders[2].quote_qty.to_string(), "0.000077166");
+        assert_eq!(orders[2].price.to_string(), "0.02858000");
+        assert_eq!(orders[2].base_qty.to_string(), "0.00329943");
+        assert_eq!(orders[2].quote_qty.to_string(), "0.00009429");
 
         Ok(())
     }
@@ -862,74 +810,68 @@ mod tests {
         let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
 
         let order_book_1 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "BTCUSDT".to_string(),
-            bid_price: Decimal::from_f64(109615.46000000).unwrap(),
-            bid_qty: Decimal::from_f64(0.20000000).unwrap(),
-            ask_price: Decimal::from_f64(109615.47000000).unwrap(),
-            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            price: Decimal::from_f64(109615.46000000).unwrap(),
+            qty: Decimal::from_f64(0.20000000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHUSDT".to_string(),
-            bid_price: Decimal::from_f64(2585.70000000).unwrap(),
-            bid_qty: Decimal::from_f64(19.28810000).unwrap(),
-            ask_price: Decimal::from_f64(2585.71000000).unwrap(),
-            ask_qty: Decimal::from_f64(0.9).unwrap(),
+            price: Decimal::from_f64(2585.70000000).unwrap(),
+            qty: Decimal::from_f64(19.28810000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHBTC".to_string(),
-            bid_price: Decimal::from_f64(0.02858000).unwrap(),
-            bid_qty: Decimal::from_f64(0.01).unwrap(), // <---- here,
-            ask_price: Decimal::from_f64(0.02359000).unwrap(),
-            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            price: Decimal::from_f64(0.02858000).unwrap(),
+            qty: Decimal::from_f64(0.01).unwrap(),
         };
 
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "BTCUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.000030),
                 max_order_qty: Decimal::from_f64(0.00030),
                 order_book: &order_book_1,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 5,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00001000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHUSDT".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_2,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_3,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 5,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
         ];
 
@@ -940,21 +882,21 @@ mod tests {
 
         assert_eq!(orders[0].symbol, "BTCUSDT");
         assert_eq!(orders[0].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[0].price.to_string(), "109615.46");
-        assert_eq!(orders[0].base_qty.to_string(), "0.00023");
-        assert_eq!(orders[0].quote_qty.to_string(), "25.2115558");
+        assert_eq!(orders[0].price.to_string(), "109615.46000000");
+        assert_eq!(orders[0].base_qty.to_string(), "0.00023588");
+        assert_eq!(orders[0].quote_qty.to_string(), "25.85609470");
 
         assert_eq!(orders[1].symbol, "ETHUSDT");
         assert_eq!(orders[1].symbol_order, SymbolOrder::Desc);
-        assert_eq!(orders[1].price.to_string(), "2585.71");
-        assert_eq!(orders[1].base_qty.to_string(), "25.2115558");
-        assert_eq!(orders[1].quote_qty.to_string(), "0.0097");
+        assert_eq!(orders[1].price.to_string(), "2585.70000000");
+        assert_eq!(orders[1].base_qty.to_string(), "25.85609470");
+        assert_eq!(orders[1].quote_qty.to_string(), "0.00999964");
 
         assert_eq!(orders[2].symbol, "ETHBTC");
         assert_eq!(orders[2].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[2].price.to_string(), "0.02858");
-        assert_eq!(orders[2].base_qty.to_string(), "0.0097");
-        assert_eq!(orders[2].quote_qty.to_string(), "0.000277226");
+        assert_eq!(orders[2].price.to_string(), "0.02858000");
+        assert_eq!(orders[2].base_qty.to_string(), "0.00999964");
+        assert_eq!(orders[2].quote_qty.to_string(), "0.00028578");
 
         Ok(())
     }
@@ -966,74 +908,68 @@ mod tests {
         let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
 
         let order_book_1 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHBTC".to_string(),
-            bid_price: Decimal::from_f64(0.03615000).unwrap(),
-            bid_qty: Decimal::from_f64(0.20000000).unwrap(),
-            ask_price: Decimal::from_f64(0.03216000).unwrap(),
-            ask_qty: Decimal::from_f64(2.22969000).unwrap(),
+            price: Decimal::from_f64(0.03115000).unwrap(),
+            qty: Decimal::from_f64(0.20000000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "WBTCBTC".to_string(),
-            bid_price: Decimal::from_f64(0.99920000).unwrap(),
-            bid_qty: Decimal::from_f64(19.28810000).unwrap(),
-            ask_price: Decimal::from_f64(0.99930000).unwrap(),
-            ask_qty: Decimal::from_f64(0.9).unwrap(),
+            price: Decimal::from_f64(0.99920000).unwrap(),
+            qty: Decimal::from_f64(19.28810000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "WBTCETH".to_string(),
-            bid_price: Decimal::from_f64(31.07000000).unwrap(),
-            bid_qty: Decimal::from_f64(1.5).unwrap(), // <---- here
-            ask_price: Decimal::from_f64(31.08000000).unwrap(),
-            ask_qty: Decimal::from_f64(25.63400000).unwrap(),
+            price: Decimal::from_f64(31.07000000).unwrap(),
+            qty: Decimal::from_f64(1.5).unwrap(),
         };
 
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.0),
                 max_order_qty: Decimal::from_f64(0.0079),
                 order_book: &order_book_1,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 5,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "WBTCBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_2,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 5,
-                    tick_size: 4,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "WBTCETH".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_3,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 5,
-                    tick_size: 2,
-                    lot_size_min_qty: Decimal::from_f64(0.00100000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
         ];
 
@@ -1050,73 +986,67 @@ mod tests {
         let fee_percent: Decimal = Decimal::from_str("0.075").unwrap();
 
         let order_book_1 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "ETHBTC".to_string(),
-            bid_price: Decimal::from_f64(0.03402000).unwrap(),
-            bid_qty: Decimal::from_f64(23.09700000).unwrap(),
-            ask_price: Decimal::from_f64(0.03203000).unwrap(),
-            ask_qty: Decimal::from_f64(23.09700000).unwrap(),
+            price: Decimal::from_f64(0.03402000).unwrap(),
+            qty: Decimal::from_f64(23.09700000).unwrap(),
         };
 
         let order_book_2 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "WBTCBTC".to_string(),
-            bid_price: Decimal::from_f64(0.00007820).unwrap(),
-            bid_qty: Decimal::from_f64(1.62000000).unwrap(),
-            ask_price: Decimal::from_f64(0.00007810).unwrap(),
-            ask_qty: Decimal::from_f64(1.62000000).unwrap(),
+            price: Decimal::from_f64(0.00007820).unwrap(),
+            qty: Decimal::from_f64(1.62000000).unwrap(),
         };
 
         let order_book_3 = BookTickerEvent {
-            update_id: 1,
+            sequence_id: 0,
             symbol: "WBTCETH".to_string(),
-            bid_price: Decimal::from_f64(0.00243200).unwrap(),
-            bid_qty: Decimal::from_f64(0.54000000).unwrap(), // <---- here
-            ask_price: Decimal::from_f64(0.00243300).unwrap(),
-            ask_qty: Decimal::from_f64(0.54000000).unwrap(),
+            price: Decimal::from_f64(0.00243200).unwrap(),
+            qty: Decimal::from_f64(0.54000000).unwrap(),
         };
         let order_symbols = vec![
             OrderSymbol {
                 symbol: "ETHBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: Decimal::from_f64(0.0),
                 max_order_qty: Decimal::from_f64(0.0079),
                 order_book: &order_book_1,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 4,
-                    tick_size: 5,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "SSVBTC".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_2,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 2,
-                    tick_size: 7,
-                    lot_size_min_qty: Decimal::from_f64(0.00010000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
             OrderSymbol {
                 symbol: "SSVETH".to_string(),
-                base_asset_precision: 8,
-                quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
                 min_profit_qty: None,
                 max_order_qty: None,
                 order_book: &order_book_3,
-                symbol_filter: SymbolFilter {
-                    lot_size_step: 2,
-                    tick_size: 6,
-                    lot_size_min_qty: Decimal::from_f64(0.00100000).unwrap(),
-                },
+                base_min_size: Default::default(),
+                quote_min_size: Default::default(),
+                base_max_size: Default::default(),
+                quote_max_size: Default::default(),
+                base_increment: Decimal::from_f64(0.00000001).unwrap(),
+                quote_increment: Decimal::from_f64(0.00000001).unwrap(),
+                price_increment: Decimal::from_f64(0.00000001).unwrap(),
             },
         ];
 
@@ -1126,21 +1056,21 @@ mod tests {
 
         assert_eq!(orders[0].symbol, "ETHBTC");
         assert_eq!(orders[0].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[0].price.to_string(), "0.03402");
-        assert_eq!(orders[0].base_qty.to_string(), "0.0012");
-        assert_eq!(orders[0].quote_qty.to_string(), "0.000040824");
+        assert_eq!(orders[0].price.to_string(), "0.03402000");
+        assert_eq!(orders[0].base_qty.to_string(), "0.00124126");
+        assert_eq!(orders[0].quote_qty.to_string(), "0.00004222");
 
         assert_eq!(orders[1].symbol, "SSVBTC");
         assert_eq!(orders[1].symbol_order, SymbolOrder::Desc);
-        assert_eq!(orders[1].price.to_string(), "0.0000781");
-        assert_eq!(orders[1].base_qty.to_string(), "0.000040824");
-        assert_eq!(orders[1].quote_qty.to_string(), "0.52");
+        assert_eq!(orders[1].price.to_string(), "0.00007820");
+        assert_eq!(orders[1].base_qty.to_string(), "0.00004222");
+        assert_eq!(orders[1].quote_qty.to_string(), "0.53989769");
 
         assert_eq!(orders[2].symbol, "SSVETH");
         assert_eq!(orders[2].symbol_order, SymbolOrder::Asc);
-        assert_eq!(orders[2].price.to_string(), "0.002432");
-        assert_eq!(orders[2].base_qty.to_string(), "0.52");
-        assert_eq!(orders[2].quote_qty.to_string(), "0.00126464");
+        assert_eq!(orders[2].price.to_string(), "0.00243200");
+        assert_eq!(orders[2].base_qty.to_string(), "0.53989769");
+        assert_eq!(orders[2].quote_qty.to_string(), "0.00131303");
 
         Ok(())
     }

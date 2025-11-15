@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, bail};
+use anyhow::Context;
 use app::{
-    config::{Config, Exchange},
+    config::{Config, Exchange, Settings},
     cron::{arbitrage_job, order_sender_job},
-    libs::{
-        binance_api,
-        binance_api::Binance,
-        http_server::{Server, server::ServerProcess},
-    },
+    libs::http_server::{Server, server::ServerProcess},
     services::{
         BinanceExchangeConfig, BinanceExchangeService, BinanceSenderConfig, BinanceSenderService,
-        ExchangeService, OrderSenderService, binance::REQUEST_WEIGHT,
+        ExchangeService, KucoinExchangeConfig, KucoinExchangeService, KucoinSenderConfig,
+        KucoinSenderService, OrderSenderService, weight::REQUEST_WEIGHT,
     },
 };
 
@@ -19,94 +16,74 @@ pub struct Entrypoint;
 
 impl Entrypoint {
     pub async fn run(&self) -> anyhow::Result<()> {
-        let config = Config::parse().map_err(|e| anyhow!("Failed to parse config file: {e}"))?;
-        let settings = &config.settings;
+        let config = Config::parse().with_context(|| "Failed to parse config file")?;
 
-        let exchange_service: Arc<dyn ExchangeService> =
-            match config.settings.exchange_name.parse()? {
-                Exchange::Binance => self.build_binance_exchange_service(config.clone()).await?,
-            };
+        {
+            let mut weight_lock = REQUEST_WEIGHT.lock().await;
+            weight_lock.set_weight_limit(config.settings.api_weight_limit);
+        }
 
-        let order_sender_service: Arc<dyn OrderSenderService> =
-            match config.settings.exchange_name.parse()? {
-                Exchange::Binance => self.build_binance_sender_service(config.clone()).await?,
-            };
+        let (exchange_service, sender_service) = build_services(&config).await?;
+        let processes = build_processes(config.settings.clone(), exchange_service, sender_service)?;
 
-        let arbitrage_config = arbitrage_job::Config::new(settings.error_timeout);
-        let arbitrage_ps = arbitrage_job::Process::new(arbitrage_config, exchange_service);
-
-        let sender_config = order_sender_job::Config::new(settings.error_timeout);
-        let sender_ps = order_sender_job::Process::new(sender_config, order_sender_service);
-
-        let processes: Vec<&dyn ServerProcess> = vec![arbitrage_ps, sender_ps];
-
-        Server::new(settings.server_addr.clone(), settings.metrics_addr.clone())
-            .with_processes(&processes)
-            .run()
-            .await
-            .map_err(|e| anyhow!("handling server error: {}", e))?;
+        Server::new(
+            config.settings.server_addr.clone(),
+            config.settings.metrics_addr.clone(),
+        )
+        .with_processes(processes)
+        .run()
+        .await
+        .with_context(|| "handling server error")?;
 
         Ok(())
     }
+}
 
-    async fn build_binance_exchange_service(
-        &self,
-        config: Config,
-    ) -> anyhow::Result<Arc<BinanceExchangeService>> {
-        let api_config = binance_api::ClientConfig {
-            api_url: config.binance.api_url,
-            api_token: config.binance.api_token,
-            api_secret_key: config.binance.api_secret_key,
-            http_config: binance_api::HttpConfig::default(),
-        };
+async fn build_services(
+    config: &Config,
+) -> anyhow::Result<(Arc<dyn ExchangeService>, Arc<dyn OrderSenderService>)> {
+    let exchange = config
+        .settings
+        .exchange_name
+        .parse::<Exchange>()
+        .with_context(|| "Invalid exchange name in config")?;
 
-        let general_api = match Binance::new(api_config.clone()) {
-            Ok(v) => v,
-            Err(e) => bail!("Failed init binance client: {e}"),
-        };
+    match exchange {
+        Exchange::Binance => {
+            let exchange_config = BinanceExchangeConfig::from(config);
+            let exchange_svc = BinanceExchangeService::from_config(exchange_config)
+                .with_context(|| "Failed to build Binance exchange service")?;
 
-        let market_api = match Binance::new(api_config.clone()) {
-            Ok(v) => v,
-            Err(e) => bail!("Failed init binance client: {e}"),
-        };
+            let sender_config = BinanceSenderConfig::from(config);
+            let sender_svc = BinanceSenderService::from_config(sender_config)
+                .with_context(|| "Failed to build Binance sender service")?;
 
-        {
-            REQUEST_WEIGHT
-                .lock()
-                .await
-                .set_weight_limit(config.binance.api_weight_limit);
+            Ok((Arc::new(exchange_svc), Arc::new(sender_svc)))
         }
+        Exchange::Kucoin => {
+            let exchange_config = KucoinExchangeConfig::from(config);
+            let exchange_svc = KucoinExchangeService::from_config(exchange_config)
+                .with_context(|| "Failed to build Kucoin exchange service")?;
 
-        let service_config = BinanceExchangeConfig {
-            general_api,
-            market_api,
-            base_assets: config.binance.assets,
-            ws_streams_url: config.binance.ws_streams_url.clone(),
-            ws_max_connections: config.binance.ws_max_connections,
-            market_depth_limit: config.binance.market_depth_limit,
-            min_profit_qty: config.settings.min_profit_qty,
-            max_order_qty: config.settings.max_order_qty,
-            fee_percentage: config.settings.fee_percent,
-            min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
-        };
+            let sender_config = KucoinSenderConfig::from(config);
+            let sender_svc = KucoinSenderService::from_config(sender_config)
+                .with_context(|| "Failed to build Kucoin sender service")?;
 
-        let service = BinanceExchangeService::from_config(service_config);
-        Ok(Arc::new(service))
+            Ok((Arc::new(exchange_svc), Arc::new(sender_svc)))
+        }
     }
+}
 
-    async fn build_binance_sender_service(
-        &self,
-        config: Config,
-    ) -> anyhow::Result<Arc<BinanceSenderService>> {
-        let service_config = BinanceSenderConfig {
-            send_orders: config.settings.send_orders,
-            order_lifetime_secs: config.settings.order_lifetime,
-            ws_url: config.binance.ws_url,
-            api_token: config.binance.api_token.clone(),
-            api_secret_key: config.binance.api_secret_key.clone(),
-        };
+fn build_processes(
+    settings: Settings,
+    exchange_service: Arc<dyn ExchangeService>,
+    sender_service: Arc<dyn OrderSenderService>,
+) -> anyhow::Result<Vec<Arc<dyn ServerProcess>>> {
+    let arbitrage_config = arbitrage_job::Config::new(settings.error_timeout);
+    let arbitrage_ps = arbitrage_job::Process::create(arbitrage_config, exchange_service);
 
-        let service = BinanceSenderService::from_config(service_config);
-        Ok(Arc::new(service))
-    }
+    let sender_config = order_sender_job::Config::new(settings.error_timeout);
+    let sender_ps = order_sender_job::Process::create(sender_config, sender_service);
+
+    Ok(vec![arbitrage_ps, sender_ps])
 }

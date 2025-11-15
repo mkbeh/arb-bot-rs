@@ -10,24 +10,23 @@ use tracing::error;
 use crate::{
     config::{Asset, Config},
     libs::{
-        binance_api,
-        binance_api::{Binance, General, Market},
+        kucoin_api,
+        kucoin_api::{BaseInfo, Kucoin, Market},
     },
     services::{
         ExchangeService,
-        binance::exchange::{
+        kucoin::exchange::{
             asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder, ticker::TickerBuilder,
         },
     },
 };
 
-pub struct BinanceExchangeConfig {
-    pub api_url: String,
-    pub api_token: String,
-    pub api_secret_key: String,
+pub struct KucoinExchangeConfig {
     pub base_assets: Vec<Asset>,
-    pub ws_streams_url: String,
-    pub ws_max_connections: usize,
+    pub api_url: String,
+    pub api_key: String,
+    pub api_secret: String,
+    pub api_passphrase: String,
     pub market_depth_limit: usize,
     pub min_profit_qty: Decimal,
     pub max_order_qty: Decimal,
@@ -35,22 +34,21 @@ pub struct BinanceExchangeConfig {
     pub min_ticker_qty_24h: Decimal,
 }
 
-pub struct BinanceExchangeService {
+pub struct KucoinExchangeService {
     asset_builder: AssetBuilder,
     ticker_builder: TickerBuilder,
     chain_builder: Arc<ChainBuilder>,
     order_builder: Arc<OrderBuilder>,
 }
 
-impl From<&Config> for BinanceExchangeConfig {
+impl From<&Config> for KucoinExchangeConfig {
     fn from(config: &Config) -> Self {
         Self {
-            api_url: config.binance.api_url.clone(),
-            api_token: config.binance.api_token.clone(),
-            api_secret_key: config.binance.api_secret_key.clone(),
             base_assets: config.settings.assets.clone(),
-            ws_streams_url: config.binance.ws_streams_url.clone(),
-            ws_max_connections: config.binance.ws_max_connections,
+            api_url: config.kucoin.api_url.clone(),
+            api_key: config.kucoin.api_token.clone(),
+            api_secret: config.kucoin.api_secret_key.clone(),
+            api_passphrase: config.kucoin.api_passphrase.clone(),
             market_depth_limit: config.settings.market_depth_limit,
             min_profit_qty: config.settings.min_profit_qty,
             max_order_qty: config.settings.max_order_qty,
@@ -60,19 +58,20 @@ impl From<&Config> for BinanceExchangeConfig {
     }
 }
 
-impl BinanceExchangeService {
-    pub fn from_config(config: BinanceExchangeConfig) -> anyhow::Result<Self> {
-        let api_config = binance_api::ClientConfig {
-            api_url: config.api_url,
-            api_token: config.api_token,
-            api_secret_key: config.api_secret_key,
-            http_config: binance_api::HttpConfig::default(),
+impl KucoinExchangeService {
+    pub fn from_config(config: KucoinExchangeConfig) -> anyhow::Result<Self> {
+        let api_config = kucoin_api::ClientConfig {
+            host: config.api_url,
+            api_key: config.api_key,
+            api_secret: config.api_secret,
+            api_passphrase: config.api_passphrase,
+            http_config: kucoin_api::HttpConfig::default(),
         };
 
-        let general_api: General =
-            Binance::new(api_config.clone()).context("Failed to init general Binance client")?;
         let market_api: Market =
-            Binance::new(api_config).context("Failed to init market Binance client")?;
+            Kucoin::new(api_config.clone()).context("Failed to init market Kucoin client")?;
+        let base_info_api: BaseInfo =
+            Kucoin::new(api_config).context("Failed to init base info Kucoin client")?;
 
         let asset_builder = AssetBuilder::new(
             market_api.clone(),
@@ -81,9 +80,8 @@ impl BinanceExchangeService {
             config.max_order_qty,
             config.min_ticker_qty_24h,
         );
-        let ticker_builder =
-            TickerBuilder::new(config.ws_streams_url.clone(), config.ws_max_connections);
-        let chain_builder = ChainBuilder::new(general_api.clone(), market_api.clone());
+        let chain_builder = ChainBuilder::new(market_api.clone());
+        let ticker_builder = TickerBuilder::new(base_info_api);
         let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
 
         Ok(Self {
@@ -96,16 +94,16 @@ impl BinanceExchangeService {
 }
 
 #[async_trait]
-impl ExchangeService for BinanceExchangeService {
+impl ExchangeService for KucoinExchangeService {
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()> {
-        // Get and update base assets limits.
+        // Update base assets limits
         let base_assets = self
             .asset_builder
             .update_base_assets_info()
             .await
             .context("Failed to update base assets info")?;
 
-        // Get all available symbols and build chains.
+        // Build all available symbols and chains
         let chains = self
             .chain_builder
             .clone()
@@ -115,7 +113,6 @@ impl ExchangeService for BinanceExchangeService {
 
         let mut tasks_set = JoinSet::new();
 
-        // Get order books per chain and calculate profit.
         tasks_set.spawn({
             let order_builder = self.order_builder.clone();
             let token = token.clone();
@@ -127,7 +124,6 @@ impl ExchangeService for BinanceExchangeService {
             }
         });
 
-        // Get and update tickers order books.
         tasks_set.spawn({
             let ticker_builder = self.ticker_builder.clone();
             let token = token.clone();
