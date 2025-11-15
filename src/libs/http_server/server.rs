@@ -196,7 +196,7 @@ impl Display for ServerKind {
 
 fn get_default_router() -> Router {
     Router::new()
-        .route("/readiness", get(|| async { "OK" })) // Возвращаем строку для HTTP 200
+        .route("/readiness", get(|| async { "OK" }))
         .route("/liveness", get(|| async { "OK" }))
 }
 

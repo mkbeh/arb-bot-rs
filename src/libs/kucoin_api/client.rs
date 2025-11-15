@@ -257,7 +257,7 @@ mod tests {
     async fn test_client_creation_with_incomplete_credentials() {
         let config = ClientConfig {
             host: "https://api.kucoin.com".to_string(),
-            api_key: "".to_string(), // Неполные credentials
+            api_key: "".to_string(),
             api_secret: "test_secret".to_string(),
             api_passphrase: "test_pass".to_string(),
             http_config: HttpConfig::default(),
