@@ -31,9 +31,9 @@ accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
 
 | Crypto             | Address                                               | QR Code                                       |
 |--------------------|-------------------------------------------------------|-----------------------------------------------|
-| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="assets/img/btc_qr.png" width="100"> |
-| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="assets/img/eth_qr.png" width="100"> |
-| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="assets/img/eth_qr.png" width="100"> |
+| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="assets/img/btc_qr.png" width="150"> |
+| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="assets/img/eth_qr.png" width="150"> |
+| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="assets/img/eth_qr.png" width="150"> |
 
 Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
 
