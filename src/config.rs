@@ -5,8 +5,10 @@ use strum_macros::EnumString;
 
 use crate::libs::toml;
 
+/// Default configuration file name.
 const CONFIG_FILE: &str = "config.toml";
 
+/// Enumeration of supported exchanges.
 #[derive(Debug, PartialEq, EnumString)]
 pub enum Exchange {
     #[strum(serialize = "binance")]
@@ -15,6 +17,8 @@ pub enum Exchange {
     Kucoin,
 }
 
+/// Main application configuration structure.
+/// Contains general settings, as well as exchange-specific configurations.
 #[derive(Clone, Deserialize)]
 pub struct Config {
     #[serde(rename = "settings")]
@@ -25,6 +29,7 @@ pub struct Config {
     pub kucoin: KucoinSettings,
 }
 
+/// General application settings.
 #[derive(Clone, Deserialize)]
 pub struct Settings {
     pub server_addr: String,
@@ -46,6 +51,7 @@ pub struct Settings {
     pub assets: Vec<Asset>,
 }
 
+/// Settings for Binance API.
 #[derive(Clone, Deserialize)]
 pub struct BinanceSettings {
     pub api_url: String,
@@ -56,6 +62,7 @@ pub struct BinanceSettings {
     pub ws_max_connections: usize,
 }
 
+/// Settings for KuCoin API.
 #[derive(Clone, Deserialize)]
 pub struct KucoinSettings {
     pub api_url: String,
@@ -65,6 +72,8 @@ pub struct KucoinSettings {
     pub ws_private_url: String,
 }
 
+/// Asset structure for arbitrage.
+/// Describes the base asset and trading limit parameters.
 #[derive(Deserialize, Clone, Debug)]
 pub struct Asset {
     pub asset: String,

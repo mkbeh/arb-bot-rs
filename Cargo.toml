@@ -1,6 +1,6 @@
 [package]
 name = "arb-bot-rs"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 
 [[bin]]
@@ -8,9 +8,9 @@ name = "bot"
 path = "src/bin/bot/main.rs"
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow = { version = "1.0.100" }
 async-trait = { version = "0.1.89" }
-axum = { version = "0.8.7", features = ["http1", "http2", "json", "macros"] }
+axum = { version = "0.8.7" }
 base64 = { version = "0.22.1" }
 dashmap = { version = "6.1.0" }
 futures-util = { version = "0.3.31" }
@@ -20,23 +20,23 @@ itertools = { version = "0.14.0" }
 metrics = { version = "0.24.2" }
 metrics-exporter-prometheus = { version = "0.17.2" }
 openssl = { version = "0.10", features = ["vendored"] }
-percent-encoding = "2.3.2"
+percent-encoding = { version = "2.3.2" }
 reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
-serde_json = "1.0.145"
-serde_urlencoded = "0.7.1"
+serde_json = { version = "1.0.145" }
+serde_urlencoded = { version = "0.7.1" }
 serde_with = { version = "3.16.0", features = ["macros"] }
 sha2 = { version = "0.10.9" }
 strum = { version = "0.27.2" }
 strum_macros = { version = "0.27.2" }
 thiserror = { version = "2.0.17" }
-tokio = { version = "1.48.0", default-features = false, features = ["rt-multi-thread", "macros", "net", "signal"] }
+tokio = { version = "1.48.0", default-features = false, features = ["rt-multi-thread", "signal"] }
 tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 tokio-util = { version = "0.7.17" }
 toml = { version = "0.9.8" }
 tracing = { version = "0.1.41", default-features = false }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "registry", "std", "fmt", "json", "ansi"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "ansi"] }
 url = { version = "2.5.7" }
 uuid = { version = "1.18.1", features = ["v4"] }
 

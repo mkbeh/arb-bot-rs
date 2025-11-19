@@ -7,15 +7,33 @@ use serde::de::DeserializeOwned;
 
 use crate::libs::binance_api::{api::Api, utils::generate_signature};
 
+/// Primary client for interacting with the Binance API.
+///
+/// Supports authenticated and public requests via GET/POST methods.
+/// Handles URL construction, signature generation, headers, and response parsing.
+/// Uses a configurable `reqwest::Client` for HTTP transport.
 #[derive(Clone)]
 pub struct Client {
+    /// Base host URL for API requests (e.g., "https://api.binance.com").
     host: String,
+    /// API key for authentication.
     api_key: String,
+    /// Secret key for HMAC signature generation.
     secret_key: String,
+    /// Inner HTTP client with configured timeouts and connection pooling.
     inner_client: reqwest::Client,
 }
 
 impl Client {
+    /// Creates a new `Client` from configuration.
+    ///
+    /// Builds the inner `reqwest::Client` with HTTP settings from `ClientConfig`.
+    ///
+    /// # Arguments
+    /// * `cfg` - Configuration including API credentials and HTTP params.
+    ///
+    /// # Errors
+    /// Returns an error if the inner client builder fails (e.g., invalid timeouts).
     pub fn from_config(cfg: ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
         let client = Self {
             host: cfg.api_url.clone(),
@@ -35,6 +53,21 @@ impl Client {
         Ok(client)
     }
 
+    /// Performs a GET request to the Binance API.
+    ///
+    /// Constructs the URL with optional query params and signature if required.
+    /// Deserializes the JSON response into the target type.
+    ///
+    /// # Type Parameters
+    /// * `T` - Deserializable response type (implements `serde::de::DeserializeOwned`).
+    ///
+    /// # Arguments
+    /// * `path` - API endpoint (from `binance_api::api::Api`).
+    /// * `query` - Optional query parameters as `Vec<(String, String)>`.
+    /// * `with_signature` - Whether to include HMAC signature (for private endpoints).
+    ///
+    /// # Errors
+    /// Returns an error for HTTP failures, invalid responses, or deserialization issues.
     pub async fn get<T: DeserializeOwned>(
         &self,
         path: Api,
@@ -55,6 +88,21 @@ impl Client {
         response_handler(response).await
     }
 
+    /// Performs a POST request to the Binance API.
+    ///
+    /// Constructs the URL with optional query params and signature if required.
+    /// Deserializes the JSON response into the target type.
+    ///
+    /// # Type Parameters
+    /// * `T` - Deserializable response type (implements `serde::de::DeserializeOwned`).
+    ///
+    /// # Arguments
+    /// * `path` - API endpoint (from `binance_api::api::Api`).
+    /// * `query` - Optional query parameters as `Vec<(String, String)>` (for POST body/query).
+    /// * `with_signature` - Whether to include HMAC signature (for private endpoints).
+    ///
+    /// # Errors
+    /// Returns an error for HTTP failures, invalid responses, or deserialization issues.
     pub async fn post<T: DeserializeOwned>(
         &self,
         path: Api,
@@ -75,6 +123,17 @@ impl Client {
         response_handler(response).await
     }
 
+    /// Builds the full API URL with query params and optional signature.
+    ///
+    /// Appends the path to the host, adds query string, and generates signature if needed.
+    ///
+    /// # Arguments
+    /// * `path` - API endpoint path.
+    /// * `query` - Optional query parameters.
+    /// * `with_signature` - Whether to append signature.
+    ///
+    /// # Errors
+    /// Returns an error if URL construction fails (unlikely).
     fn build_url(
         &self,
         path: Api,
@@ -97,6 +156,12 @@ impl Client {
         Ok(url)
     }
 
+    /// Generates the HMAC signature query string for authenticated requests.
+    ///
+    /// Uses `generate_signature` from Binance utils; appends to existing query or starts new.
+    ///
+    /// # Arguments
+    /// * `query_params` - Existing query string (without leading '?').
     fn build_signature(&self, query_params: String) -> String {
         let signature = if query_params.is_empty() {
             generate_signature(&self.secret_key, None)
@@ -111,6 +176,7 @@ impl Client {
         }
     }
 
+    /// Builds authentication headers for signed requests.
     fn build_headers(&self) -> anyhow::Result<HeaderMap> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -121,6 +187,7 @@ impl Client {
     }
 }
 
+/// Handles HTTP responses from Binance API.
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
     match resp.status() {
         StatusCode::OK => {
@@ -140,6 +207,7 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
     }
 }
 
+/// Builds a query string from key-value pairs.
 fn build_query(params: &Vec<(String, String)>) -> String {
     let mut query = String::new();
     for (k, v) in params {
@@ -149,14 +217,24 @@ fn build_query(params: &Vec<(String, String)>) -> String {
     query
 }
 
+/// Configuration for the Binance API client.
+///
+/// Includes credentials and HTTP transport settings.
 #[derive(Default, Clone)]
 pub struct ClientConfig {
+    /// Base API URL.
     pub api_url: String,
+    /// API key.
     pub api_token: String,
+    /// API secret key.
     pub api_secret_key: String,
+    /// HTTP client configuration.
     pub http_config: HttpConfig,
 }
 
+/// HTTP configuration for the inner `reqwest::Client`.
+///
+/// Controls timeouts, pooling, and TCP keepalive.
 #[derive(Clone)]
 pub struct HttpConfig {
     pub connect_timeout: Duration,

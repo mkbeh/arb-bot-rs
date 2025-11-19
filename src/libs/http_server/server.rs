@@ -8,21 +8,56 @@ use tokio::{signal, task::JoinHandle, time::timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
+/// Asynchronous trait for server processes that can be pre-run and run concurrently with the
+/// server.
+///
+/// Implementors must provide `pre_run` (initialization tasks) and `run` (main loop, cancellable via
+/// token). Used to orchestrate background tasks (e.g., WebSocket connections, data processors)
+/// alongside HTTP servers.
 #[async_trait]
 pub trait ServerProcess: Send + Sync + 'static {
+    /// Performs pre-run initialization tasks.
+    ///
+    /// Called before starting servers. Should handle setup like connecting to external services.
+    /// # Errors
+    /// Returns an error if initialization fails.
     async fn pre_run(&self) -> Result<()>;
+
+    /// Runs the main process loop.
+    ///
+    /// Continues until cancelled via the provided `CancellationToken`.
+    /// # Errors
+    /// Returns an error if the process fails during execution.
     async fn run(&self, token: CancellationToken) -> Result<()>;
 }
 
+/// Server configuration and runner for Axum-based HTTP servers with metrics and background
+/// processes.
+///
+/// Supports:
+/// - Multiple background processes via `ServerProcess` trait.
+/// - Graceful shutdown on signals (Ctrl+C, SIGTERM, SIGQUIT).
+/// - Pre-run tasks with timeout.
+/// - Prometheus metrics export.
+/// - Basic health endpoints (/readiness, /liveness).
 #[derive(Default)]
 pub struct Server {
+    /// Address for the application server (e.g., "0.0.0.0:8080").
     addr: String,
+    /// Address for the metrics server (e.g., "0.0.0.0:9090").
     metrics_addr: String,
+    /// Timeout for pre-run tasks (default: 60 seconds).
     pre_run_tasks_timeout: Duration,
+    /// Optional list of background processes to run.
     processes: Option<Vec<Arc<dyn ServerProcess>>>,
 }
 
 impl Server {
+    /// Creates a new `Server` instance.
+    ///
+    /// # Arguments
+    /// * `addr` - Bind address for the application server.
+    /// * `metrics_addr` - Bind address for the metrics server.
     pub fn new(addr: String, metrics_addr: String) -> Self {
         Self {
             addr,
@@ -32,11 +67,22 @@ impl Server {
         }
     }
 
+    /// Adds background processes to the server.
+    ///
+    /// # Arguments
+    /// * `processes` - List of `Arc<dyn ServerProcess>` to execute concurrently.
     pub fn with_processes(mut self, processes: Vec<Arc<dyn ServerProcess>>) -> Self {
         self.processes = Some(processes);
         self
     }
 
+    /// Runs the server: pre-runs processes, starts app and metrics servers, handles shutdown.
+    ///
+    /// Spawns run processes concurrently with servers. On shutdown signal:
+    /// - Cancels processes via token.
+    /// - Awaits graceful completion.
+    /// # Errors
+    /// Returns an error if pre-run fails, servers fail to bind/start, or shutdown issues occur.
     pub async fn run(&self) -> Result<()> {
         // Pre-run processes
         let empty_vec = Vec::new();
@@ -71,6 +117,11 @@ impl Server {
         Ok(())
     }
 
+    /// Runs pre-run tasks for all processes with a timeout.
+    ///
+    /// Awaits all tasks sequentially; fails if any timeout or error.
+    /// # Errors
+    /// Propagates errors from `pre_run` or timeouts.
     async fn pre_run_processes(
         processes: &[Arc<dyn ServerProcess>],
         tasks_timeout: Duration,
@@ -91,6 +142,9 @@ impl Server {
         Ok(())
     }
 
+    /// Spawns run tasks for all processes, returning handles.
+    ///
+    /// Tasks are cancelled via the shared `CancellationToken`.
     fn run_processes(
         processes: &[Arc<dyn ServerProcess>],
         token: CancellationToken,
@@ -105,6 +159,9 @@ impl Server {
             .collect()
     }
 
+    /// Awaits all run tasks and logs join errors.
+    ///
+    /// Ensures graceful shutdown by waiting for completion.
     async fn shutdown_processes(tasks: &mut [JoinHandle<Result<()>>]) {
         for task in tasks.iter_mut() {
             if let Err(e) = task.await {
@@ -113,6 +170,9 @@ impl Server {
         }
     }
 
+    /// Sets up a custom panic hook to log panics with location info.
+    ///
+    /// Chains to the default hook and adds structured logging via `tracing::error!`.
     fn setup_panic_hook() {
         let default_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |panic_info| {
@@ -131,6 +191,15 @@ impl Server {
     }
 }
 
+/// Binds a TCP listener, logs startup, and serves the router with graceful shutdown.
+///
+/// # Arguments
+/// * `addr` - Bind address (e.g., "0.0.0.0:8080").
+/// * `router` - Axum `Router` to serve.
+/// * `server_kind` - Enum indicating app or metrics server for logging.
+///
+/// # Errors
+/// Returns an error if binding fails or serving encounters issues.
 async fn bootstrap_server(addr: &str, router: Router, server_kind: ServerKind) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -149,6 +218,9 @@ async fn bootstrap_server(addr: &str, router: Router, server_kind: ServerKind) -
     Ok(())
 }
 
+/// Waits for shutdown signals: Ctrl+C, SIGTERM (Unix), or SIGQUIT (Unix).
+///
+/// Uses `tokio::select!` to handle the first signal received.
 async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c()
@@ -179,6 +251,7 @@ async fn shutdown_signal() {
     }
 }
 
+/// Enum for server types, used in logging.
 #[derive(Copy, Clone)]
 enum ServerKind {
     Application,
@@ -194,17 +267,22 @@ impl Display for ServerKind {
     }
 }
 
+/// Returns a basic Axum router with health check endpoints.
 fn get_default_router() -> Router {
     Router::new()
         .route("/readiness", get(|| async { "OK" }))
         .route("/liveness", get(|| async { "OK" }))
 }
 
+/// Returns an Axum router for metrics with Prometheus rendering.
 fn get_metrics_router() -> Router {
     let recorder_handle = setup_metrics_recorder();
     get_default_router().route("/metrics", get(move || ready(recorder_handle.render())))
 }
 
+/// Installs and returns a Prometheus metrics recorder handle.
+///
+/// Panics if installation fails (e.g., duplicate recorder).
 fn setup_metrics_recorder() -> PrometheusHandle {
     PrometheusBuilder::new()
         .install_recorder()

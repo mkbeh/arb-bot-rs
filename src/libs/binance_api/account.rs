@@ -7,12 +7,14 @@ use crate::libs::binance_api::{
     utils,
 };
 
+/// Wrapper for managing Binance account operations via the API client.
 #[derive(Clone)]
 pub struct Account {
     pub client: Client,
 }
 
 impl Account {
+    /// Fetches the current account information from the Binance API.
     pub async fn get_account<S, T>(
         &self,
         omit_zero_balances: S,

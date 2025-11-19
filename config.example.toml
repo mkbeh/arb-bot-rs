@@ -1,70 +1,81 @@
-# Toml document of arbitrage bot.
+# TOML configuration for the arbitrage bot.
+# Defines server settings, exchange selection, API limits, and asset chains for trading.
 
 [settings]
-
+# Application server address.
 server_addr = "127.0.0.1:9000"
+
+# Metrics server address (for Prometheus).
 metrics_addr = "127.0.0.1:9007"
 
-# Current crypto exchange name (binance,kucoin).
-# The process is launched only for one specific exchange from the available list.
+# Selected exchange (binance or kucoin). Only one exchange is active per run.
 exchange_name = "binance"
 
-# Fee percentage.
-# Be sure to indicate the commission amount as in your personal account.
+# Exchange fee percentage. Check your account settings.
 fee_percent = 0.075
 
-# API request weight limit.
+# API request weight limit per minute.
 api_weight_limit = 5000
 
-# Timeout seconds on error. Max: 5000.
+# Error retry timeout in seconds.
 error_timeout = 30
 
-# Time in seconds after which the placed order can be considered
-# invalid and the chain processing can be skipped.
+# Order lifetime in seconds.
 order_lifetime = 600
 
-# Enable send profit orders.
+# Enable real order placement (false for dry-run simulation).
 send_orders = false
 
-# Minimal profit qunatity limit in USD. Supports negative values.
+# Minimum profit threshold in USD (supports negative for loss tolerance).
 min_profit_qty = 0.1
-# Maximum order quantity limit in USD.
+
+# Maximum order quantity in USD.
 max_order_qty = 500
 
-# Min ticker 24h quantity.
+# Minimum 24h trading volume for ticker validation (0 = no limit).
 min_ticker_qty_24h = 0
 
-# Limit of order book depth.
-# Do not change it, it's system param.
+# Order book depth limit (system param).
 market_depth_limit = 1
 
 
 [binance-settings]
-
+# Binance REST API base URL.
 api_url = "https://api.binance.com"
+
+# API key and secret (replace placeholders).
 api_token = "<api_token>"
 api_secret_key = "<api_secret_key>"
 
+# WebSocket URLs.
 ws_url = "wss://ws-api.binance.com:443/ws-api/v3"
 ws_streams_url = "wss://stream.binance.com:443"
 
-# Websocket Streams connections limit.
+# Max concurrent WebSocket stream connections.
 ws_max_connections = 50
 
 
 [kucoin-settings]
-
+# KuCoin REST API base URL.
 api_url = "https://api.kucoin.com"
+
+# API credentials (replace placeholders).
 api_token = "<api_token>"
 api_secret_key = "<api_secret_key>"
 api_passphrase = "<api_passphrase>"
 
+# Private WebSocket URL.
 ws_private_url = "wss://wsapi.kucoin.com/v1/private"
 
 
-# List of base assets from which a chain of pairs can start.
-# Symbol must be specified in relation to the USD. If symbol not specify limit values
-# will be applied if they are greater than 0, otherwise the default limits will be applied.
+# Asset list: Base assets for arbitrage chains.
+# IMPORTANT: 'symbol' must be a REAL trading pair on the SELECTED exchange (e.g., binance).
+# - Exact match required: full name as in API (case-sensitive, e.g., "BTCUSDT", "USDTTRY").
+# - For Binance: Check https://api.binance.com/api/v3/exchangeInfo.
+# - For KuCoin: Check https://api.kucoin.com/api/v1/symbols.
+# - If invalid: Bot won't fetch tickers, chains will fail.
+# - symbol: Required for crypto/fiat; None for stables (uses defaults).
+# - qty limits: 0 = use global defaults from settings; overrides per asset.
 [[settings.assets]]
 asset = "BTC"
 min_profit_qty = 0

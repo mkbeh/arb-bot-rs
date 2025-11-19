@@ -4,6 +4,28 @@ use tracing_subscriber::{
     EnvFilter, fmt::format::FmtSpan, layer::SubscriberExt, prelude::*, util::SubscriberInitExt,
 };
 
+/// Sets up tracing for the application using `tracing_subscriber`.
+///
+/// This function initializes a tracing subscriber with a formatted layer based on the `RUST_LOG`
+/// environment variable (defaults to "debug" if not set). It configures a filter to control log
+/// levels for the application (using the provided `name` as the crate/module prefix) and suppresses
+/// noisy logs from common dependencies like `hyper`, `reqwest`, etc., while enabling specific
+/// traces where useful (e.g., Axum rejections).
+///
+/// The output is formatted with ANSI colors, without file/line info for brevity, and written to
+/// stdout. Span events are disabled to reduce verbosity.
+///
+/// # Arguments
+/// * `name` - Static string representing the application or crate name (e.g., "my_app") for
+///   targeted logging.
+///
+/// # Panics
+/// Panics if parsing the log level directives fails (unlikely, as they are hardcoded).
+///
+/// # Usage
+/// Call this early in `main()` to initialize logging before any traced operations.
+/// Example: `setup_opentelemetry("arbitrage_bot");`
+/// Requires the `tracing` and `tracing-subscriber` crates.
 pub fn setup_opentelemetry(name: &'static str) {
     let fmt_log_level = env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_owned());
 
@@ -27,5 +49,6 @@ pub fn setup_opentelemetry(name: &'static str) {
         .with_writer(std::io::stdout)
         .with_filter(filter_fmt);
 
+    // Initialize the global subscriber with the formatted layer.
     tracing_subscriber::registry().with(fmt_layer).init();
 }
