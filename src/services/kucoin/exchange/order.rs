@@ -158,7 +158,7 @@ impl OrderBuilder {
         last_prices: &mut Vec<Decimal>,
         base_assets: &[Asset],
     ) {
-        if !bid_storage.update_if_valid(msg.bid) || !ask_storage.update_if_valid(msg.ask) {
+        if !bid_storage.update_if_valid(msg.bid) && !ask_storage.update_if_valid(msg.ask) {
             return;
         }
 
