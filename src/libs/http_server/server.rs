@@ -31,6 +31,29 @@ pub trait ServerProcess: Send + Sync + 'static {
     async fn run(&self, token: CancellationToken) -> Result<()>;
 }
 
+/// Configuration for the HTTP server and related timeouts.
+///
+/// Holds addresses for the main application server and metrics endpoint,
+/// along with timeout for pre-run initialization tasks (e.g., health checks).
+pub struct ServerConfig {
+    /// Address for the application server (e.g., "0.0.0.0:8080").
+    pub addr: String,
+    /// Address for the metrics server (e.g., "0.0.0.0:9090").
+    pub metrics_addr: String,
+    /// Timeout for pre-run tasks.
+    pub pre_run_tasks_timeout: Duration,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            addr: String::from("127.0.0.1:9000"),
+            metrics_addr: String::from("127.0.0.1:9007"),
+            pre_run_tasks_timeout: Duration::from_secs(60),
+        }
+    }
+}
+
 /// Server configuration and runner for Axum-based HTTP servers with metrics and background
 /// processes.
 ///
@@ -53,16 +76,16 @@ pub struct Server {
 }
 
 impl Server {
-    /// Creates a new `Server` instance.
+    /// Creates a new `Server` from configuration.
     ///
     /// # Arguments
-    /// * `addr` - Bind address for the application server.
-    /// * `metrics_addr` - Bind address for the metrics server.
-    pub fn new(addr: String, metrics_addr: String) -> Self {
+    ///
+    /// * `config` - Server configuration with addresses and timeouts.
+    pub fn from_config(config: ServerConfig) -> Self {
         Self {
-            addr,
-            metrics_addr,
-            pre_run_tasks_timeout: Duration::from_secs(60),
+            addr: config.addr,
+            metrics_addr: config.metrics_addr,
+            pre_run_tasks_timeout: config.pre_run_tasks_timeout,
             processes: None,
         }
     }

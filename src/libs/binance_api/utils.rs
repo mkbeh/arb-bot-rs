@@ -5,6 +5,10 @@ use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 
+/// Generates an HMAC-SHA256 signature for API authentication.
+///
+/// Computes the signature over an optional query string using the provided secret key.
+/// If no query is provided, an empty message is signed (useful for timestamp-only signatures).
 pub fn generate_signature(secret: &str, query: Option<&str>) -> String {
     let mut mac =
         HmacSha256::new_from_slice(secret.as_bytes()).expect("invalid length of secret key");
@@ -16,6 +20,7 @@ pub fn generate_signature(secret: &str, query: Option<&str>) -> String {
     hex::encode(mac.finalize().into_bytes())
 }
 
+/// Computes the current timestamp in milliseconds since the Unix epoch.
 pub fn get_timestamp(start: SystemTime) -> anyhow::Result<u64> {
     let since_epoch = start.duration_since(UNIX_EPOCH)?;
     Ok(since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000)

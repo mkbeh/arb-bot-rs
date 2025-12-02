@@ -1,3 +1,5 @@
+//! Binance exchange service module for arbitrage operations.
+
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -21,6 +23,7 @@ use crate::{
     },
 };
 
+/// Configuration for the Binance exchange service.
 pub struct BinanceExchangeConfig {
     pub api_url: String,
     pub api_token: String,
@@ -35,6 +38,7 @@ pub struct BinanceExchangeConfig {
     pub min_ticker_qty_24h: Decimal,
 }
 
+/// Core service for Binance exchange arbitrage operations.
 pub struct BinanceExchangeService {
     asset_builder: AssetBuilder,
     ticker_builder: TickerBuilder,
@@ -97,6 +101,7 @@ impl BinanceExchangeService {
 
 #[async_trait]
 impl ExchangeService for BinanceExchangeService {
+    /// Starts the arbitrage process.
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()> {
         // Get and update base assets limits.
         let base_assets = self

@@ -1,3 +1,32 @@
+//! KuCoin WebSocket client for authenticated private trading operations.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use anyhow::Result;
+//! use arb_bot_rs::libs::kucoin_api::ws::{
+//!     AddOrderRequest, ConnectConfig, WebsocketClient, connect_ws,
+//! };
+//! use tokio_util::sync::CancellationToken;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     let config = ConnectConfig {
+//!         ws_url: "wss://ws-api.kucoin.com/v1/private".to_string(),
+//!         token: "your-api-key".to_string(),
+//!         secret_key: "your-secret-key".to_string(),
+//!         passphrase: "your-passphrase".to_string(),
+//!     };
+//!
+//!     let token = CancellationToken::new();
+//!     let mut client = connect_ws(config, token.clone()).await?;
+//!
+//!     // Disconnect.
+//!     client.disconnect().await;
+//!     Ok(())
+//! }
+//! ```
+
 use std::{
     collections::HashMap,
     sync::Arc,
@@ -27,8 +56,10 @@ use crate::libs::{
     },
 };
 
+/// Type for tracking pending requests with response channels.
 type PendingRequests = HashMap<String, mpsc::Sender<anyhow::Result<WebsocketResponse<Value>>>>;
 
+/// Configuration for establishing a WebSocket connection to KuCoin API.
 #[derive(Clone)]
 pub struct ConnectConfig {
     pub ws_url: String,
@@ -37,6 +68,7 @@ pub struct ConnectConfig {
     pub passphrase: String,
 }
 
+/// Main WebSocket client structure for private trading operations.
 pub struct WebsocketClient {
     writer: Arc<Mutex<Writer>>,
     pending_requests: Arc<Mutex<PendingRequests>>,
@@ -46,6 +78,7 @@ pub struct WebsocketClient {
     response_timeout: Duration,
 }
 
+/// Establishes a WebSocket connection to KuCoin and initializes the client.
 pub async fn connect_ws(
     conf: ConnectConfig,
     cancellation_token: CancellationToken,
@@ -113,6 +146,25 @@ pub async fn connect_ws(
 }
 
 impl WebsocketClient {
+    /// Adds a new order via the KuCoin WebSocket API.
+    ///
+    /// Constructs and sends the signed request, awaits the response.
+    /// Supports market/limit orders with size or funds.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - Order addition parameters.
+    ///
+    /// # Returns
+    ///
+    /// `AddOrderResponse` on success.
+    ///
+    /// # Errors
+    ///
+    /// - Signature generation failures.
+    /// - Request serialization or transmission errors.
+    /// - Timeout or no response from server.
+    /// - API errors (e.g., invalid parameters).
     pub async fn add_order(
         &mut self,
         request: AddOrderRequest,
@@ -120,6 +172,31 @@ impl WebsocketClient {
         self.send_request::<AddOrderRequest, AddOrderResponse>(WebsocketApi::AddOrder, request)
             .await
     }
+
+    /// Internal method to send a generic signed request and await response.
+    ///
+    /// Serializes the request, tracks it via channel, sends over WebSocket,
+    /// and waits for correlated response with timeout.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The request parameter type (must implement `Serialize`).
+    /// * `R` - The response type (must implement `DeserializeOwned`).
+    ///
+    /// # Arguments
+    ///
+    /// * `method` - The WebSocket API method (e.g., `WebsocketApi::AddOrder`).
+    /// * `params` - The request parameters.
+    ///
+    /// # Returns
+    ///
+    /// A deserialized `R` on success.
+    ///
+    /// # Errors
+    ///
+    /// - Serialization failures.
+    /// - WebSocket send errors.
+    /// - Timeout, no response, or remote API errors.
     async fn send_request<T, R>(&mut self, method: WebsocketApi, params: T) -> anyhow::Result<R>
     where
         T: Serialize,
@@ -163,6 +240,7 @@ impl WebsocketClient {
         }
     }
 
+    /// Disconnects the WebSocket connection gracefully.
     pub async fn disconnect(&mut self) {
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
@@ -181,6 +259,7 @@ impl WebsocketClient {
     }
 }
 
+/// Background task for handling incoming messages from the reader.
 async fn reader_handle(
     mut reader: Reader,
     pending: Arc<Mutex<PendingRequests>>,
@@ -219,6 +298,7 @@ async fn reader_handle(
     }
 }
 
+/// Processes a text message: deserializes as WebsocketEvent, routes responses.
 async fn handle_text_message(
     text: &str,
     pending: &Arc<Mutex<PendingRequests>>,
@@ -257,6 +337,7 @@ async fn handle_text_message(
     Ok(())
 }
 
+/// Notifies all pending requests of an error (e.g., on disconnect).
 async fn notify_pending(pending: &Arc<Mutex<PendingRequests>>, err: anyhow::Error) {
     let mut pending = pending.lock().await;
     for (_, sender) in pending.drain() {
@@ -264,6 +345,7 @@ async fn notify_pending(pending: &Arc<Mutex<PendingRequests>>, err: anyhow::Erro
     }
 }
 
+/// Builds the WebSocket URL with KuCoin authentication.
 fn build_ws_url(conf: ConnectConfig) -> anyhow::Result<Url> {
     let timestamp = utils::get_timestamp(SystemTime::now())?;
     let url_path = format!("apikey={}&timestamp={}", conf.token, timestamp);
@@ -284,6 +366,9 @@ fn build_ws_url(conf: ConnectConfig) -> anyhow::Result<Url> {
     Url::parse(&ws_url).context("Invalid websocket url")
 }
 
+/// Enum representing supported WebSocket API methods.
+///
+/// Defines the private trading endpoints used in this client.
 pub enum WebsocketApi {
     AddOrder,
 }
@@ -296,6 +381,7 @@ impl From<WebsocketApi> for String {
     }
 }
 
+/// Internal request structure sent over WebSocket.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize)]
 struct WebsocketRequest<T>
@@ -320,6 +406,7 @@ where
     }
 }
 
+/// Enum for deserialized WebSocket events (pong or response).
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 pub enum WebsocketEvent {
@@ -327,6 +414,7 @@ pub enum WebsocketEvent {
     Response(WebsocketResponse<Value>),
 }
 
+/// Enum for API responses.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 pub enum WebsocketResponse<T> {
@@ -353,6 +441,7 @@ impl<T> WebsocketResponse<T> {
     }
 }
 
+/// Structure for pong responses (ignored in handling).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PongResponse {
@@ -361,6 +450,7 @@ pub struct PongResponse {
     pub timestamp: u64,
 }
 
+/// Structure for successful API responses.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SuccessResponse<T> {
@@ -372,6 +462,7 @@ pub struct SuccessResponse<T> {
     pub out_time: u64,
 }
 
+/// Structure for error API responses.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponse {
@@ -385,6 +476,7 @@ pub struct ErrorResponse {
     pub out_time: u64,
 }
 
+/// Request structure for adding an order.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -399,6 +491,7 @@ pub struct AddOrderRequest {
     pub funds: Option<String>,
 }
 
+/// Response structure for adding an order.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddOrderResponse {
