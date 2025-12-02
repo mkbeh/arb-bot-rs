@@ -1,19 +1,8 @@
+//! Main entrypoint module for the arbitrage bot application.
 extern crate arb_bot_rs as app;
 
 use crate::entrypoint::Entrypoint;
 
 mod entrypoint;
-use app::libs::setup_application;
-use tracing::error;
 
-#[tokio::main]
-async fn main() {
-    setup_application(env!("CARGO_PKG_NAME"));
-    match Entrypoint.run().await {
-        Ok(_) => std::process::exit(0),
-        Err(e) => {
-            error!("{:?}", e);
-            std::process::exit(1);
-        }
-    };
-}
+app::setup_app!(async { Entrypoint.run().await });

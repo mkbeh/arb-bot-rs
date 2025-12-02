@@ -1,3 +1,5 @@
+//! Binance order sender service for executing arbitrage chains.
+
 use std::time::Duration;
 
 use anyhow::{Context, bail};
@@ -28,6 +30,7 @@ use crate::{
     },
 };
 
+/// Configuration for the Binance sender service.
 pub struct BinanceSenderConfig {
     pub send_orders: bool,
     pub order_lifetime_secs: u64,
@@ -52,6 +55,7 @@ impl From<&Config> for BinanceSenderConfig {
     }
 }
 
+/// Service for sending and polling Binance orders from arbitrage chains.
 pub struct BinanceSenderService {
     send_orders: bool,
     order_lifetime: Duration,
@@ -64,6 +68,7 @@ pub struct BinanceSenderService {
 
 #[async_trait]
 impl OrderSenderService for BinanceSenderService {
+    /// Starts listening for chains and sending orders.
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
         let (mut ws_writer, message_handler, mut message_done_rx) =
             self.setup_websocket(token.clone()).await?;
@@ -114,6 +119,7 @@ impl BinanceSenderService {
         })
     }
 
+    /// Sets up WebSocket connection and spawns reader handler.
     async fn setup_websocket(
         &self,
         token: CancellationToken,
@@ -143,6 +149,7 @@ impl BinanceSenderService {
         Ok((ws_writer, message_handler, message_done_rx))
     }
 
+    /// Processes a new chain from the watch receiver.
     async fn process_chain_orders(
         &self,
         orders_rx: &mut watch::Receiver<Chain>,
@@ -184,6 +191,7 @@ impl BinanceSenderService {
         Ok(())
     }
 
+    /// Processes a single order.
     async fn process_order(
         &self,
         idx: usize,
@@ -209,6 +217,7 @@ impl BinanceSenderService {
             .await
     }
 
+    /// Waits for available request weight before proceeding.
     async fn wait_for_weight(&self, api: WebsocketApi) -> anyhow::Result<()> {
         loop {
             if REQUEST_WEIGHT.lock().await.add(api.weight() as usize) {
@@ -219,6 +228,7 @@ impl BinanceSenderService {
         Ok(())
     }
 
+    /// Polls order status until FILLED or lifetime exceeded.
     async fn poll_order_status(
         &self,
         ws_writer: &mut WebsocketWriter,

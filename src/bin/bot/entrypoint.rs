@@ -1,10 +1,11 @@
+//! Entrypoint module for the arbitrage bot application.
 use std::sync::Arc;
 
 use anyhow::Context;
 use app::{
     config::{Config, Exchange, Settings},
     cron::{arbitrage_job, order_sender_job},
-    libs::http_server::{Server, server::ServerProcess},
+    libs::http_server::{Server, ServerConfig, server::ServerProcess},
     services::{
         BinanceExchangeConfig, BinanceExchangeService, BinanceSenderConfig, BinanceSenderService,
         ExchangeService, KucoinExchangeConfig, KucoinExchangeService, KucoinSenderConfig,
@@ -12,34 +13,59 @@ use app::{
     },
 };
 
+/// Main entrypoint struct for the application.
+///
+/// This is a zero-sized struct used as a singleton to invoke the application's
+/// runtime logic. It handles the full lifecycle from config loading to server startup.
 pub struct Entrypoint;
 
 impl Entrypoint {
+    /// Runs the application, performing all necessary setup and starting the server.
     pub async fn run(&self) -> anyhow::Result<()> {
         let config = Config::parse().with_context(|| "Failed to parse config file")?;
 
+        // Configure global request weight limit for API rate limiting.
         {
             let mut weight_lock = REQUEST_WEIGHT.lock().await;
             weight_lock.set_weight_limit(config.settings.api_weight_limit);
         }
 
-        let (exchange_service, sender_service) = build_services(&config).await?;
+        // Build trait-object services for exchange and order sending.
+        let (exchange_service, sender_service) = build_services(&config)?;
+
+        // Create server processes for cron-like jobs
         let processes = build_processes(config.settings.clone(), exchange_service, sender_service)?;
 
-        Server::new(
-            config.settings.server_addr.clone(),
-            config.settings.metrics_addr.clone(),
-        )
-        .with_processes(processes)
-        .run()
-        .await
-        .with_context(|| "handling server error")?;
+        // Initialize and run the HTTP server with processes and metrics.
+        self.run_http_server(&config.settings, processes).await?;
+
+        Ok(())
+    }
+
+    /// Runs the HTTP server with the given config and processes.
+    async fn run_http_server(
+        &self,
+        settings: &Settings,
+        processes: Vec<Arc<dyn ServerProcess>>,
+    ) -> anyhow::Result<()> {
+        let server_config = ServerConfig {
+            addr: settings.server_addr.clone(),
+            metrics_addr: settings.metrics_addr.clone(),
+            ..ServerConfig::default()
+        };
+
+        Server::from_config(server_config)
+            .with_processes(processes)
+            .run()
+            .await
+            .with_context(|| "handling server error")?;
 
         Ok(())
     }
 }
 
-async fn build_services(
+/// Builds exchange-specific services based on the configuration.
+fn build_services(
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ExchangeService>, Arc<dyn OrderSenderService>)> {
     let exchange = config
@@ -74,6 +100,7 @@ async fn build_services(
     }
 }
 
+/// Builds server processes for arbitrage and order sending jobs.
 fn build_processes(
     settings: Settings,
     exchange_service: Arc<dyn ExchangeService>,

@@ -4,6 +4,11 @@ use base64::{Engine as _, engine::general_purpose};
 use hmac::{Hmac, Mac};
 
 type HmacSha256 = Hmac<sha2::Sha256>;
+
+/// Generates a Base64-encoded HMAC-SHA256 signature for API authentication.
+///
+/// Computes the signature over the provided plaintext using the secret key.
+/// KuCoin API requires Base64 encoding for signatures (unlike hex in other exchanges).
 pub fn sign(plain: &str, key: &str) -> String {
     let mut mac =
         HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
@@ -11,6 +16,7 @@ pub fn sign(plain: &str, key: &str) -> String {
     general_purpose::STANDARD.encode(mac.finalize().into_bytes())
 }
 
+/// Computes the current timestamp in milliseconds since the Unix epoch.
 pub fn get_timestamp(start: SystemTime) -> anyhow::Result<u64> {
     let since_epoch = start.duration_since(UNIX_EPOCH)?;
     Ok(since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000)

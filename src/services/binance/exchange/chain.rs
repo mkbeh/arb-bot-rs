@@ -1,3 +1,9 @@
+//! Chain builder module for constructing triangular arbitrage symbol chains.
+//!
+//! This module provides utilities for building valid 3-symbol chains (e.g., BTC/USDT -> ETH/BTC ->
+//! ETH/USDT) from exchange symbols, ensuring connectivity (out asset of one matches in of next) and
+//! order direction (Asc/Desc).
+
 use std::{
     collections::{BTreeMap, HashMap, btree_map},
     sync::Arc,
@@ -17,12 +23,15 @@ use crate::{
     services::enums::SymbolOrder,
 };
 
+/// Wrapper for a trading symbol with directional order (Asc for base/quote, Desc for reversed
+/// quote/base).
 #[derive(Clone, Debug)]
 pub struct ChainSymbol {
     pub symbol: Symbol,
     pub order: SymbolOrder,
 }
 
+/// Builder for constructing valid triangular symbol chains from exchange data.
 #[derive(Clone)]
 pub struct ChainBuilder {
     general_api: General,
@@ -43,6 +52,7 @@ impl ChainBuilder {
         }
     }
 
+    /// Builds all valid 3-symbol chains for the given base assets.
     pub async fn build_symbols_chains(
         self: Arc<Self>,
         base_assets: Vec<Asset>,
@@ -83,6 +93,12 @@ impl ChainBuilder {
         Ok(filter_chains)
     }
 
+    /// Discovers valid 3-symbol chains for a specific order direction.
+    ///
+    /// Nested loops over symbols to find connected triangles:
+    /// - A -> B (out A = in B)
+    /// - B -> C (out B = in C)
+    /// - C -> A (out C = in A, via base asset match)
     async fn build_chains(
         &self,
         symbols: &[Symbol],
@@ -149,6 +165,7 @@ impl ChainBuilder {
         chains
     }
 
+    /// Filters chains by minimum 24h volume thresholds, scaled by price and order direction.
     async fn filter_chains_by_24h_vol(
         &self,
         base_assets: &[Asset],

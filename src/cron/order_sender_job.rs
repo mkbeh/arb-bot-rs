@@ -1,3 +1,4 @@
+//! Process module for managing the order sender execution loop.
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
@@ -6,6 +7,7 @@ use tracing::error;
 
 use crate::{libs::http_server::ServerProcess, services::OrderSenderService};
 
+/// Configuration for the order sender process.
 pub struct Config {
     pub error_timeout_secs: u64,
 }
@@ -16,6 +18,7 @@ impl Config {
     }
 }
 
+/// Core process for executing order sending operations via an order sender service.
 pub struct Process {
     error_timeout_secs: Duration,
     service: Arc<dyn OrderSenderService>,
@@ -30,12 +33,15 @@ impl Process {
     }
 }
 
+/// Implementation of the `ServerProcess` trait for the `Process` struct.
 #[async_trait]
 impl ServerProcess for Process {
+    /// Pre-run hook: Performs any necessary setup before the main loop starts.
     async fn pre_run(&self) -> anyhow::Result<()> {
         Ok(())
     }
 
+    /// Main run loop for the process.
     async fn run(&self, token: CancellationToken) -> anyhow::Result<()> {
         loop {
             tokio::select! {
