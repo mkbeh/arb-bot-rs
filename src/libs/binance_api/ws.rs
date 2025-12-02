@@ -1,3 +1,41 @@
+//! Binance WebSocket client for authenticated trading operations.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use anyhow::Result;
+//! use arb_bot_rs::libs::binance_api::{
+//!     OrderSide, OrderType,
+//!     ws::{ConnectConfig, WebsocketReader, WebsocketWriter, connect_ws},
+//! };
+//! use tokio_util::sync::CancellationToken;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     let config = ConnectConfig::new(
+//!         "wss://ws-api.binance.com:443/ws-api/v3".to_string(),
+//!         "your-api-key".to_string(),
+//!         "your-secret-key".to_string(),
+//!     );
+//!
+//!     let (mut writer, reader) = connect_ws(config).await?;
+//!
+//!     // Spawn reader task.
+//!     let token = CancellationToken::new();
+//!     let reader_token = token.clone();
+//!     let reader_handle = tokio::spawn(async move {
+//!         if let Err(e) = reader.handle_messages(reader_token).await {
+//!             eprintln!("Reader error: {}", e);
+//!         }
+//!     });
+//!
+//!     // Cancel on completion.
+//!     token.cancel();
+//!     reader_handle.await?;
+//!     Ok(())
+//! }
+//! ```
+
 use std::{
     collections::HashMap,
     sync::Arc,
@@ -28,11 +66,19 @@ use crate::libs::binance_api::{
     TimeInForce, utils, utils::generate_signature,
 };
 
+/// Type alias for the underlying WebSocket stream type.
 type WebSocketStreamType = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+/// Type alias for the WebSocket sink (writer).
 type WebSocketSink = SplitSink<WebSocketStreamType, Message>;
+
+/// Type alias for the WebSocket stream (reader).
 type WebSocketStreamSplit = SplitStream<WebSocketStreamType>;
+
+/// Type alias for tracking pending requests with response channels.
 type PendingRequests = HashMap<String, mpsc::Sender<anyhow::Result<WebsocketResponse<Value>>>>;
 
+/// Configuration for establishing a WebSocket connection to Binance API.
 #[derive(Clone)]
 pub struct ConnectConfig {
     pub ws_url: String,
@@ -40,6 +86,7 @@ pub struct ConnectConfig {
     pub secret_key: String,
 }
 
+/// Writer half of the split WebSocket stream for sending authenticated requests.
 #[derive(Clone)]
 pub struct WebsocketWriter {
     writer: Arc<Mutex<WebSocketSink>>,
@@ -49,12 +96,14 @@ pub struct WebsocketWriter {
     pending_requests: Arc<Mutex<PendingRequests>>,
 }
 
+/// Reader half of the split WebSocket stream for handling incoming messages.
 pub struct WebsocketReader {
     writer: Arc<Mutex<WebSocketSink>>,
     reader: WebSocketStreamSplit,
     pending_requests: Arc<Mutex<PendingRequests>>,
 }
 
+/// Establishes a WebSocket connection to Binance and splits into reader/writer halves.
 pub async fn connect_ws(conf: ConnectConfig) -> anyhow::Result<(WebsocketWriter, WebsocketReader)> {
     let url = Url::parse(conf.ws_url.as_str())?;
     let (ws_stream, _) = connect_async(url.as_str()).await?;
@@ -201,6 +250,7 @@ impl WebsocketWriter {
         .await
     }
 
+    /// Sends a generic signed request over the WebSocket and awaits the response.
     async fn send_request<T, R>(&mut self, method: WebsocketApi, params: T) -> anyhow::Result<R>
     where
         T: Serialize,
@@ -246,6 +296,7 @@ impl WebsocketWriter {
 }
 
 impl WebsocketReader {
+    /// Handles incoming WebSocket messages in a loop until cancellation or closure.
     pub async fn handle_messages(mut self, token: CancellationToken) -> anyhow::Result<()> {
         loop {
             tokio::select! {
@@ -282,6 +333,8 @@ impl WebsocketReader {
         Ok(())
     }
 
+    /// Deserializes a text message as a WebSocket response and routes to the matching pending
+    /// request.
     async fn handle_text_message(&self, text: &str) -> anyhow::Result<()> {
         match serde_json::from_str::<WebsocketResponse<Value>>(text) {
             Ok(response) => {
@@ -302,6 +355,7 @@ impl WebsocketReader {
     }
 }
 
+/// Builds a query string from a vector of sorted key-value pairs.
 fn build_query_string(params: Vec<(String, String)>) -> String {
     params
         .iter()
@@ -310,6 +364,7 @@ fn build_query_string(params: Vec<(String, String)>) -> String {
         .join("&")
 }
 
+/// Custom error enum for WebSocket client operations.
 #[derive(Debug, thiserror::Error)]
 pub enum WebsocketClientError {
     #[error("Request timed out after {0:?}")]
@@ -324,6 +379,7 @@ pub enum WebsocketClientError {
     SerializationError(String),
 }
 
+/// Enum representing supported WebSocket API methods.
 pub enum WebsocketApi {
     PlaceOrder,
     QueryOrder,
@@ -347,6 +403,7 @@ impl WebsocketApi {
     }
 }
 
+/// Internal request structure sent over the WebSocket.
 #[derive(Debug, Clone, Serialize)]
 struct WebsocketRequest<T>
 where
@@ -370,6 +427,7 @@ where
     }
 }
 
+/// Internal response structure received from the WebSocket.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct WebsocketResponse<T> {
@@ -379,6 +437,7 @@ struct WebsocketResponse<T> {
     content: ResponseContent<T>,
 }
 
+/// Enum for response content.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum ResponseContent<T> {
@@ -405,6 +464,7 @@ impl<T> ResponseContent<T> {
     }
 }
 
+/// Structure for WebSocket error responses from the server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct WebsocketError {
     pub code: i32,

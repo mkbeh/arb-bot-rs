@@ -8,6 +8,7 @@ use crate::{
     libs::kucoin_api::{Market, models::Ticker},
 };
 
+/// Builder for updating asset trading limits based on current market conditions.
 pub struct AssetBuilder {
     market_api: Market,
     base_assets: Vec<Asset>,
@@ -33,6 +34,7 @@ impl AssetBuilder {
         }
     }
 
+    /// Fetches and updates asset limits using 24h ticker stats.
     pub async fn update_base_assets_info(&self) -> anyhow::Result<Vec<Asset>> {
         let symbols: Vec<_> = self
             .base_assets
@@ -66,6 +68,7 @@ impl AssetBuilder {
         Ok(assets)
     }
 
+    /// Scales asset limits based on the provided ticker stats.
     fn set_asset_volumes(&self, asset: &Asset, stat: &Ticker) -> anyhow::Result<Asset> {
         let mut new_asset = asset.clone();
 

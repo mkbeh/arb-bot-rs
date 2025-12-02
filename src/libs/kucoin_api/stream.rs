@@ -1,3 +1,35 @@
+//! KuCoin WebSocket stream module for real-time event processing.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use anyhow::Result;
+//! use arb_bot_rs::libs::kucoin_api::stream::{
+//!     Topic, WebsocketStream, order_book_increment_topic,
+//! };
+//! use tokio_util::sync::CancellationToken;
+//!
+//! #[derive(serde::Deserialize, Debug)]
+//! struct MyEvent {/* fields */}
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     let mut ws = WebsocketStream::new("wss://ws-api.kucoin.com/endpoint".to_string(), 18000)
+//!         .with_callback(|event: MyEvent| {
+//!             println!("Event: {:?}", event);
+//!             Ok(())
+//!         });
+//!
+//!     let token = "your-connect-token".to_string();
+//!     let topics = vec![order_book_increment_topic(&["BTC-USDT"])];
+//!     ws.connect(&topics, token).await?;
+//!
+//!     let cancel_token = CancellationToken::new();
+//!     ws.handle_messages(cancel_token).await?;
+//!     Ok(())
+//! }
+//! ```
+
 use std::{
     fmt,
     sync::Arc,
@@ -30,10 +62,16 @@ use crate::libs::kucoin_api::{
     utils::get_timestamp,
 };
 
+/// Type alias for an event callback function.
 type EventCallback<'a, T> = Box<dyn FnMut(T) -> anyhow::Result<()> + 'a + Send>;
-pub(crate) type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
-pub(crate) type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
+/// Type alias for the WebSocket writer sink.
+pub type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+
+/// Type alias for the WebSocket reader stream.
+pub type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
+
+/// Generic WebSocket stream handler for KuCoin real-time event processing.
 pub struct WebsocketStream<'a, Event> {
     ws_url: String,
     ping_interval: Duration,
@@ -57,6 +95,9 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         }
     }
 
+    /// Sets a callback to handle incoming deserialized events.
+    ///
+    /// The callback is invoked for each valid text message after deserialization.
     pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
     where
         Callback: FnMut(Event) -> anyhow::Result<()> + 'a + Send,
@@ -65,6 +106,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self
     }
 
+    /// Connects to the KuCoin WebSocket endpoint and subscribes to the provided topics.
     pub async fn connect(&mut self, topics: &[Topic], token: String) -> anyhow::Result<()> {
         let timestamp = get_timestamp(SystemTime::now())?;
         let ws_url = format!("{}?token={}&connectId={}", self.ws_url, token, timestamp);
@@ -95,6 +137,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
+    /// Disconnects the WebSocket stream gracefully.
     pub async fn disconnect(&mut self) {
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
@@ -110,6 +153,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self.ping_handle = None;
     }
 
+    /// Subscribes to a specific topic on the connected WebSocket.
     pub async fn subscribe(&mut self, ts: u64, topic: &Topic) -> anyhow::Result<()> {
         let subscribe_msg = SubscribeMessage::new(topic.stream.clone(), ts, topic.private);
         let json_msg = serde_json::to_string(&subscribe_msg)?;
@@ -122,6 +166,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
+    /// Handles incoming messages in a loop until cancellation or closure.
     pub async fn handle_messages(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         if !self.is_connected() {
             bail!("Websocket stream is not connected");
@@ -156,6 +201,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
+    /// Deserializes a text message and invokes the callback if present.
     fn handle_text_message(
         callback: &mut Option<EventCallback<'a, Event>>,
         text: &str,
@@ -175,6 +221,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
+    /// Performs the WebSocket handshake and splits the stream.
     async fn connect_ws(&mut self, url: Url) -> anyhow::Result<()> {
         match connect_async(url.as_str()).await {
             Ok((stream, _)) => {
@@ -187,11 +234,20 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         }
     }
 
+    /// Checks if the WebSocket is currently connected.
+    ///
+    /// # Returns
+    ///
+    /// `true` if both reader and writer are present.
     fn is_connected(&self) -> bool {
         self.writer.is_some() && self.reader.is_some()
     }
 }
 
+/// Background task for sending periodic ping messages to keep the connection alive.
+///
+/// Runs in a loop, sending pings at the specified interval, and shuts down on oneshot signal.
+/// Sends a close message on shutdown.
 pub async fn ping_loop<S>(
     writer: Arc<Mutex<S>>,
     mut shutdown_rx: oneshot::Receiver<()>,
@@ -227,6 +283,7 @@ pub async fn ping_loop<S>(
     }
 }
 
+/// Generates a KuCoin ping message as JSON.
 fn ping_message() -> anyhow::Result<String> {
     let timestamp = get_timestamp(SystemTime::now())?;
     let ping = json!({
@@ -236,6 +293,8 @@ fn ping_message() -> anyhow::Result<String> {
     Ok(ping.to_string())
 }
 
+/// Generates a topic for order book increment updates.
+///
 /// # Arguments
 ///
 /// * `symbol`: the market symbol
@@ -247,6 +306,7 @@ pub fn order_book_increment_topic(symbols: &[&str]) -> Topic {
     }
 }
 
+/// Generates a topic for order changes (private channel).
 pub fn order_change_topic() -> Topic {
     Topic {
         stream: String::from("/spotMarket/tradeOrdersV2"),
@@ -254,6 +314,7 @@ pub fn order_change_topic() -> Topic {
     }
 }
 
+/// Generates a topic for account balance updates (private channel).
 pub fn account_balance_topic() -> Topic {
     Topic {
         stream: String::from("/account/balance"),
@@ -261,6 +322,15 @@ pub fn account_balance_topic() -> Topic {
     }
 }
 
+/// Converts a slice of symbols to a comma-separated string.
+///
+/// # Arguments
+///
+/// * `symbols` - Slice of &str symbols.
+///
+/// # Returns
+///
+/// Joined string (e.g., "BTC-USDT,ETH-USDT").
 fn symbols_to_comma_separated(symbols: &[&str]) -> String {
     symbols
         .iter()
@@ -269,11 +339,13 @@ fn symbols_to_comma_separated(symbols: &[&str]) -> String {
         .join(",")
 }
 
+/// Structure representing a subscription topic.
 pub struct Topic {
     stream: String,
     private: bool,
 }
 
+/// Internal message structure for KuCoin subscription requests.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SubscribeMessage {

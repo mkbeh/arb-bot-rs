@@ -5,12 +5,14 @@ use crate::libs::kucoin_api::{
     models::{AllTickers, RestResponse, Symbol},
 };
 
+/// Wrapper struct for market-related KuCoin API operations.
 #[derive(Clone)]
 pub struct Market {
     pub client: Client,
 }
 
 impl Market {
+    /// Retrieves all trading symbols from KuCoin Spot API.
     pub async fn get_all_symbols(
         &self,
         market: Option<MarketType>,
@@ -26,6 +28,7 @@ impl Market {
             .await
     }
 
+    /// Retrieves all tickers (price data) for trading pairs on KuCoin Spot API.
     pub async fn get_all_tickers(&self) -> anyhow::Result<RestResponse<AllTickers>> {
         self.client
             .get(Api::Spot(Spot::GetAllTickers), None, false)

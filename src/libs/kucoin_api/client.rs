@@ -1,3 +1,37 @@
+//! KuCoin API client module.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use std::time::Duration;
+//!
+//! use anyhow::Result;
+//! use arb_bot_rs::libs::kucoin_api::{
+//!     Client, ClientConfig,
+//!     api::{Api, Spot},
+//!     models::{RestResponse, Token},
+//! };
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     let config = ClientConfig {
+//!         host: "https://api.kucoin.com".to_string(),
+//!         api_key: "your-api-key".to_string(),
+//!         api_secret: "your-api-secret".to_string(),
+//!         api_passphrase: "your-passphrase".to_string(),
+//!         http_config: Default::default(),
+//!     };
+//!
+//!     let client = Client::from_config(config)?;
+//!     // Example public POST request.
+//!     let response: RestResponse<Token> = client
+//!         .post(Api::Spot(Spot::GetBulletPublic), None, None, false)
+//!         .await?;
+//!     println!("Response: {:?}", response);
+//!     Ok(())
+//! }
+//! ```
+
 use std::time::{Duration, SystemTime};
 
 use anyhow::bail;
@@ -11,15 +45,24 @@ use tracing::warn;
 
 use crate::libs::kucoin_api::{api::Api, utils};
 
+/// Configuration for the KuCoin API client.
+///
+/// Holds credentials and HTTP settings for client initialization.
 #[derive(Clone)]
 pub struct ClientConfig {
+    /// The base host URL for KuCoin API
     pub host: String,
+    /// API key for authentication.
     pub api_key: String,
+    /// API secret for signature generation.
     pub api_secret: String,
+    /// API passphrase (signed with secret if provided).
     pub api_passphrase: String,
+    /// HTTP client configuration (timeouts, pooling, etc.).
     pub http_config: HttpConfig,
 }
 
+/// Primary client struct for making KuCoin API requests.
 #[derive(Clone)]
 pub struct Client {
     host: String,
@@ -60,6 +103,23 @@ impl Client {
         Ok(client)
     }
 
+    /// Performs a GET request to the specified API endpoint.
+    ///
+    /// Deserializes the response into the provided type `T`.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The API endpoint (e.g., `Api::Spot(Spot::ServerTime)`).
+    /// * `query` - Optional query parameters as `Vec<(&str, &str)>`.
+    /// * `private` - Whether to authenticate the request.
+    ///
+    /// # Returns
+    ///
+    /// A deserialized `T` on success.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from request processing, response handling, or deserialization.
     pub async fn get<T: DeserializeOwned>(
         &self,
         path: Api,
@@ -70,6 +130,24 @@ impl Client {
             .await
     }
 
+    /// Performs a POST request to the specified API endpoint.
+    ///
+    /// Deserializes the response into the provided type `T`.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The API endpoint (e.g., `Api::Spot(Spot::SomeEndpoint)`).
+    /// * `query` - Optional query parameters as `Vec<(&str, &str)>`.
+    /// * `body` - Optional JSON body as `&str`.
+    /// * `private` - Whether to authenticate the request.
+    ///
+    /// # Returns
+    ///
+    /// A deserialized `T` on success.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from request processing, response handling, or deserialization.
     pub async fn post<T: DeserializeOwned>(
         &self,
         path: Api,
@@ -81,6 +159,28 @@ impl Client {
             .await
     }
 
+    /// Internal method to process a generic HTTP request.
+    ///
+    /// Builds the URL, adds authentication headers if private, executes the request,
+    /// and handles the response.
+    ///
+    /// # Arguments
+    ///
+    /// * `method` - The HTTP method (GET or POST).
+    /// * `path` - The API endpoint.
+    /// * `query` - Optional query parameters.
+    /// * `body` - Optional request body.
+    /// * `private` - Authentication flag.
+    ///
+    /// # Returns
+    ///
+    /// A deserialized `T` on success.
+    ///
+    /// # Errors
+    ///
+    /// - URL building failures (e.g., encoding errors).
+    /// - Header construction errors (e.g., invalid values).
+    /// - Request execution or response handling errors.
     async fn process_request<T: DeserializeOwned>(
         &self,
         method: Method,
@@ -107,6 +207,22 @@ impl Client {
         response_handler(response).await
     }
 
+    /// Builds the full and raw URLs for the request.
+    ///
+    /// Encodes query parameters if provided.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The API path as string.
+    /// * `query` - Optional query parameters.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(full_url, raw_url)` on success.
+    ///
+    /// # Errors
+    ///
+    /// - Query encoding failures.
     fn build_urls(
         &self,
         path: &Api,
@@ -125,6 +241,24 @@ impl Client {
         Ok((full_url, raw_url))
     }
 
+    /// Builds authentication headers for private requests.
+    ///
+    /// Generates timestamp, payload, signature, and sets KuCoin-specific headers.
+    ///
+    /// # Arguments
+    ///
+    /// * `method` - The HTTP method.
+    /// * `raw_url` - The raw URL path (for payload).
+    /// * `body` - Optional body (for payload).
+    ///
+    /// # Returns
+    ///
+    /// A `HeaderMap` with authentication headers.
+    ///
+    /// # Errors
+    ///
+    /// - Timestamp generation failures.
+    /// - Invalid header values (e.g., non-UTF8).
     fn build_headers(
         &self,
         method: &Method,
@@ -155,6 +289,9 @@ impl Client {
     }
 }
 
+/// Handles HTTP responses and deserializes successful ones.
+///
+/// Bails with contextual errors for common failure codes.
 async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result<T> {
     match resp.status() {
         StatusCode::OK => {
@@ -174,6 +311,9 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
     }
 }
 
+/// HTTP configuration for the client.
+///
+/// Provides tunable settings for connection pooling, timeouts, and TCP keepalive.
 #[derive(Clone)]
 pub struct HttpConfig {
     pub connect_timeout: Duration,

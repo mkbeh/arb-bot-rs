@@ -1,3 +1,44 @@
+//! WebSocket stream module for handling real-time data feeds.
+//!
+//! This module provides a generic `WebsocketStream` struct for connecting to WebSocket endpoints,
+//! managing bidirectional communication, and dispatching deserialized events via callbacks.
+//! It is designed for exchange APIs (e.g., Binance)
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use anyhow::Result;
+//! use serde::Deserialize;
+//! use tokio_util::sync::CancellationToken;
+//!
+//! // Define your event type (must implement DeserializeOwned).
+//! #[derive(Debug, Deserialize)]
+//! struct MyEvent {/* fields */}
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     use arb_bot_rs::libs::binance_api::stream::WebsocketStream;
+//!
+//!     let mut ws = WebsocketStream::new("wss://stream.example.com/ws".to_string()).with_callback(
+//!         |event: MyEvent| {
+//!             println!("Event: {:?}", event);
+//!             Ok(())
+//!         },
+//!     );
+//!
+//!     // Connect to a stream.
+//!     ws.connect("btcusdt@bookTicker".to_string()).await?;
+//!
+//!     // Handle messages until cancelled.
+//!     let token = CancellationToken::new();
+//!     ws.handle_messages(token.clone()).await?;
+//!
+//!     // In another task, cancel if needed.
+//!     // token.cancel();
+//!     Ok(())
+//! }
+//! ```
+
 use anyhow::bail;
 use futures_util::{
     SinkExt, StreamExt,
@@ -11,13 +52,22 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 use url::Url;
 
+/// Prefix for multi-stream WebSocket URLs.
 static STREAM_PREFIX: &str = "stream";
+
+/// Prefix for single-stream WebSocket URLs.
 static WS_PREFIX: &str = "ws";
 
+/// Type alias for an event callback function.
 type EventCallback<'a, T> = Box<dyn FnMut(T) -> anyhow::Result<()> + 'a + Send>;
+
+/// Type alias for the WebSocket writer sink.
 type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+
+/// Type alias for the WebSocket reader stream.
 type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
+/// Generic WebSocket stream handler for real-time event processing.
 pub struct WebsocketStream<'a, Event> {
     ws_url: String,
     writer: Option<Writer>,
@@ -35,6 +85,9 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         }
     }
 
+    /// Sets a callback to handle incoming deserialized events.
+    ///
+    /// The callback is invoked for each valid text message after deserialization.
     pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
     where
         Callback: FnMut(Event) -> anyhow::Result<()> + 'a + Send,
@@ -43,12 +96,14 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self
     }
 
+    /// Connects to a single stream endpoint.
     pub async fn connect(&mut self, stream: String) -> anyhow::Result<()> {
         let s = format!("{}/{WS_PREFIX}/{stream}", self.ws_url);
         let url = Url::parse(s.as_str())?;
         self.connect_ws(url).await
     }
 
+    /// Connects to multiple streams in a single WebSocket connection.
     pub async fn connect_multiple(&mut self, streams: &[String]) -> anyhow::Result<()> {
         let s = format!("{}/{STREAM_PREFIX}", self.ws_url);
         let mut url = Url::parse(s.as_str())?;
@@ -57,6 +112,9 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self.connect_ws(url).await
     }
 
+    /// Disconnects the WebSocket stream gracefully.
+    ///
+    /// Sends a close message if connected and clears the reader/writer.
     pub async fn disconnect(&mut self) {
         if let Some(ref mut writer) = self.writer {
             let _ = writer.close().await;
@@ -66,6 +124,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         self.reader = None;
     }
 
+    /// Handles incoming messages in a loop until cancellation or closure.
     pub async fn handle_messages(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         if !self.is_connected() {
             bail!("Websocket stream is not connected");
@@ -106,6 +165,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
+    /// Deserializes a text message and invokes the callback if present.
     fn handle_text_message(
         callback: &mut Option<EventCallback<'a, Event>>,
         text: &str,
@@ -125,6 +185,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
+    /// Performs the WebSocket handshake and splits the stream.
     async fn connect_ws(&mut self, url: Url) -> anyhow::Result<()> {
         match connect_async(url.as_str()).await {
             Ok((stream, _)) => {
@@ -137,6 +198,11 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         }
     }
 
+    /// Checks if the WebSocket is currently connected.
+    ///
+    /// # Returns
+    ///
+    /// `true` if both reader and writer are present.
     pub fn is_connected(&self) -> bool {
         self.writer.is_some() && self.reader.is_some()
     }
@@ -158,12 +224,14 @@ pub fn partial_book_depth_stream(symbol: &str, levels: u16, update_speed: u16) -
     format!("{symbol}@depth{levels}@{update_speed}ms")
 }
 
+/// Wrapper for stream events containing metadata and payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamEvent<T> {
     stream: String,
     pub data: T,
 }
 
+/// Enum representing possible deserialized event types from the stream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Events {
@@ -171,6 +239,7 @@ pub enum Events {
     PartialBookDepth(Box<OrderBook>),
 }
 
+/// Event structure for book ticker updates (best bid/ask prices and quantities).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BookTickerEvent {
@@ -197,6 +266,7 @@ pub struct BookTickerEvent {
     pub best_ask_qty: Decimal,
 }
 
+/// Event structure for partial order book depth updates.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderBook {
@@ -207,6 +277,7 @@ pub struct OrderBook {
     pub asks: Vec<crate::libs::binance_api::OrderBookUnit>,
 }
 
+/// Unit structure for order book entries (price and quantity).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderBookUnit {

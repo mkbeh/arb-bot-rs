@@ -1,3 +1,3 @@
 pub mod server;
 
-pub use server::{Server, ServerProcess};
+pub use server::{Server, ServerConfig, ServerProcess};

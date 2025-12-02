@@ -1,3 +1,10 @@
+//! Ticker builder module for WebSocket stream management in arbitrage chains.
+//!
+//! This module provides a `TickerBuilder` for collecting unique symbols from triangular chains,
+//! creating book ticker streams, chunking them across multiple WebSocket connections (to respect
+//! limits), and spawning concurrent tasks to listen for real-time bid/ask updates. Events are
+//! broadcast via a channel.
+
 use std::collections::HashSet;
 
 use anyhow::bail;
@@ -23,6 +30,7 @@ use crate::{
     },
 };
 
+/// Builder for managing book ticker WebSocket streams across symbol chains.
 #[derive(Clone)]
 pub struct TickerBuilder {
     base_info_api: BaseInfo,
@@ -37,6 +45,7 @@ impl TickerBuilder {
         }
     }
 
+    /// Builds and starts book ticker streams for the given chains.
     pub async fn build_order_books(
         &self,
         token: CancellationToken,
@@ -95,6 +104,7 @@ impl TickerBuilder {
         Ok(())
     }
 
+    /// Handles a chunk of book ticker streams in a dedicated WebSocket connection.
     async fn handle_events_task(
         ws_endpoint: String,
         topics: [Topic; 1],

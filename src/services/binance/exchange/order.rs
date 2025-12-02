@@ -1,3 +1,12 @@
+//! Order builder module for arbitrage chain processing and profit calculation.
+//!
+//! This module provides an `OrderBuilder` for monitoring ticker updates in triangular chains,
+//! calculating potential arbitrage profits by simulating order fills (considering depth, fees,
+//! filters), and generating executable `Order` chains when thresholds are met. It uses broadcast
+//! channels for real-time events, scales quantities by precision/tick sizes, and propagates qty
+//! limits across the chain. Supports Asc/Desc symbol orders with lot/tick filters from exchange
+//! info.
+
 use std::{ops::Sub, sync::Arc};
 
 use itertools::Itertools;
@@ -26,6 +35,7 @@ use crate::{
     },
 };
 
+/// Symbol wrapper for order building with precision, limits, and current ticker.
 #[derive(Clone, Debug)]
 pub struct OrderSymbol<'a> {
     pub symbol: String,
@@ -38,6 +48,7 @@ pub struct OrderSymbol<'a> {
     pub symbol_filter: SymbolFilter,
 }
 
+/// Intermediate order structure during chain qty/profit calculation.
 #[derive(Clone, Debug)]
 pub struct PreOrder {
     symbol: String,
@@ -50,6 +61,7 @@ pub struct PreOrder {
     symbol_filter: SymbolFilter,
 }
 
+/// Symbol filter structure from exchange info.
 #[derive(Clone, Debug, Default)]
 pub struct SymbolFilter {
     pub lot_size_step: u32,
@@ -57,6 +69,7 @@ pub struct SymbolFilter {
     pub lot_size_min_qty: Decimal,
 }
 
+/// Builder for processing arbitrage chains and generating profitable orders.
 pub struct OrderBuilder {
     market_depth_limit: usize,
     fee_percent: Decimal,
@@ -70,6 +83,7 @@ impl OrderBuilder {
         }
     }
 
+    /// Builds and monitors order processing tasks for the given chains.
     pub async fn build_chains_orders(
         self: Arc<Self>,
         token: CancellationToken,
@@ -148,6 +162,7 @@ impl OrderBuilder {
         Ok(())
     }
 
+    /// Handles a ticker event update for a chain.
     pub fn handle_ticker_event(
         &self,
         storage: &mut BookTickerStore,
@@ -197,7 +212,7 @@ impl OrderBuilder {
         }
     }
 
-    /// Build orders info and calculate profit.
+    /// Builds orders for the chain and calculates profit.
     pub fn process_chain(
         base_assets: &[Asset],
         chain: &[ChainSymbol; 3],
@@ -256,6 +271,7 @@ impl OrderBuilder {
         Ok(())
     }
 
+    /// Builds orders for the chain and calculates profit.
     pub fn calculate_chain_profit(
         chain: &[OrderSymbol],
         market_depth_limit: usize,
