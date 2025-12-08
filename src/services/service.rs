@@ -19,13 +19,13 @@ pub static ORDERS_CHANNEL: LazyLock<OrdersSingleton> = LazyLock::new(|| {
 });
 
 #[async_trait]
-pub trait ExchangeService: Send + Sync {
+pub trait Exchange: Send + Sync {
     /// Starts the arbitration process.
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()>;
 }
 
 #[async_trait]
-pub trait OrderSenderService: Send + Sync {
+pub trait Sender: Send + Sync {
     /// Starts the process of sending orders.
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()>;
 }

@@ -293,6 +293,11 @@ impl WebsocketWriter {
             }
         }
     }
+
+    pub async fn disconnect(&mut self) {
+        let mut w = self.writer.lock().await;
+        let _ = w.send(Message::Close(None)).await;
+    }
 }
 
 impl WebsocketReader {

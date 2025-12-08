@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::{libs::http_server::ServerProcess, services::OrderSenderService};
+use crate::{libs::http_server::ServerProcess, services::Sender};
 
 /// Configuration for the order sender process.
 pub struct Config {
@@ -21,11 +21,11 @@ impl Config {
 /// Core process for executing order sending operations via an order sender service.
 pub struct Process {
     error_timeout_secs: Duration,
-    service: Arc<dyn OrderSenderService>,
+    service: Arc<dyn Sender>,
 }
 
 impl Process {
-    pub fn create(cfg: Config, service: Arc<dyn OrderSenderService>) -> Arc<dyn ServerProcess> {
+    pub fn create(cfg: Config, service: Arc<dyn Sender>) -> Arc<dyn ServerProcess> {
         Arc::new(Self {
             error_timeout_secs: Duration::from_secs(cfg.error_timeout_secs),
             service,

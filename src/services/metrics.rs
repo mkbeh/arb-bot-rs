@@ -31,7 +31,7 @@ pub struct Metrics;
 
 impl Metrics {
     /// Increments the book ticker events counter for a specific symbol.
-    pub fn add_book_ticker_event(&self, symbol: &str) {
+    pub fn record_book_ticker_event(&self, symbol: &str) {
         counter!(
             "book_ticker_events_total",
             "symbol" => symbol.to_string(),
@@ -40,7 +40,7 @@ impl Metrics {
     }
 
     /// Increments the chains counter with labels for symbols and status.
-    pub fn add_processed_chain(&self, symbols: &[&str]) {
+    pub fn record_processed_chain(&self, symbols: &[&str]) {
         if symbols.len() < 3 {
             warn!(
                 "Expected at least 3 symbols for chain status metric, got {}",
@@ -60,7 +60,7 @@ impl Metrics {
     }
 
     /// Increments the chains counter status with labels for symbols and status.
-    pub fn add_chain_status(&self, symbols: &[&str], status: ChainStatus) {
+    pub fn record_chain_status(&self, symbols: &[&str], status: ChainStatus) {
         if symbols.len() < 3 {
             warn!(
                 "Expected at least 3 symbols for chain status metric, got {}",
@@ -87,48 +87,48 @@ mod tests {
     use crate::services::enums::ChainStatus;
 
     #[test]
-    fn test_add_book_ticker_event() {
+    fn test_record_book_ticker_event() {
         // Smoke test: no panic on call
-        Metrics.add_book_ticker_event("BTCUSDT");
+        Metrics.record_book_ticker_event("BTCUSDT");
     }
 
     #[test]
-    fn test_add_processed_chain_valid() {
+    fn test_record_processed_chain_valid() {
         // Smoke test: no panic with 3+ symbols
         let symbols = vec!["BTCUSDT", "ETHUSDT", "ADAUSDT"];
-        Metrics.add_processed_chain(&symbols);
+        Metrics.record_processed_chain(&symbols);
     }
 
     #[test]
-    fn test_add_processed_chain_invalid_short() {
+    fn test_record_processed_chain_invalid_short() {
         // Smoke test: no panic with short symbols (warn logged, but test passes if no panic)
         let symbols = vec!["BTCUSDT"];
-        Metrics.add_processed_chain(&symbols);
+        Metrics.record_processed_chain(&symbols);
     }
 
     #[test]
-    fn test_add_chain_status_valid() {
+    fn test_record_chain_status_valid() {
         // Smoke test: no panic with 3+ symbols and status
         let symbols = vec!["BTCUSDT", "ETHUSDT", "ADAUSDT"];
         let status = ChainStatus::Filled;
-        Metrics.add_chain_status(&symbols, status);
+        Metrics.record_chain_status(&symbols, status);
     }
 
     #[test]
-    fn test_add_chain_status_invalid_short() {
+    fn test_record_chain_status_invalid_short() {
         // Smoke test: no panic with short symbols (warn logged)
         let symbols = vec!["BTCUSDT"];
         let status = ChainStatus::New;
-        Metrics.add_chain_status(&symbols, status);
+        Metrics.record_chain_status(&symbols, status);
     }
 
     #[test]
-    fn test_add_chain_status_different_status() {
+    fn test_record_chain_status_different_status() {
         // Smoke test: multiple calls with different statuses
         let symbols = vec!["BTCUSDT", "ETHUSDT", "ADAUSDT"];
 
-        Metrics.add_chain_status(&symbols, ChainStatus::New);
-        Metrics.add_chain_status(&symbols, ChainStatus::Filled);
-        Metrics.add_chain_status(&symbols, ChainStatus::Cancelled);
+        Metrics.record_chain_status(&symbols, ChainStatus::New);
+        Metrics.record_chain_status(&symbols, ChainStatus::Filled);
+        Metrics.record_chain_status(&symbols, ChainStatus::Cancelled);
     }
 }

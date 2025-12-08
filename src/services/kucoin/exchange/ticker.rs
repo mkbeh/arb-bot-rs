@@ -166,7 +166,7 @@ impl TickerBuilder {
                 error!(error = ?e, symbol = %symbol, "Failed to broadcast changes event");
                 // Don't bail here to keep WS alive; just log and continue
             }
-            METRICS.add_book_ticker_event(symbol);
+            METRICS.record_book_ticker_event(symbol);
         }
 
         Ok(())

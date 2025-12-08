@@ -5,7 +5,7 @@
 //! order direction (Asc/Desc).
 
 use std::{
-    collections::{BTreeMap, HashMap, btree_map},
+    collections::{BTreeMap, HashMap, HashSet, btree_map},
     sync::Arc,
 };
 
@@ -32,21 +32,25 @@ pub struct ChainSymbol {
     pub order: SymbolOrder,
 }
 
-/// Builder for constructing valid triangular symbol chains from exchange data.
-#[derive(Clone)]
-pub struct ChainBuilder {
-    market_api: Market,
-}
-
 impl ChainSymbol {
     pub fn new(symbol: Symbol, order: SymbolOrder) -> Self {
         Self { symbol, order }
     }
 }
 
+/// Builder for constructing valid triangular symbol chains from exchange data.
+#[derive(Clone)]
+pub struct ChainBuilder {
+    market_api: Market,
+    skip_assets: Vec<String>,
+}
+
 impl ChainBuilder {
-    pub fn new(market_api: Market) -> Self {
-        Self { market_api }
+    pub fn new(market_api: Market, skip_assets: Vec<String>) -> Self {
+        Self {
+            market_api,
+            skip_assets,
+        }
     }
 
     /// Builds all valid 3-symbol chains for the given base assets.
@@ -67,7 +71,10 @@ impl ChainBuilder {
                 let this = Arc::clone(&self);
                 let symbols = symbols_response.data.clone();
                 let assets = base_assets.clone();
-                async move { this.build_chains(&symbols, order, &assets).await }
+                async move {
+                    this.build_chains(&symbols, order, &assets, &this.skip_assets.clone())
+                        .await
+                }
             });
         }
 
@@ -99,9 +106,12 @@ impl ChainBuilder {
         symbols: &[Symbol],
         order: SymbolOrder,
         base_assets: &[Asset],
+        skip_assets: &[String],
     ) -> Vec<[ChainSymbol; 3]> {
+        let sorted_symbols = Self::sort_symbols(symbols, skip_assets);
         let mut chains = vec![];
-        for a_symbol in symbols {
+
+        for a_symbol in &sorted_symbols {
             let mut a_wrapper = ChainSymbol::new(a_symbol.clone(), Default::default());
             let base_asset =
                 if let Some(asset) = Self::define_base_asset(&mut a_wrapper, order, base_assets) {
@@ -110,7 +120,7 @@ impl ChainBuilder {
                     continue;
                 };
 
-            for b_symbol in symbols {
+            for b_symbol in &sorted_symbols {
                 let mut b_wrapper = ChainSymbol::new(b_symbol.clone(), Default::default());
 
                 // Selection symbol for 1st symbol.
@@ -118,7 +128,7 @@ impl ChainBuilder {
                     continue;
                 }
 
-                for c_symbol in symbols {
+                for c_symbol in &sorted_symbols {
                     let mut c_wrapper = ChainSymbol::new(c_symbol.clone(), Default::default());
 
                     // Selection symbol for 2nd symbol.
@@ -341,6 +351,32 @@ impl ChainBuilder {
             filter_chains.push(chain);
         }
         Ok(filter_chains)
+    }
+
+    /// Sorts and filters a list of trading symbols from an exchange.
+    ///
+    /// This function:
+    /// - Filters out symbols where the `base_asset` or `quote_asset` matches any asset in
+    ///   `skip_assets`.
+    ///
+    /// # Parameters
+    /// - `symbols`: A slice of `Symbol` structs to process.
+    /// - `skip_assets`: A slice of asset names (e.g., `["BTC"]`) to exclude. Matches are
+    ///   case-sensitive.
+    ///
+    /// # Returns
+    /// A new `Vec<Symbol>` containing the filtered symbols. The original slices are
+    /// unchanged.
+    pub fn sort_symbols(symbols: &[Symbol], skip_assets: &[String]) -> Vec<Symbol> {
+        let skip_set: HashSet<&str> = skip_assets.iter().map(|s| s.as_str()).collect();
+        symbols
+            .iter()
+            .filter(|s| {
+                !skip_set.contains(s.base_currency.as_str())
+                    && !skip_set.contains(s.quote_currency.as_str())
+            })
+            .cloned()
+            .collect()
     }
 }
 

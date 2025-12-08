@@ -14,14 +14,15 @@ use crate::{
         kucoin_api::{BaseInfo, Kucoin, Market},
     },
     services::{
-        ExchangeService,
+        Exchange,
         kucoin::exchange::{
             asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder, ticker::TickerBuilder,
         },
     },
 };
 
-pub struct KucoinExchangeConfig {
+/// Configuration for the Kucoin exchange service.
+pub struct ExchangeConfig {
     pub base_assets: Vec<Asset>,
     pub api_url: String,
     pub api_key: String,
@@ -32,16 +33,10 @@ pub struct KucoinExchangeConfig {
     pub max_order_qty: Decimal,
     pub fee_percentage: Decimal,
     pub min_ticker_qty_24h: Decimal,
+    pub skip_assets: Vec<String>,
 }
 
-pub struct KucoinExchangeService {
-    asset_builder: AssetBuilder,
-    ticker_builder: TickerBuilder,
-    chain_builder: Arc<ChainBuilder>,
-    order_builder: Arc<OrderBuilder>,
-}
-
-impl From<&Config> for KucoinExchangeConfig {
+impl From<&Config> for ExchangeConfig {
     fn from(config: &Config) -> Self {
         Self {
             base_assets: config.settings.assets.clone(),
@@ -54,12 +49,21 @@ impl From<&Config> for KucoinExchangeConfig {
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
             min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
+            skip_assets: config.settings.skip_assets.clone(),
         }
     }
 }
 
-impl KucoinExchangeService {
-    pub fn from_config(config: KucoinExchangeConfig) -> anyhow::Result<Self> {
+/// Core service for Kucoin exchange arbitrage operations.
+pub struct ExchangeService {
+    asset_builder: AssetBuilder,
+    ticker_builder: TickerBuilder,
+    chain_builder: Arc<ChainBuilder>,
+    order_builder: Arc<OrderBuilder>,
+}
+
+impl ExchangeService {
+    pub fn from_config(config: ExchangeConfig) -> anyhow::Result<Self> {
         let api_config = kucoin_api::ClientConfig {
             host: config.api_url,
             api_key: config.api_key,
@@ -80,7 +84,7 @@ impl KucoinExchangeService {
             config.max_order_qty,
             config.min_ticker_qty_24h,
         );
-        let chain_builder = ChainBuilder::new(market_api.clone());
+        let chain_builder = ChainBuilder::new(market_api.clone(), config.skip_assets.clone());
         let ticker_builder = TickerBuilder::new(base_info_api);
         let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
 
@@ -94,7 +98,8 @@ impl KucoinExchangeService {
 }
 
 #[async_trait]
-impl ExchangeService for KucoinExchangeService {
+impl Exchange for ExchangeService {
+    /// Starts the arbitrage process.
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()> {
         // Update base assets limits
         let base_assets = self
