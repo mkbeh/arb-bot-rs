@@ -3,5 +3,5 @@ pub mod exchange;
 pub mod sender;
 pub mod storage;
 
-pub use exchange::{BinanceExchangeConfig, BinanceExchangeService};
-pub use sender::{BinanceSenderConfig, BinanceSenderService};
+pub use exchange::{ExchangeConfig, ExchangeService};
+pub use sender::{SenderConfig, SenderService};

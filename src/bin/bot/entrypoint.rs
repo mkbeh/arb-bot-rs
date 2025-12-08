@@ -3,14 +3,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use app::{
-    config::{Config, Exchange, Settings},
-    cron::{arbitrage_job, order_sender_job},
-    libs::http_server::{Server, ServerConfig, server::ServerProcess},
-    services::{
-        BinanceExchangeConfig, BinanceExchangeService, BinanceSenderConfig, BinanceSenderService,
-        ExchangeService, KucoinExchangeConfig, KucoinExchangeService, KucoinSenderConfig,
-        KucoinSenderService, OrderSenderService, weight::REQUEST_WEIGHT,
-    },
+    config::{Config, ExchangeType, Settings},
+    cron::{arbitrage_job, sender_job},
+    libs::http_server::{Server, ServerConfig, ServerProcess},
+    services::{Exchange, Sender, binance, kucoin, weight::REQUEST_WEIGHT},
 };
 
 /// Main entrypoint struct for the application.
@@ -65,34 +61,32 @@ impl Entrypoint {
 }
 
 /// Builds exchange-specific services based on the configuration.
-fn build_services(
-    config: &Config,
-) -> anyhow::Result<(Arc<dyn ExchangeService>, Arc<dyn OrderSenderService>)> {
+fn build_services(config: &Config) -> anyhow::Result<(Arc<dyn Exchange>, Arc<dyn Sender>)> {
     let exchange = config
         .settings
         .exchange_name
-        .parse::<Exchange>()
+        .parse::<ExchangeType>()
         .with_context(|| "Invalid exchange name in config")?;
 
     match exchange {
-        Exchange::Binance => {
-            let exchange_config = BinanceExchangeConfig::from(config);
-            let exchange_svc = BinanceExchangeService::from_config(exchange_config)
+        ExchangeType::Binance => {
+            let exchange_config = binance::ExchangeConfig::from(config);
+            let exchange_svc = binance::ExchangeService::from_config(exchange_config)
                 .with_context(|| "Failed to build Binance exchange service")?;
 
-            let sender_config = BinanceSenderConfig::from(config);
-            let sender_svc = BinanceSenderService::from_config(sender_config)
+            let sender_config = binance::SenderConfig::from(config);
+            let sender_svc = binance::SenderService::from_config(sender_config)
                 .with_context(|| "Failed to build Binance sender service")?;
 
             Ok((Arc::new(exchange_svc), Arc::new(sender_svc)))
         }
-        Exchange::Kucoin => {
-            let exchange_config = KucoinExchangeConfig::from(config);
-            let exchange_svc = KucoinExchangeService::from_config(exchange_config)
+        ExchangeType::Kucoin => {
+            let exchange_config = kucoin::ExchangeConfig::from(config);
+            let exchange_svc = kucoin::ExchangeService::from_config(exchange_config)
                 .with_context(|| "Failed to build Kucoin exchange service")?;
 
-            let sender_config = KucoinSenderConfig::from(config);
-            let sender_svc = KucoinSenderService::from_config(sender_config)
+            let sender_config = kucoin::SenderConfig::from(config);
+            let sender_svc = kucoin::SenderService::from_config(sender_config)
                 .with_context(|| "Failed to build Kucoin sender service")?;
 
             Ok((Arc::new(exchange_svc), Arc::new(sender_svc)))
@@ -103,14 +97,14 @@ fn build_services(
 /// Builds server processes for arbitrage and order sending jobs.
 fn build_processes(
     settings: Settings,
-    exchange_service: Arc<dyn ExchangeService>,
-    sender_service: Arc<dyn OrderSenderService>,
+    exchange_service: Arc<dyn Exchange>,
+    sender_service: Arc<dyn Sender>,
 ) -> anyhow::Result<Vec<Arc<dyn ServerProcess>>> {
     let arbitrage_config = arbitrage_job::Config::new(settings.error_timeout);
     let arbitrage_ps = arbitrage_job::Process::create(arbitrage_config, exchange_service);
 
-    let sender_config = order_sender_job::Config::new(settings.error_timeout);
-    let sender_ps = order_sender_job::Process::create(sender_config, sender_service);
+    let sender_config = sender_job::Config::new(settings.error_timeout);
+    let sender_ps = sender_job::Process::create(sender_config, sender_service);
 
     Ok(vec![arbitrage_ps, sender_ps])
 }

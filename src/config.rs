@@ -10,7 +10,7 @@ const CONFIG_FILE: &str = "config.toml";
 
 /// Enumeration of supported exchanges.
 #[derive(Debug, PartialEq, EnumString)]
-pub enum Exchange {
+pub enum ExchangeType {
     #[strum(serialize = "binance")]
     Binance,
     #[strum(serialize = "kucoin")]
@@ -39,7 +39,6 @@ pub struct Settings {
     pub fee_percent: Decimal,
     pub api_weight_limit: usize,
     pub error_timeout: u64,
-    pub order_lifetime: u64,
     pub send_orders: bool,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_profit_qty: Decimal,
@@ -49,6 +48,7 @@ pub struct Settings {
     pub min_ticker_qty_24h: Decimal,
     pub market_depth_limit: usize,
     pub assets: Vec<Asset>,
+    pub skip_assets: Vec<String>,
 }
 
 /// Settings for Binance API.

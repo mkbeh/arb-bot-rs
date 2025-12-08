@@ -20,9 +20,6 @@ api_weight_limit = 5000
 # Error retry timeout in seconds.
 error_timeout = 30
 
-# Order lifetime in seconds.
-order_lifetime = 600
-
 # Enable real order placement (false for dry-run simulation).
 send_orders = false
 
@@ -37,6 +34,12 @@ min_ticker_qty_24h = 0
 
 # Order book depth limit (system param).
 market_depth_limit = 1
+
+# List of assets to skip during symbol filtering and sorting (e.g., for avoiding high-volatility or restricted pairs).
+# Example: ["BTC", "ETH"] — will exclude any symbols where base_asset or quote_asset matches these (case-sensitive).
+# Empty array = no skips.
+# Default: [] (no assets skipped).
+skip_assets = []
 
 
 [binance-settings]

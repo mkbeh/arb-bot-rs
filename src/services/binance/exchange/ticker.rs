@@ -105,7 +105,7 @@ impl TickerBuilder {
                         return Err(anyhow::anyhow!("Failed to broadcast ticker price: {e}"));
                     }
 
-                    METRICS.add_book_ticker_event(event.symbol.as_str());
+                    METRICS.record_book_ticker_event(event.symbol.as_str());
                 };
 
                 Ok(())

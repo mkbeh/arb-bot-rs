@@ -1,6 +1,6 @@
 [package]
 name = "arb-bot-rs"
-version = "0.4.2"
+version = "0.5.0"
 edition = "2024"
 
 [[bin]]
@@ -18,10 +18,10 @@ hex = { version = "0.4.3" }
 hmac = { version = "0.12.1" }
 itertools = { version = "0.14.0" }
 metrics = { version = "0.24.3" }
-metrics-exporter-prometheus = { version = "0.18.0" }
+metrics-exporter-prometheus = { version = "0.18.1" }
 openssl = { version = "0.10", features = ["vendored"] }
 percent-encoding = { version = "2.3.2" }
-reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12.25", default-features = false, features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.145" }
@@ -41,7 +41,7 @@ url = { version = "2.5.7" }
 uuid = { version = "1.19.0", features = ["v4"] }
 
 [dev-dependencies]
-criterion = { version = "0.8.0" }
+criterion = { version = "0.8.1" }
 http = { version = "1.4.0" }
 mockito = { version = "1.7.1" }
 

@@ -1,3 +1,3 @@
 pub mod service;
 
-pub use service::{BinanceSenderConfig, BinanceSenderService};
+pub use service::{SenderConfig, SenderService};
