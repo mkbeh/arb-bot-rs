@@ -21,13 +21,14 @@ use crate::{
         },
     },
     services::{
-        Chain, ORDERS_CHANNEL, Order, OrderSenderService,
+        Chain, ORDERS_CHANNEL, Order, Sender,
         enums::{ChainStatus, SymbolOrder},
         metrics::METRICS,
     },
 };
 
-pub struct KucoinSenderConfig {
+/// Configuration for the Kucoin sender service.
+pub struct SenderConfig {
     pub send_orders: bool,
     pub api_url: String,
     pub ws_url: String,
@@ -36,18 +37,7 @@ pub struct KucoinSenderConfig {
     pub api_passphrase: String,
 }
 
-#[derive(Clone)]
-pub struct KucoinSenderService {
-    send_orders: bool,
-    process_chain_interval: Duration,
-    ws_url: String,
-    api_token: String,
-    api_secret: String,
-    api_passphrase: String,
-    base_info_api: BaseInfo,
-}
-
-impl From<&Config> for KucoinSenderConfig {
+impl From<&Config> for SenderConfig {
     fn from(config: &Config) -> Self {
         Self {
             send_orders: config.settings.send_orders,
@@ -60,8 +50,20 @@ impl From<&Config> for KucoinSenderConfig {
     }
 }
 
-impl KucoinSenderService {
-    pub fn from_config(config: KucoinSenderConfig) -> anyhow::Result<Self> {
+/// Service for sending and polling Kucoin orders from arbitrage chains.
+#[derive(Clone)]
+pub struct SenderService {
+    send_orders: bool,
+    process_chain_interval: Duration,
+    ws_url: String,
+    api_token: String,
+    api_secret: String,
+    api_passphrase: String,
+    base_info_api: BaseInfo,
+}
+
+impl SenderService {
+    pub fn from_config(config: SenderConfig) -> anyhow::Result<Self> {
         let api_config = kucoin_api::ClientConfig {
             host: config.api_url.clone(),
             api_key: config.api_token.clone(),
@@ -88,7 +90,7 @@ impl KucoinSenderService {
 }
 
 #[async_trait]
-impl OrderSenderService for KucoinSenderService {
+impl Sender for SenderService {
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
         let mut tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
         let (order_change_tx, order_change_rx) = mpsc::unbounded_channel();
@@ -127,7 +129,9 @@ impl OrderSenderService for KucoinSenderService {
     }
 }
 
-impl KucoinSenderService {
+impl SenderService {
+    /// Listens to the balance stream (order changes) via WebSocket.
+    /// Fetches private endpoint, connects, and forwards order changes to a channel.
     async fn listen_balance_stream(
         &self,
         token: CancellationToken,
@@ -172,6 +176,9 @@ impl KucoinSenderService {
         Ok(())
     }
 
+    /// Main loop for receiving arbitrage chains and sending orders.
+    /// Monitors watch channel for chains, processes with rate limiting,
+    /// and integrates order change updates from receiver channel.
     async fn receive_and_send_orders(
         &self,
         token: CancellationToken,
@@ -214,18 +221,18 @@ impl KucoinSenderService {
                     }
 
                     chain.print_info(self.send_orders);
-                    METRICS.add_chain_status(&chain_symbols, ChainStatus::New);
+                    METRICS.record_chain_status(&chain_symbols, ChainStatus::New);
 
                     if let Err(e) =
                         Self::process_chain_orders(&mut ws_client, &mut order_change_rx, chain.clone()).await
                     {
-                        METRICS.add_chain_status(&chain_symbols, ChainStatus::Cancelled);
+                        METRICS.record_chain_status(&chain_symbols, ChainStatus::Cancelled);
                         error!(error = ?e, "❌📦 Error processing chain orders");
                         break;
                     }
 
                     last_chain_exec_ts = Some(Instant::now());
-                    METRICS.add_chain_status(&chain_symbols, ChainStatus::Filled);
+                    METRICS.record_chain_status(&chain_symbols, ChainStatus::Filled);
                 }
             }
         }
@@ -234,6 +241,9 @@ impl KucoinSenderService {
         Ok(())
     }
 
+    /// Processes an entire arbitrage chain by sequentially placing orders.
+    /// Computes quantities based on previous fills (with fee adjustment) and waits for fills via
+    /// channel. Logs the final profit.
     async fn process_chain_orders(
         ws_client: &mut WebsocketClient,
         order_change_rx: &mut mpsc::UnboundedReceiver<OrderChange>,
@@ -286,6 +296,7 @@ impl KucoinSenderService {
         Ok(())
     }
 
+    /// Places a single order and waits for fill updates via the order change channel.
     async fn process_order_request(
         ws_client: &mut WebsocketClient,
         order_change_rx: &mut mpsc::UnboundedReceiver<OrderChange>,
@@ -395,6 +406,7 @@ impl KucoinSenderService {
         Ok(increment)
     }
 
+    /// Computes order quantities for subsequent orders, adjusting for fees.
     fn compute_order_quantities(
         order: &Order,
         filled_size: Decimal,
@@ -416,6 +428,8 @@ impl KucoinSenderService {
         }
     }
 
+    /// Computes the profit for a completed chain as the difference between last and first filled
+    /// sizes.
     fn compute_chain_profit(filled_sizes: &[Decimal]) -> anyhow::Result<Decimal> {
         let first_size = filled_sizes
             .first()
@@ -431,6 +445,7 @@ impl KucoinSenderService {
     }
 }
 
+/// Determines the order side based on the symbol order direction.
 fn define_order_side(order: &Order) -> OrderSide {
     match order.symbol_order {
         SymbolOrder::Asc => OrderSide::Sell,
@@ -438,6 +453,7 @@ fn define_order_side(order: &Order) -> OrderSide {
     }
 }
 
+/// Defines initial quantities for the first order in a chain.
 fn define_order_quantities(order: &Order) -> (Option<String>, Option<String>) {
     match order.symbol_order {
         SymbolOrder::Asc => (Some(order.base_qty.to_string()), None),

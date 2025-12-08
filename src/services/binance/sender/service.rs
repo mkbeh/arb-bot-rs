@@ -2,74 +2,105 @@
 
 use std::time::Duration;
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use async_trait::async_trait;
-use tokio::{
-    sync::{oneshot, watch},
-    time::Instant,
-};
+use rust_decimal::Decimal;
+use tokio::{sync::oneshot, task::JoinSet, time::Instant};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use uuid::Uuid;
 
 use crate::{
     config::Config,
     libs::binance_api::{
-        OrderSide, OrderStatus, OrderType, TimeInForce, ws,
-        ws::{
-            PlaceOrderRequest, PlaceOrderResponse, QueryOrderRequest, QueryOrderResponse,
-            WebsocketApi, WebsocketClientError, WebsocketWriter, connect_ws,
-        },
+        OrderSide, OrderType, ws,
+        ws::{PlaceOrderRequest, WebsocketApi, WebsocketWriter, connect_ws},
     },
     services::{
         Chain, ORDERS_CHANNEL, Order,
         enums::{ChainStatus, SymbolOrder},
         metrics::METRICS,
-        service::OrderSenderService,
+        service::Sender,
         weight::REQUEST_WEIGHT,
     },
 };
 
 /// Configuration for the Binance sender service.
-pub struct BinanceSenderConfig {
+pub struct SenderConfig {
     pub send_orders: bool,
-    pub order_lifetime_secs: u64,
     pub ws_url: String,
     pub api_token: String,
     pub api_secret_key: String,
     pub process_chain_interval_secs: u64,
-    pub poll_interval_secs: u64,
 }
 
-impl From<&Config> for BinanceSenderConfig {
+impl From<&Config> for SenderConfig {
     fn from(config: &Config) -> Self {
         Self {
             send_orders: config.settings.send_orders,
-            order_lifetime_secs: config.settings.order_lifetime,
             ws_url: config.binance.ws_url.clone(),
             api_token: config.binance.api_token.clone(),
             api_secret_key: config.binance.api_secret_key.clone(),
-            process_chain_interval_secs: 60,
-            poll_interval_secs: 5,
+            process_chain_interval_secs: 10,
         }
     }
 }
 
 /// Service for sending and polling Binance orders from arbitrage chains.
-pub struct BinanceSenderService {
+#[derive(Clone)]
+pub struct SenderService {
     send_orders: bool,
-    order_lifetime: Duration,
     process_chain_interval: Duration,
-    poll_interval: Duration,
     ws_url: String,
     api_token: String,
     api_secret_key: String,
 }
 
 #[async_trait]
-impl OrderSenderService for BinanceSenderService {
-    /// Starts listening for chains and sending orders.
+impl Sender for SenderService {
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
+        let mut tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
+
+        tasks.spawn({
+            let this = self.clone();
+            let token = token.clone();
+            async move { this.receive_and_send_orders(token).await }
+        });
+
+        while let Some(result) = tasks.join_next().await {
+            match result {
+                Ok(Err(e)) => {
+                    error!(error = ?e, "Task failed");
+                    token.cancel();
+                }
+                Err(e) => {
+                    error!(error = ?e, "Join error");
+                    token.cancel();
+                }
+                _ => {
+                    token.cancel();
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl SenderService {
+    pub fn from_config(config: SenderConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            send_orders: config.send_orders,
+            process_chain_interval: Duration::from_secs(config.process_chain_interval_secs),
+            ws_url: config.ws_url,
+            api_token: config.api_token,
+            api_secret_key: config.api_secret_key,
+        })
+    }
+
+    /// Main loop for receiving arbitrage chains and sending corresponding orders.
+    /// Monitors a watch channel for new chains, processes them with rate limiting,
+    /// and handles WebSocket messages in parallel.
+    async fn receive_and_send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
         let (mut ws_writer, message_handler, mut message_done_rx) =
             self.setup_websocket(token.clone()).await?;
 
@@ -84,7 +115,38 @@ impl OrderSenderService for BinanceSenderService {
                 _ = token.cancelled() => {
                     break;
                 }
-                _ = orders_rx.changed() => self.process_chain_orders(&mut orders_rx, &mut ws_writer, &mut last_chain_exec_ts).await?,
+
+                _ = orders_rx.changed() => {
+                    let chain = orders_rx.borrow().clone();
+                    let chain_symbols = chain.extract_symbols();
+
+                    if !self.send_orders {
+                        chain.print_info(self.send_orders);
+                        return Ok(());
+                    }
+
+                    if last_chain_exec_ts
+                        .as_ref()
+                        .is_some_and(|t| t.elapsed() < self.process_chain_interval)
+                    {
+                        continue;
+                    }
+
+                    chain.print_info(self.send_orders);
+                    METRICS.record_chain_status(&chain_symbols, ChainStatus::New);
+
+                    if let Err(e) =
+                        self.process_chain_orders(&mut ws_writer, chain.clone()).await
+                    {
+                        METRICS.record_chain_status(&chain_symbols, ChainStatus::Cancelled);
+                        error!(error = ?e, "❌📦 Error processing chain orders");
+                        break;
+                    }
+
+                    last_chain_exec_ts = Some(Instant::now());
+                    METRICS.record_chain_status(&chain_symbols, ChainStatus::Filled);
+                }
+
                 result = &mut message_done_rx => match result {
                     Ok(Err(e)) => {
                         error!("Message handler failed: {e}");
@@ -101,25 +163,12 @@ impl OrderSenderService for BinanceSenderService {
 
         message_handler.abort();
         let _ = message_handler.await;
+        ws_writer.disconnect().await;
 
         Ok(())
     }
-}
 
-impl BinanceSenderService {
-    pub fn from_config(config: BinanceSenderConfig) -> anyhow::Result<Self> {
-        Ok(Self {
-            send_orders: config.send_orders,
-            order_lifetime: Duration::from_secs(config.order_lifetime_secs),
-            process_chain_interval: Duration::from_secs(config.process_chain_interval_secs),
-            poll_interval: Duration::from_secs(config.poll_interval_secs),
-            ws_url: config.ws_url,
-            api_token: config.api_token,
-            api_secret_key: config.api_secret_key,
-        })
-    }
-
-    /// Sets up WebSocket connection and spawns reader handler.
+    /// Sets up the WebSocket connection and spawns a message handler task.
     async fn setup_websocket(
         &self,
         token: CancellationToken,
@@ -149,76 +198,107 @@ impl BinanceSenderService {
         Ok((ws_writer, message_handler, message_done_rx))
     }
 
-    /// Processes a new chain from the watch receiver.
+    /// Processes an entire arbitrage chain by sequentially placing orders.
+    /// Computes quantities based on previous fills and logs the final profit.
     async fn process_chain_orders(
         &self,
-        orders_rx: &mut watch::Receiver<Chain>,
         ws_writer: &mut WebsocketWriter,
-        last_chain_exec_ts: &mut Option<Instant>,
+        chain: Chain,
     ) -> anyhow::Result<()> {
-        let chain = orders_rx.borrow().clone();
-        let chain_symbols = chain.extract_symbols();
+        let mut filled_sizes = Vec::with_capacity(chain.orders.len());
+        let mut last_filled_qty: Option<Decimal> = None;
 
-        if !self.send_orders {
-            chain.print_info(self.send_orders);
-            return Ok(());
+        for (idx, order) in chain.orders.iter().enumerate() {
+            let (base_qty, quote_qty) = if let Some(filled_size) = last_filled_qty {
+                Self::compute_order_quantities(order, filled_size)
+            } else {
+                define_order_quantities(order)
+            };
+
+            let request = Self::build_place_order_request(order, base_qty, quote_qty);
+            let (filled_size, stats_filled_size) =
+                Self::process_order_request(ws_writer, chain.clone(), idx, request).await?;
+
+            last_filled_qty = Some(filled_size);
+            filled_sizes.push(stats_filled_size);
         }
 
-        if last_chain_exec_ts
-            .as_ref()
-            .is_some_and(|t| t.elapsed() < self.process_chain_interval)
-        {
-            return Ok(());
-        }
+        // Compute and log chain profit
+        let profit = Self::compute_chain_profit(&filled_sizes)
+            .with_context(|| format!("Failed to calculate profit for chain {}", chain.chain_id))?;
 
-        chain.print_info(self.send_orders);
-        METRICS.add_chain_status(&chain_symbols, ChainStatus::New);
-
-        for (i, order) in chain.orders.iter().enumerate() {
-            if let Err(e) = self
-                .process_order(i, chain.chain_id, order, ws_writer)
-                .await
-            {
-                error!(error = ?e, "❌📦 Error processing order");
-                METRICS.add_chain_status(&chain_symbols, ChainStatus::Cancelled);
-                return Ok(()); // Не bail, чтобы продолжить другие chains
-            }
-        }
-
-        *last_chain_exec_ts = Some(Instant::now());
-        METRICS.add_chain_status(&chain_symbols, ChainStatus::Filled);
+        info!(
+            chain_id = %chain.chain_id,
+            first_size = %filled_sizes.first().unwrap_or(&Decimal::ZERO),
+            last_size = %filled_sizes.last().unwrap_or(&Decimal::ZERO),
+            profit = %profit,
+            "✅ Chain completed: profit calculated"
+        );
 
         Ok(())
     }
 
-    /// Processes a single order.
-    async fn process_order(
-        &self,
-        idx: usize,
-        chain_id: Uuid,
-        order: &Order,
+    /// Places a single order via WebSocket and extracts filled quantities.
+    /// Handles special logic for the first order in ascending chains.
+    async fn process_order_request(
         ws_writer: &mut WebsocketWriter,
-    ) -> anyhow::Result<()> {
-        self.wait_for_weight(WebsocketApi::PlaceOrder).await?;
-
-        let place_order_request = self.build_place_order_request(order);
+        chain: Chain,
+        order_idx: usize,
+        request: PlaceOrderRequest,
+    ) -> anyhow::Result<(Decimal, Decimal)> {
+        Self::wait_for_weight(WebsocketApi::PlaceOrder).await?;
         let response = ws_writer
-            .place_order(place_order_request)
+            .place_order(request.clone())
             .await
-            .context("Failed to place order")?;
+            .with_context(|| "Failed to place order")?;
 
-        print_place_order(idx, chain_id, &response);
+        let executed_qty = response.executed_qty;
+        let cummulative_quote_qty = response.cummulative_quote_qty;
 
-        if response.status == OrderStatus::Filled {
-            return Ok(());
-        }
+        let filled_qty = match chain.orders[order_idx].symbol_order {
+            SymbolOrder::Asc => cummulative_quote_qty,
+            SymbolOrder::Desc => executed_qty,
+        };
 
-        self.poll_order_status(ws_writer, order.symbol.clone(), response.order_id, chain_id)
-            .await
+        let stats_filled_qty =
+            if order_idx == 0 && matches!(chain.orders[order_idx].symbol_order, SymbolOrder::Asc) {
+                executed_qty
+            } else {
+                cummulative_quote_qty
+            };
+
+        info!(
+            chain_id = %chain.chain_id,
+            order_index = order_idx + 1,
+            symbol = %request.symbol,
+            order_id = response.order_id,
+            client_order_id = %response.client_order_id,
+            order_type = %request.order_type,
+            order_side = %request.order_side,
+            stats_filled_qty = %stats_filled_qty,
+            filled_qty = %filled_qty,
+            "✅ Order filled successfully",
+        );
+
+        Ok((filled_qty, stats_filled_qty))
     }
 
-    /// Waits for available request weight before proceeding.
-    async fn wait_for_weight(&self, api: WebsocketApi) -> anyhow::Result<()> {
+    /// Computes order quantities based on the previous filled size and symbol direction.
+    fn compute_order_quantities(
+        order: &Order,
+        filled_size: Decimal,
+    ) -> (Option<String>, Option<String>) {
+        let size = (filled_size / order.base_increment).round() * order.base_increment;
+
+        match order.symbol_order {
+            SymbolOrder::Asc => (Some(size.to_string()), None),
+            SymbolOrder::Desc => (None, Some(size.to_string())),
+        }
+    }
+
+    /// Waits for available API weight before proceeding with a request.
+    /// Uses a global mutex to track and increment weights.
+    async fn wait_for_weight(api: WebsocketApi) -> anyhow::Result<()> {
         loop {
             if REQUEST_WEIGHT.lock().await.add(api.weight() as usize) {
                 break;
@@ -228,62 +308,20 @@ impl BinanceSenderService {
         Ok(())
     }
 
-    /// Polls order status until FILLED or lifetime exceeded.
-    async fn poll_order_status(
-        &self,
-        ws_writer: &mut WebsocketWriter,
-        symbol: String,
-        order_id: u64,
-        chain_id: Uuid,
-    ) -> anyhow::Result<()> {
-        let start_time = Instant::now();
-
-        loop {
-            if start_time.elapsed() >= self.order_lifetime {
-                bail!("Timed out polling order status");
-            }
-
-            self.wait_for_weight(WebsocketApi::QueryOrder).await?;
-
-            let query_request = QueryOrderRequest {
-                symbol: symbol.clone(),
-                order_id: Some(order_id),
-                orig_client_order_id: None,
-                recv_window: None,
-                timestamp: None,
-                api_key: None,
-                signature: None,
-            };
-
-            match ws_writer.query_order(query_request).await {
-                Ok(response) => {
-                    if response.status == OrderStatus::Filled {
-                        print_query_order(chain_id, &response);
-                        return Ok(());
-                    }
-                }
-                Err(e) => {
-                    if let Some(WebsocketClientError::Timeout(_)) = e.downcast_ref() {
-                        // Continue on timeout
-                    } else {
-                        return Err(e.context("Failed to query order status"));
-                    }
-                }
-            }
-
-            tokio::time::sleep(self.poll_interval).await;
-        }
-    }
-
-    fn build_place_order_request(&self, order: &Order) -> PlaceOrderRequest {
+    /// Builds a `PlaceOrderRequest` payload from order details and quantities.
+    fn build_place_order_request(
+        order: &Order,
+        base_qty: Option<String>,
+        quote_qty: Option<String>,
+    ) -> PlaceOrderRequest {
         PlaceOrderRequest {
             symbol: order.symbol.clone(),
             order_side: define_order_side(order),
-            order_type: OrderType::Limit,
-            time_in_force: Some(TimeInForce::Gtc),
-            quantity: define_order_qty(order),
-            quote_order_qty: None,
-            price: Some(order.price.to_string()),
+            order_type: OrderType::Market,
+            time_in_force: None,
+            quantity: base_qty,
+            quote_order_qty: quote_qty,
+            price: None,
             new_client_order_id: None,
             strategy_id: None,
             strategy_type: None,
@@ -298,8 +336,25 @@ impl BinanceSenderService {
             signature: None,
         }
     }
+
+    /// Computes the profit for a completed chain as the difference between last and first filled
+    /// sizes.
+    fn compute_chain_profit(filled_sizes: &[Decimal]) -> anyhow::Result<Decimal> {
+        let first_size = filled_sizes
+            .first()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No orders processed: filled_sizes is empty"))?;
+        let last_size = filled_sizes
+            .last()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No completed orders: filled_sizes is empty"))?;
+
+        let profit = last_size - first_size;
+        Ok(profit)
+    }
 }
 
+/// Determines the order side based on the symbol order direction.
 fn define_order_side(order: &Order) -> OrderSide {
     match order.symbol_order {
         SymbolOrder::Asc => OrderSide::Sell,
@@ -307,51 +362,10 @@ fn define_order_side(order: &Order) -> OrderSide {
     }
 }
 
-fn define_order_qty(order: &Order) -> Option<String> {
+/// Defines initial quantities for the first order in a chain.
+fn define_order_quantities(order: &Order) -> (Option<String>, Option<String>) {
     match order.symbol_order {
-        SymbolOrder::Asc => Some(order.base_qty.to_string()),
-        SymbolOrder::Desc => Some(order.quote_qty.to_string()),
+        SymbolOrder::Asc => (Some(order.base_qty.to_string()), None),
+        SymbolOrder::Desc => (None, Some(order.base_qty.to_string())),
     }
-}
-
-fn print_place_order(idx: usize, chain_id: Uuid, response: &PlaceOrderResponse) {
-    let status_emoji = if response.status == OrderStatus::Filled {
-        "✅"
-    } else {
-        "⏳"
-    };
-    info!(
-        chain_id = chain_id.to_string(),
-        order_index = idx + 1,
-        symbol = %response.symbol,
-        order_id = response.order_id,
-        client_order_id = %response.client_order_id,
-        transact_time_ms = response.transact_time,
-        price = ?response.price,
-        orig_qty = ?response.orig_qty,
-        executed_qty = ?response.executed_qty,
-        cummulative_quote_qty = ?response.cummulative_quote_qty,
-        status = %response.status,
-        order_type = %response.order_type,
-        order_side = %response.order_side,
-        fills_count = response.fills.len(),
-        "{} Order placed successfully",
-        status_emoji
-    );
-}
-
-fn print_query_order(chain_id: Uuid, response: &QueryOrderResponse) {
-    info!(
-        chain_id = chain_id.to_string(),
-        symbol = %response.symbol,
-        order_id = response.order_id,
-        client_order_id = %response.client_order_id,
-        price = ?response.price,
-        orig_qty = ?response.orig_qty,
-        executed_qty = ?response.executed_qty,
-        cummulative_quote_qty = ?response.cummulative_quote_qty,
-        status = %response.status,
-        update_time_ms = response.update_time,
-        "✅ Order filled successfully"
-    );
 }

@@ -252,7 +252,7 @@ impl OrderBuilder {
         }
 
         let orders = Self::calculate_chain_profit(&order_symbols, market_depth_limit, fee_percent);
-        METRICS.add_processed_chain(&chain::extract_chain_symbols(chain));
+        METRICS.record_processed_chain(&chain::extract_chain_symbols(chain));
 
         if orders.is_empty() {
             return Ok(());

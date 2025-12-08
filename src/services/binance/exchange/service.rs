@@ -16,7 +16,7 @@ use crate::{
         binance_api::{Binance, General, Market},
     },
     services::{
-        ExchangeService,
+        Exchange,
         binance::exchange::{
             asset::AssetBuilder, chain::ChainBuilder, order::OrderBuilder, ticker::TickerBuilder,
         },
@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Configuration for the Binance exchange service.
-pub struct BinanceExchangeConfig {
+pub struct ExchangeConfig {
     pub api_url: String,
     pub api_token: String,
     pub api_secret_key: String,
@@ -36,17 +36,10 @@ pub struct BinanceExchangeConfig {
     pub max_order_qty: Decimal,
     pub fee_percentage: Decimal,
     pub min_ticker_qty_24h: Decimal,
+    pub skip_assets: Vec<String>,
 }
 
-/// Core service for Binance exchange arbitrage operations.
-pub struct BinanceExchangeService {
-    asset_builder: AssetBuilder,
-    ticker_builder: TickerBuilder,
-    chain_builder: Arc<ChainBuilder>,
-    order_builder: Arc<OrderBuilder>,
-}
-
-impl From<&Config> for BinanceExchangeConfig {
+impl From<&Config> for ExchangeConfig {
     fn from(config: &Config) -> Self {
         Self {
             api_url: config.binance.api_url.clone(),
@@ -60,12 +53,21 @@ impl From<&Config> for BinanceExchangeConfig {
             max_order_qty: config.settings.max_order_qty,
             fee_percentage: config.settings.fee_percent,
             min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
+            skip_assets: config.settings.skip_assets.clone(),
         }
     }
 }
 
-impl BinanceExchangeService {
-    pub fn from_config(config: BinanceExchangeConfig) -> anyhow::Result<Self> {
+/// Core service for Binance exchange arbitrage operations.
+pub struct ExchangeService {
+    asset_builder: AssetBuilder,
+    ticker_builder: TickerBuilder,
+    chain_builder: Arc<ChainBuilder>,
+    order_builder: Arc<OrderBuilder>,
+}
+
+impl ExchangeService {
+    pub fn from_config(config: ExchangeConfig) -> anyhow::Result<Self> {
         let api_config = binance_api::ClientConfig {
             api_url: config.api_url,
             api_token: config.api_token,
@@ -87,7 +89,8 @@ impl BinanceExchangeService {
         );
         let ticker_builder =
             TickerBuilder::new(config.ws_streams_url.clone(), config.ws_max_connections);
-        let chain_builder = ChainBuilder::new(general_api.clone(), market_api.clone());
+        let chain_builder =
+            ChainBuilder::new(general_api.clone(), market_api.clone(), config.skip_assets);
         let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
 
         Ok(Self {
@@ -100,7 +103,7 @@ impl BinanceExchangeService {
 }
 
 #[async_trait]
-impl ExchangeService for BinanceExchangeService {
+impl Exchange for ExchangeService {
     /// Starts the arbitrage process.
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()> {
         // Get and update base assets limits.
