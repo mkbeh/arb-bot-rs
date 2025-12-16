@@ -6,7 +6,7 @@ use app::{
     config::{Config, ExchangeType, Settings},
     cron::{arbitrage_job, sender_job},
     libs::http_server::{Server, ServerConfig, ServerProcess},
-    services::{Exchange, Sender, binance, kucoin, weight::REQUEST_WEIGHT},
+    services::{Exchange, Sender, binance, kucoin, solana_dex, weight::REQUEST_WEIGHT},
 };
 
 /// Main entrypoint struct for the application.
@@ -70,26 +70,19 @@ fn build_services(config: &Config) -> anyhow::Result<(Arc<dyn Exchange>, Arc<dyn
 
     match exchange {
         ExchangeType::Binance => {
-            let exchange_config = binance::ExchangeConfig::from(config);
-            let exchange_svc = binance::ExchangeService::from_config(exchange_config)
-                .with_context(|| "Failed to build Binance exchange service")?;
-
-            let sender_config = binance::SenderConfig::from(config);
-            let sender_svc = binance::SenderService::from_config(sender_config)
-                .with_context(|| "Failed to build Binance sender service")?;
-
-            Ok((Arc::new(exchange_svc), Arc::new(sender_svc)))
+            let ex_svc = binance::ExchangeService::from_config(&config)?;
+            let sender_svc = binance::SenderService::from_config(&config)?;
+            Ok((Arc::new(ex_svc), Arc::new(sender_svc)))
         }
         ExchangeType::Kucoin => {
-            let exchange_config = kucoin::ExchangeConfig::from(config);
-            let exchange_svc = kucoin::ExchangeService::from_config(exchange_config)
-                .with_context(|| "Failed to build Kucoin exchange service")?;
-
-            let sender_config = kucoin::SenderConfig::from(config);
-            let sender_svc = kucoin::SenderService::from_config(sender_config)
-                .with_context(|| "Failed to build Kucoin sender service")?;
-
-            Ok((Arc::new(exchange_svc), Arc::new(sender_svc)))
+            let ex_svc = kucoin::ExchangeService::from_config(&config)?;
+            let sender_svc = kucoin::SenderService::from_config(&config)?;
+            Ok((Arc::new(ex_svc), Arc::new(sender_svc)))
+        }
+        ExchangeType::SolanaDex => {
+            let ex_svc = solana_dex::ExchangeService::from_config(&config)?;
+            let sender_svc = solana_dex::SenderService::from_config(&config)?;
+            Ok((Arc::new(ex_svc), Arc::new(sender_svc)))
         }
     }
 }

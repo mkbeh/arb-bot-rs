@@ -4,13 +4,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use rust_decimal::Decimal;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::{
-    config::{Asset, Config},
+    config::Config,
     libs::{
         binance_api,
         binance_api::{Binance, General, Market},
@@ -23,41 +22,6 @@ use crate::{
     },
 };
 
-/// Configuration for the Binance exchange service.
-pub struct ExchangeConfig {
-    pub api_url: String,
-    pub api_token: String,
-    pub api_secret_key: String,
-    pub base_assets: Vec<Asset>,
-    pub ws_streams_url: String,
-    pub ws_max_connections: usize,
-    pub market_depth_limit: usize,
-    pub min_profit_qty: Decimal,
-    pub max_order_qty: Decimal,
-    pub fee_percentage: Decimal,
-    pub min_ticker_qty_24h: Decimal,
-    pub skip_assets: Vec<String>,
-}
-
-impl From<&Config> for ExchangeConfig {
-    fn from(config: &Config) -> Self {
-        Self {
-            api_url: config.binance.api_url.clone(),
-            api_token: config.binance.api_token.clone(),
-            api_secret_key: config.binance.api_secret_key.clone(),
-            base_assets: config.settings.assets.clone(),
-            ws_streams_url: config.binance.ws_streams_url.clone(),
-            ws_max_connections: config.binance.ws_max_connections,
-            market_depth_limit: config.settings.market_depth_limit,
-            min_profit_qty: config.settings.min_profit_qty,
-            max_order_qty: config.settings.max_order_qty,
-            fee_percentage: config.settings.fee_percent,
-            min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
-            skip_assets: config.settings.skip_assets.clone(),
-        }
-    }
-}
-
 /// Core service for Binance exchange arbitrage operations.
 pub struct ExchangeService {
     asset_builder: AssetBuilder,
@@ -67,31 +31,37 @@ pub struct ExchangeService {
 }
 
 impl ExchangeService {
-    pub fn from_config(config: ExchangeConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let (settings, ex_config) = (&config.settings, &config.binance);
         let api_config = binance_api::ClientConfig {
-            api_url: config.api_url,
-            api_token: config.api_token,
-            api_secret_key: config.api_secret_key,
+            api_url: ex_config.api_url.clone(),
+            api_token: ex_config.api_token.clone(),
+            api_secret_key: ex_config.api_secret_key.clone(),
             http_config: binance_api::HttpConfig::default(),
         };
 
         let general_api: General =
-            Binance::new(api_config.clone()).context("Failed to init general Binance client")?;
+            Binance::new(api_config.clone()).context("Failed to init general binance client")?;
         let market_api: Market =
-            Binance::new(api_config).context("Failed to init market Binance client")?;
+            Binance::new(api_config).context("Failed to init market binance client")?;
 
         let asset_builder = AssetBuilder::new(
             market_api.clone(),
-            config.base_assets,
-            config.min_profit_qty,
-            config.max_order_qty,
-            config.min_ticker_qty_24h,
+            settings.assets.clone(),
+            settings.min_profit_qty,
+            settings.max_order_qty,
+            settings.min_ticker_qty_24h,
         );
-        let ticker_builder =
-            TickerBuilder::new(config.ws_streams_url.clone(), config.ws_max_connections);
-        let chain_builder =
-            ChainBuilder::new(general_api.clone(), market_api.clone(), config.skip_assets);
-        let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
+        let ticker_builder = TickerBuilder::new(
+            ex_config.ws_streams_url.clone(),
+            ex_config.ws_max_connections,
+        );
+        let chain_builder = ChainBuilder::new(
+            general_api.clone(),
+            market_api.clone(),
+            settings.skip_assets.clone(),
+        );
+        let order_builder = OrderBuilder::new(settings.market_depth_limit, settings.fee_percent);
 
         Ok(Self {
             asset_builder,

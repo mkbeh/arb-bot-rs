@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use rust_decimal::Decimal;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::{
-    config::{Asset, Config},
+    config::Config,
     libs::{
         kucoin_api,
         kucoin_api::{BaseInfo, Kucoin, Market},
@@ -21,39 +20,6 @@ use crate::{
     },
 };
 
-/// Configuration for the Kucoin exchange service.
-pub struct ExchangeConfig {
-    pub base_assets: Vec<Asset>,
-    pub api_url: String,
-    pub api_key: String,
-    pub api_secret: String,
-    pub api_passphrase: String,
-    pub market_depth_limit: usize,
-    pub min_profit_qty: Decimal,
-    pub max_order_qty: Decimal,
-    pub fee_percentage: Decimal,
-    pub min_ticker_qty_24h: Decimal,
-    pub skip_assets: Vec<String>,
-}
-
-impl From<&Config> for ExchangeConfig {
-    fn from(config: &Config) -> Self {
-        Self {
-            base_assets: config.settings.assets.clone(),
-            api_url: config.kucoin.api_url.clone(),
-            api_key: config.kucoin.api_token.clone(),
-            api_secret: config.kucoin.api_secret_key.clone(),
-            api_passphrase: config.kucoin.api_passphrase.clone(),
-            market_depth_limit: config.settings.market_depth_limit,
-            min_profit_qty: config.settings.min_profit_qty,
-            max_order_qty: config.settings.max_order_qty,
-            fee_percentage: config.settings.fee_percent,
-            min_ticker_qty_24h: config.settings.min_ticker_qty_24h,
-            skip_assets: config.settings.skip_assets.clone(),
-        }
-    }
-}
-
 /// Core service for Kucoin exchange arbitrage operations.
 pub struct ExchangeService {
     asset_builder: AssetBuilder,
@@ -63,12 +29,13 @@ pub struct ExchangeService {
 }
 
 impl ExchangeService {
-    pub fn from_config(config: ExchangeConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let (settings, ex_config) = (&config.settings, &config.kucoin);
         let api_config = kucoin_api::ClientConfig {
-            host: config.api_url,
-            api_key: config.api_key,
-            api_secret: config.api_secret,
-            api_passphrase: config.api_passphrase,
+            host: ex_config.api_url.clone(),
+            api_key: ex_config.api_token.clone(),
+            api_secret: ex_config.api_secret_key.clone(),
+            api_passphrase: ex_config.api_passphrase.clone(),
             http_config: kucoin_api::HttpConfig::default(),
         };
 
@@ -79,14 +46,14 @@ impl ExchangeService {
 
         let asset_builder = AssetBuilder::new(
             market_api.clone(),
-            config.base_assets,
-            config.min_profit_qty,
-            config.max_order_qty,
-            config.min_ticker_qty_24h,
+            settings.assets.clone(),
+            settings.min_profit_qty,
+            settings.max_order_qty,
+            settings.min_ticker_qty_24h,
         );
-        let chain_builder = ChainBuilder::new(market_api.clone(), config.skip_assets.clone());
+        let chain_builder = ChainBuilder::new(market_api.clone(), settings.skip_assets.clone());
         let ticker_builder = TickerBuilder::new(base_info_api);
-        let order_builder = OrderBuilder::new(config.market_depth_limit, config.fee_percentage);
+        let order_builder = OrderBuilder::new(settings.market_depth_limit, settings.fee_percent);
 
         Ok(Self {
             asset_builder,

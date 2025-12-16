@@ -24,27 +24,6 @@ use crate::{
     },
 };
 
-/// Configuration for the Binance sender service.
-pub struct SenderConfig {
-    pub send_orders: bool,
-    pub ws_url: String,
-    pub api_token: String,
-    pub api_secret_key: String,
-    pub process_chain_interval_secs: u64,
-}
-
-impl From<&Config> for SenderConfig {
-    fn from(config: &Config) -> Self {
-        Self {
-            send_orders: config.settings.send_orders,
-            ws_url: config.binance.ws_url.clone(),
-            api_token: config.binance.api_token.clone(),
-            api_secret_key: config.binance.api_secret_key.clone(),
-            process_chain_interval_secs: 10,
-        }
-    }
-}
-
 /// Service for sending and polling Binance orders from arbitrage chains.
 #[derive(Clone)]
 pub struct SenderService {
@@ -87,13 +66,14 @@ impl Sender for SenderService {
 }
 
 impl SenderService {
-    pub fn from_config(config: SenderConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let (settings, ex_config) = (&config.settings, &config.binance);
         Ok(Self {
-            send_orders: config.send_orders,
-            process_chain_interval: Duration::from_secs(config.process_chain_interval_secs),
-            ws_url: config.ws_url,
-            api_token: config.api_token,
-            api_secret_key: config.api_secret_key,
+            send_orders: settings.send_orders,
+            process_chain_interval: Duration::from_secs(10),
+            ws_url: ex_config.ws_url.clone(),
+            api_token: ex_config.api_token.clone(),
+            api_secret_key: ex_config.api_secret_key.clone(),
         })
     }
 

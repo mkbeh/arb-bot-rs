@@ -1,3 +1,3 @@
 pub mod service;
 
-pub use service::{SenderConfig, SenderService};
+pub use service::SenderService;

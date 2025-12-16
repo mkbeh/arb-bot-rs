@@ -27,29 +27,6 @@ use crate::{
     },
 };
 
-/// Configuration for the Kucoin sender service.
-pub struct SenderConfig {
-    pub send_orders: bool,
-    pub api_url: String,
-    pub ws_url: String,
-    pub api_token: String,
-    pub api_secret: String,
-    pub api_passphrase: String,
-}
-
-impl From<&Config> for SenderConfig {
-    fn from(config: &Config) -> Self {
-        Self {
-            send_orders: config.settings.send_orders,
-            api_url: config.kucoin.api_url.clone(),
-            ws_url: config.kucoin.ws_private_url.clone(),
-            api_token: config.kucoin.api_token.clone(),
-            api_secret: config.kucoin.api_secret_key.clone(),
-            api_passphrase: config.kucoin.api_passphrase.clone(),
-        }
-    }
-}
-
 /// Service for sending and polling Kucoin orders from arbitrage chains.
 #[derive(Clone)]
 pub struct SenderService {
@@ -63,27 +40,25 @@ pub struct SenderService {
 }
 
 impl SenderService {
-    pub fn from_config(config: SenderConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let (settings, ex_config) = (&config.settings, &config.kucoin);
         let api_config = kucoin_api::ClientConfig {
-            host: config.api_url.clone(),
-            api_key: config.api_token.clone(),
-            api_secret: config.api_secret.clone(),
-            api_passphrase: config.api_passphrase.clone(),
+            host: ex_config.api_url.clone(),
+            api_key: ex_config.api_token.clone(),
+            api_secret: ex_config.api_secret_key.clone(),
+            api_passphrase: ex_config.api_passphrase.clone(),
             http_config: kucoin_api::HttpConfig::default(),
         };
-
-        let base_info_api: BaseInfo = match Kucoin::new(api_config.clone()) {
-            Ok(client) => client,
-            Err(e) => bail!("Failed init kucoin client: {e}"),
-        };
+        let base_info_api: BaseInfo =
+            Kucoin::new(api_config.clone()).context("Failed to create kucoin base info api")?;
 
         Ok(Self {
-            send_orders: config.send_orders,
+            send_orders: settings.send_orders,
             process_chain_interval: Duration::from_secs(5),
-            ws_url: config.ws_url.clone(),
-            api_token: config.api_token.clone(),
-            api_secret: config.api_secret.clone(),
-            api_passphrase: config.api_passphrase.clone(),
+            ws_url: ex_config.ws_private_url.clone(),
+            api_token: ex_config.api_token.clone(),
+            api_secret: ex_config.api_secret_key.clone(),
+            api_passphrase: ex_config.api_passphrase.clone(),
             base_info_api,
         })
     }

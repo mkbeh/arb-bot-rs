@@ -3,5 +3,5 @@ pub mod exchange;
 pub mod sender;
 pub mod storage;
 
-pub use exchange::{ExchangeConfig, ExchangeService};
-pub use sender::{SenderConfig, SenderService};
+pub use exchange::service::ExchangeService;
+pub use sender::service::SenderService;

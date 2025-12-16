@@ -1,6 +1,6 @@
 [package]
 name = "arb-bot-rs"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 
 [[bin]]
@@ -21,7 +21,7 @@ metrics = { version = "0.24.3" }
 metrics-exporter-prometheus = { version = "0.18.1" }
 openssl = { version = "0.10", features = ["vendored"] }
 percent-encoding = { version = "2.3.2" }
-reqwest = { version = "0.12.25", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12.26", default-features = false, features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.145" }

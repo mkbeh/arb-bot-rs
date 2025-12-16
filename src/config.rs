@@ -15,6 +15,8 @@ pub enum ExchangeType {
     Binance,
     #[strum(serialize = "kucoin")]
     Kucoin,
+    #[strum(serialize = "solana-dex")]
+    SolanaDex,
 }
 
 /// Main application configuration structure.
