@@ -10,13 +10,13 @@ pub struct SenderService {
 
 impl SenderService {
     pub fn from_config(config: &Config) -> anyhow::Result<Self> {
-        todo!()
+        Ok(Self {})
     }
 }
 
 #[async_trait]
 impl Sender for SenderService {
     async fn send_orders(&self, token: CancellationToken) -> anyhow::Result<()> {
-        todo!()
+        Ok(())
     }
 }

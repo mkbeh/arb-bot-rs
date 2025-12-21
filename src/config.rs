@@ -29,6 +29,8 @@ pub struct Config {
     pub binance: BinanceSettings,
     #[serde(rename = "kucoin-settings")]
     pub kucoin: KucoinSettings,
+    #[serde(rename = "solana-dex-settings")]
+    pub solana_dex: SolanaDexSettings,
 }
 
 /// General application settings.
@@ -74,6 +76,13 @@ pub struct KucoinSettings {
     pub ws_private_url: String,
 }
 
+#[derive(Clone, Deserialize)]
+pub struct SolanaDexSettings {
+    pub grpc_endpoint: String,
+    pub x_token: Option<String>,
+    pub exchanges: Vec<Dex>,
+}
+
 /// Asset structure for arbitrage.
 /// Describes the base asset and trading limit parameters.
 #[derive(Deserialize, Clone, Debug)]
@@ -86,6 +95,11 @@ pub struct Asset {
     pub max_order_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_ticker_qty_24h: Decimal,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Dex {
+    pub program_id: String,
 }
 
 impl Config {

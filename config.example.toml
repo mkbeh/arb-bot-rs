@@ -71,6 +71,11 @@ api_passphrase = "<api_passphrase>"
 ws_private_url = "wss://wsapi.kucoin.com/v1/private"
 
 
+[solana-dex-settings]
+
+# todo
+
+
 # Asset list: Base assets for arbitrage chains.
 # IMPORTANT: 'symbol' must be a REAL trading pair on the SELECTED exchange (e.g., binance).
 # - Exact match required: full name as in API (case-sensitive, e.g., "BTCUSDT", "USDTTRY").

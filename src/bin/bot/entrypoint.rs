@@ -70,18 +70,18 @@ fn build_services(config: &Config) -> anyhow::Result<(Arc<dyn Exchange>, Arc<dyn
 
     match exchange {
         ExchangeType::Binance => {
-            let ex_svc = binance::ExchangeService::from_config(&config)?;
-            let sender_svc = binance::SenderService::from_config(&config)?;
+            let ex_svc = binance::ExchangeService::from_config(config)?;
+            let sender_svc = binance::SenderService::from_config(config)?;
             Ok((Arc::new(ex_svc), Arc::new(sender_svc)))
         }
         ExchangeType::Kucoin => {
-            let ex_svc = kucoin::ExchangeService::from_config(&config)?;
-            let sender_svc = kucoin::SenderService::from_config(&config)?;
+            let ex_svc = kucoin::ExchangeService::from_config(config)?;
+            let sender_svc = kucoin::SenderService::from_config(config)?;
             Ok((Arc::new(ex_svc), Arc::new(sender_svc)))
         }
         ExchangeType::SolanaDex => {
-            let ex_svc = solana_dex::ExchangeService::from_config(&config)?;
-            let sender_svc = solana_dex::SenderService::from_config(&config)?;
+            let ex_svc = solana_dex::ExchangeService::from_config(config)?;
+            let sender_svc = solana_dex::SenderService::from_config(config)?;
             Ok((Arc::new(ex_svc), Arc::new(sender_svc)))
         }
     }

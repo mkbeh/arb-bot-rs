@@ -8,10 +8,11 @@ name = "bot"
 path = "src/bin/bot/main.rs"
 
 [dependencies]
-anyhow = { version = "1.0.100" }
+anyhow = { version = "1.0.100" , features = ["backtrace"]}
 async-trait = { version = "0.1.89" }
-axum = { version = "0.8.7" }
+axum = { version = "0.8.8" }
 base64 = { version = "0.22.1" }
+borsh = { version = "1.6.0" }
 dashmap = { version = "6.1.0" }
 futures-util = { version = "0.3.31" }
 hex = { version = "0.4.3" }
@@ -19,26 +20,30 @@ hmac = { version = "0.12.1" }
 itertools = { version = "0.14.0" }
 metrics = { version = "0.24.3" }
 metrics-exporter-prometheus = { version = "0.18.1" }
-openssl = { version = "0.10", features = ["vendored"] }
 percent-encoding = { version = "2.3.2" }
 reqwest = { version = "0.12.26", default-features = false, features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
+rustls = { version = "0.23", features = ["ring"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.145" }
 serde_urlencoded = { version = "0.7.1" }
 serde_with = { version = "3.16.1", features = ["macros"] }
 sha2 = { version = "0.10.9" }
+solana-sdk = { version = "3.0.0" }
 strum = { version = "0.27.2" }
 strum_macros = { version = "0.27.2" }
 thiserror = { version = "2.0.17" }
 tokio = { version = "1.48.0", default-features = false, features = ["rt-multi-thread", "signal"] }
-tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.28.0", features = ["rustls"] }
 tokio-util = { version = "0.7.17" }
-toml = { version = "0.9.8" }
-tracing = { version = "0.1.43", default-features = false }
+toml = { version = "0.9.10" }
+tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "ansi"] }
 url = { version = "2.5.7" }
 uuid = { version = "1.19.0", features = ["v4"] }
+yellowstone-grpc-client = { version = "10.2.0" }
+yellowstone-grpc-proto = { version = "10.1.1" }
+backoff = { version = "0.4.0", features = ["tokio"] }
 
 [dev-dependencies]
 criterion = { version = "0.8.1" }

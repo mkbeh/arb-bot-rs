@@ -30,11 +30,14 @@
 macro_rules! setup_app {
     // Pattern: accepts a single async block (expression).
     ($block:expr) => {
+        use anyhow::Context;
+
         // Generate an async inner main function with Tokio runtime.
         #[::tokio::main]
         async fn __inner_main() -> anyhow::Result<()> {
             // Application initialization
-            $crate::libs::setup_application(env!("CARGO_PKG_NAME"));
+            $crate::libs::setup_application(env!("CARGO_PKG_NAME"))
+                .context("Failed to setup application")?;
 
             // Execute the provided async block and await its completion.
             $block.await
