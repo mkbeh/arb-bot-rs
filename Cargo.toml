@@ -8,9 +8,10 @@ name = "bot"
 path = "src/bin/bot/main.rs"
 
 [dependencies]
-anyhow = { version = "1.0.100" , features = ["backtrace"]}
+anyhow = { version = "1.0.100" }
 async-trait = { version = "0.1.89" }
 axum = { version = "0.8.8" }
+backoff = { version = "0.4.0", features = ["tokio"] }
 base64 = { version = "0.22.1" }
 borsh = { version = "1.6.0" }
 dashmap = { version = "6.1.0" }
@@ -20,15 +21,18 @@ hmac = { version = "0.12.1" }
 itertools = { version = "0.14.0" }
 metrics = { version = "0.24.3" }
 metrics-exporter-prometheus = { version = "0.18.1" }
+parking_lot = { version = "0.12.5" }
 percent-encoding = { version = "2.3.2" }
-reqwest = { version = "0.12.26", default-features = false, features = ["json", "rustls-tls"] }
+rayon = { version = "1.11.0" }
+reqwest = { version = "0.12.27", default-features = false, features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
 rustls = { version = "0.23", features = ["ring"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.145" }
+serde_json = { version = "1.0.146" }
 serde_urlencoded = { version = "0.7.1" }
 serde_with = { version = "3.16.1", features = ["macros"] }
 sha2 = { version = "0.10.9" }
+solana-client = { version = "3.1.5" }
 solana-sdk = { version = "3.0.0" }
 strum = { version = "0.27.2" }
 strum_macros = { version = "0.27.2" }
@@ -43,7 +47,6 @@ url = { version = "2.5.7" }
 uuid = { version = "1.19.0", features = ["v4"] }
 yellowstone-grpc-client = { version = "10.2.0" }
 yellowstone-grpc-proto = { version = "10.1.1" }
-backoff = { version = "0.4.0", features = ["tokio"] }
 
 [dev-dependencies]
 criterion = { version = "0.8.1" }

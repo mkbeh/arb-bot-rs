@@ -43,7 +43,7 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 use tracing::warn;
 
-use crate::libs::kucoin_api::{api::Api, utils};
+use crate::libs::kucoin_client::{api::Api, utils};
 
 /// Configuration for the KuCoin API client.
 ///
@@ -347,7 +347,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::libs::kucoin_api::api::Spot;
+    use crate::libs::kucoin_client::api::Spot;
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct TestResponse {

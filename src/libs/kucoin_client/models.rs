@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::libs::kucoin_api::enums::MarketType;
+use crate::libs::kucoin_client::enums::MarketType;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct RestResponse<T> {

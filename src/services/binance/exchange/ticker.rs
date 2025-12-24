@@ -13,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::{
-    libs::binance_api::stream::{Events, StreamEvent, WebsocketStream, book_ticker_stream},
+    libs::binance_client::stream::{Events, StreamEvent, WebsocketStream, book_ticker_stream},
     services::{
         binance::{
             broadcast::TICKER_BROADCAST, exchange::chain::ChainSymbol, storage::BookTickerEvent,

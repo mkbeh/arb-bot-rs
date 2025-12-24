@@ -5,7 +5,7 @@ use axum::http::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
 
-use crate::libs::binance_api::{api::Api, utils::generate_signature};
+use crate::libs::binance_client::{api::Api, utils::generate_signature};
 
 /// Primary client for interacting with the Binance API.
 ///
@@ -268,7 +268,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::libs::binance_api::api::Spot;
+    use crate::libs::binance_client::api::Spot;
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct TestResponse {

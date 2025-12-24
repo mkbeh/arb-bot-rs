@@ -44,17 +44,11 @@ fn build_dex_parser<Instr: BorshDeserialize + Clone>(
 
 /// Main event enum for parsed updates from the Geyser stream.
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub enum Event {
-    Tx(Box<TxEvent>),
-    Slot {
-        slot: u64,
-        status: i32,
-        parent: Option<u64>,
-    },
-    BlockMeta {
-        slot: u64,
-        block_time: Option<i64>,
-    },
+    Tx(Box<Vec<TxEvent>>),
+    BlockMeta(Box<BlockMetaEvent>),
+    Slot(Box<SlotEvent>),
 }
 
 /// Transaction event enum for DEX-specific parsing.
@@ -63,6 +57,23 @@ pub enum TxEvent {
     Radium(Box<SwapRadium>),
     Meteora(Box<SwapMeteora>),
     Unknown(Box<Vec<u8>>), // Fallback for unknown program
+}
+
+#[derive(BorshDeserialize, Debug, Clone)]
+pub struct BlockMetaEvent {
+    pub slot: u64,
+    pub blockhash: String,
+    pub block_time: Option<u64>,
+    pub block_height: Option<u64>,
+    pub parent_block_hash: String,
+    pub parent_slot: u64,
+}
+
+#[derive(BorshDeserialize, Debug, Clone)]
+pub struct SlotEvent {
+    pub slot: u64,
+    pub parent: Option<u64>,
+    pub status: i32,
 }
 
 /// Struct for Radium (Raydium) swap instructions.

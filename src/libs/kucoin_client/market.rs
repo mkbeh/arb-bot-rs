@@ -1,4 +1,4 @@
-use crate::libs::kucoin_api::{
+use crate::libs::kucoin_client::{
     api::{Api, Spot},
     client::Client,
     enums::MarketType,

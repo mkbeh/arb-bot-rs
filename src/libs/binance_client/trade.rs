@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use crate::libs::binance_api::{
+use crate::libs::binance_client::{
     SendOrderRequest, SendOrderResponse,
     api::{Api, Spot},
     client::Client,

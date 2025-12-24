@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::libs::binance_api::{
+use crate::libs::binance_client::{
     Filters,
     enums::{
         NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode, SymbolStatus,
@@ -197,7 +197,7 @@ pub struct TickerPriceStats {
 
 #[cfg(test)]
 mod tests {
-    use crate::libs::binance_api::{
+    use crate::libs::binance_client::{
         AccountInformation, ExchangeInformation, OrderBook, SendOrderResponse, TickerPriceStats,
     };
 

@@ -17,7 +17,7 @@ use tracing::{debug, info};
 
 use crate::{
     config::Asset,
-    libs::binance_api::{
+    libs::binance_client::{
         General, Market, OrderType, Symbol, TickerPriceResponseType, TickerPriceStats,
     },
     services::enums::SymbolOrder,

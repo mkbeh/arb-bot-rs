@@ -33,6 +33,35 @@ pub struct Config {
     pub solana_dex: SolanaDexSettings,
 }
 
+impl Config {
+    /// Parses the configuration from the TOML file and performs validation.
+    pub fn parse() -> anyhow::Result<Self> {
+        let config = toml::parse_file::<Config>(CONFIG_FILE)
+            .with_context(|| format!("Failed to parse config file: {}", CONFIG_FILE))?;
+
+        config.validate_settings()
+    }
+
+    /// Validates settings: checks the presence of assets and their parameters.
+    fn validate_settings(self) -> anyhow::Result<Self> {
+        let mut config = self;
+
+        if config.settings.assets.is_empty() {
+            bail!("At least one asset must be specified in config");
+        }
+
+        let min_profit_qty = config.settings.min_profit_qty;
+        let max_order_qty = config.settings.max_order_qty;
+        let min_ticker_qty_24h = config.settings.min_ticker_qty_24h;
+
+        for asset in &mut config.settings.assets {
+            asset.validate(min_profit_qty, max_order_qty, min_ticker_qty_24h)?;
+        }
+
+        Ok(config)
+    }
+}
+
 /// General application settings.
 #[derive(Clone, Deserialize)]
 pub struct Settings {
@@ -78,9 +107,19 @@ pub struct KucoinSettings {
 
 #[derive(Clone, Deserialize)]
 pub struct SolanaDexSettings {
+    pub rpc_endpoint: String,
     pub grpc_endpoint: String,
     pub x_token: Option<String>,
     pub exchanges: Vec<Dex>,
+}
+
+impl SolanaDexSettings {
+    pub fn get_dex_programs(&self) -> Vec<String> {
+        self.exchanges
+            .iter()
+            .map(|d| d.program_id.clone())
+            .collect()
+    }
 }
 
 /// Asset structure for arbitrage.
@@ -95,40 +134,6 @@ pub struct Asset {
     pub max_order_qty: Decimal,
     #[serde(with = "rust_decimal::serde::float")]
     pub min_ticker_qty_24h: Decimal,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct Dex {
-    pub program_id: String,
-}
-
-impl Config {
-    /// Parses the configuration from the TOML file and performs validation.
-    pub fn parse() -> anyhow::Result<Self> {
-        let config = toml::parse_file::<Config>(CONFIG_FILE)
-            .with_context(|| format!("Failed to parse config file: {}", CONFIG_FILE))?;
-
-        config.validate_settings()
-    }
-
-    /// Validates settings: checks the presence of assets and their parameters.
-    fn validate_settings(self) -> anyhow::Result<Self> {
-        let mut config = self;
-
-        if config.settings.assets.is_empty() {
-            bail!("At least one asset must be specified in config");
-        }
-
-        let min_profit_qty = config.settings.min_profit_qty;
-        let max_order_qty = config.settings.max_order_qty;
-        let min_ticker_qty_24h = config.settings.min_ticker_qty_24h;
-
-        for asset in &mut config.settings.assets {
-            asset.validate(min_profit_qty, max_order_qty, min_ticker_qty_24h)?;
-        }
-
-        Ok(config)
-    }
 }
 
 impl Asset {
@@ -161,4 +166,9 @@ impl Asset {
 
         Ok(())
     }
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Dex {
+    pub program_id: String,
 }

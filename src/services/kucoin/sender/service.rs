@@ -11,8 +11,8 @@ use uuid::Uuid;
 use crate::{
     config::Config,
     libs::{
-        kucoin_api,
-        kucoin_api::{
+        kucoin_client,
+        kucoin_client::{
             BaseInfo, Kucoin,
             enums::{OrderSide, OrderStatus, OrderType},
             stream::{Events, MessageEvents, OrderChange, WebsocketStream, order_change_topic},
@@ -42,12 +42,12 @@ pub struct SenderService {
 impl SenderService {
     pub fn from_config(config: &Config) -> anyhow::Result<Self> {
         let (settings, ex_config) = (&config.settings, &config.kucoin);
-        let api_config = kucoin_api::ClientConfig {
+        let api_config = kucoin_client::ClientConfig {
             host: ex_config.api_url.clone(),
             api_key: ex_config.api_token.clone(),
             api_secret: ex_config.api_secret_key.clone(),
             api_passphrase: ex_config.api_passphrase.clone(),
-            http_config: kucoin_api::HttpConfig::default(),
+            http_config: kucoin_client::HttpConfig::default(),
         };
         let base_info_api: BaseInfo =
             Kucoin::new(api_config.clone()).context("Failed to create kucoin base info api")?;

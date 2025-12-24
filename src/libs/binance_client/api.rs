@@ -1,4 +1,4 @@
-use crate::libs::binance_api::{
+use crate::libs::binance_client::{
     Account, General, Market, Trade,
     client::{Client, ClientConfig},
 };

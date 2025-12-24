@@ -5,7 +5,7 @@ use rust_decimal::{Decimal, prelude::Zero};
 
 use crate::{
     config::Asset,
-    libs::kucoin_api::{Market, models::Ticker},
+    libs::kucoin_client::{Market, models::Ticker},
 };
 
 /// Builder for updating asset trading limits based on current market conditions.

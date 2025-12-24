@@ -61,7 +61,7 @@ use tracing::{debug, error};
 use url::Url;
 use uuid::Uuid;
 
-use crate::libs::binance_api::{
+use crate::libs::binance_client::{
     FillInfo, NewOrderRespType, OrderSide, OrderStatus, OrderType, SelfTradePreventionMode,
     TimeInForce, utils, utils::generate_signature,
 };

@@ -11,8 +11,8 @@ use tracing::error;
 use crate::{
     config::Config,
     libs::{
-        binance_api,
-        binance_api::{Binance, General, Market},
+        binance_client,
+        binance_client::{Binance, General, Market},
     },
     services::{
         Exchange,
@@ -33,11 +33,11 @@ pub struct ExchangeService {
 impl ExchangeService {
     pub fn from_config(config: &Config) -> anyhow::Result<Self> {
         let (settings, ex_config) = (&config.settings, &config.binance);
-        let api_config = binance_api::ClientConfig {
+        let api_config = binance_client::ClientConfig {
             api_url: ex_config.api_url.clone(),
             api_token: ex_config.api_token.clone(),
             api_secret_key: ex_config.api_secret_key.clone(),
-            http_config: binance_api::HttpConfig::default(),
+            http_config: binance_client::HttpConfig::default(),
         };
 
         let general_api: General =

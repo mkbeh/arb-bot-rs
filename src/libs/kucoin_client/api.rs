@@ -1,4 +1,4 @@
-use crate::libs::kucoin_api::{BaseInfo, ClientConfig, Market, client::Client};
+use crate::libs::kucoin_client::{BaseInfo, ClientConfig, Market, client::Client};
 
 pub enum Api {
     Spot(Spot),

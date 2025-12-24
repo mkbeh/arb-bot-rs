@@ -13,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::error;
 
 use crate::{
-    libs::kucoin_api::{
+    libs::kucoin_client::{
         BaseInfo,
         stream::{
             Events, Level2Update, MessageEvents, OrderRow, Topic, WebsocketStream,

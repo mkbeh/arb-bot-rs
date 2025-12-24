@@ -1,4 +1,4 @@
-use crate::libs::kucoin_api::{
+use crate::libs::kucoin_client::{
     Client,
     api::{Api, Spot},
     models::{RestResponse, Token},

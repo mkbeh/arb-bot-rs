@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::{
     config::Asset,
-    libs::{binance_api::Filters, misc},
+    libs::{binance_client::Filters, misc},
     services::{
         Chain, Order, OrderBookUnit,
         binance::{

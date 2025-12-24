@@ -52,6 +52,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 use url::Url;
 
+use crate::libs::binance_client;
+
 /// Prefix for multi-stream WebSocket URLs.
 static STREAM_PREFIX: &str = "stream";
 
@@ -272,9 +274,9 @@ pub struct BookTickerEvent {
 pub struct OrderBook {
     pub last_update_id: u64,
     #[serde(rename = "bids")]
-    pub bids: Vec<crate::libs::binance_api::OrderBookUnit>,
+    pub bids: Vec<binance_client::OrderBookUnit>,
     #[serde(rename = "asks")]
-    pub asks: Vec<crate::libs::binance_api::OrderBookUnit>,
+    pub asks: Vec<binance_client::OrderBookUnit>,
 }
 
 /// Unit structure for order book entries (price and quantity).

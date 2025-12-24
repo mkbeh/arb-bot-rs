@@ -11,7 +11,7 @@ use tracing::{error, info};
 
 use crate::{
     config::Config,
-    libs::binance_api::{
+    libs::binance_client::{
         OrderSide, OrderType, ws,
         ws::{PlaceOrderRequest, WebsocketApi, WebsocketWriter, connect_ws},
     },

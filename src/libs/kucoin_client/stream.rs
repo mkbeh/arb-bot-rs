@@ -57,7 +57,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 use url::Url;
 
-use crate::libs::kucoin_api::{
+use crate::libs::kucoin_client::{
     enums::{FeeType, Liquidity, OrderChangeType, OrderSide, OrderStatus, OrderType},
     utils::get_timestamp,
 };
@@ -564,7 +564,7 @@ pub struct RelationContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::libs::kucoin_api::stream::OrderChange;
+    use crate::libs::kucoin_client::stream::OrderChange;
 
     #[test]
     fn test_deserialize_order_change_received() {

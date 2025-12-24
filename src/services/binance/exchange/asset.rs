@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 
 use crate::{
     config::Asset,
-    libs::binance_api::{Market, TickerPriceResponseType, TickerPriceStats},
+    libs::binance_client::{Market, TickerPriceResponseType, TickerPriceStats},
 };
 
 /// Builder for updating asset trading limits based on current market conditions.

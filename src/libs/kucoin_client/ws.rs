@@ -46,14 +46,11 @@ use tracing::{debug, error};
 use url::Url;
 use uuid::Uuid;
 
-use crate::libs::{
-    binance_api::ws::WebsocketClientError,
-    kucoin_api::{
-        enums::{OrderSide, OrderType},
-        stream::{Reader, Writer, ping_loop},
-        utils,
-        utils::sign,
-    },
+use crate::libs::kucoin_client::{
+    enums::{OrderSide, OrderType},
+    stream::{Reader, Writer, ping_loop},
+    utils,
+    utils::sign,
 };
 
 /// Type for tracking pending requests with response channels.
@@ -439,6 +436,20 @@ impl<T> WebsocketResponse<T> {
             }
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum WebsocketClientError {
+    #[error("Request timed out after {0:?}")]
+    Timeout(Duration),
+    #[error("No response received")]
+    NoResponse,
+    #[error("Received error: {0}")]
+    RemoteError(String),
+    #[error("Websocket error: {0}")]
+    ConnectionError(String),
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 /// Structure for pong responses (ignored in handling).

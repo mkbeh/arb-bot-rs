@@ -1,4 +1,4 @@
-use crate::libs::binance_api::{
+use crate::libs::binance_client::{
     OrderBook, TickerPriceResponseType, TickerPriceStats,
     api::{Api, Spot},
     client::Client,

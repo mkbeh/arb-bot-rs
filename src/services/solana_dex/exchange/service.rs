@@ -1,28 +1,34 @@
-use std::str::FromStr;
+use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
-use solana_sdk::pubkey::Pubkey;
+use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
+use tracing::error;
 
 use crate::{
-    config::{Config, Dex},
-    libs::solana_rpc::{Event, GrpcClient, GrpcConfig},
-    services::Exchange,
+    config::Config,
+    services::{Exchange, solana_dex::exchange::tx_stream::TxStream},
 };
 
 /// Core service for arbitrage operations.
 pub struct ExchangeService {
-    grpc_endpoint: String,
-    x_token: Option<String>,
-    exchanges: Vec<Dex>,
+    /// Stream for transaction events.
+    tx_stream: Arc<TxStream>,
 }
 
 impl ExchangeService {
+    /// Creates a new `ExchangeService` from configuration.
     pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let solana_settings = &config.solana_dex;
+        let tx_stream = TxStream::new(
+            solana_settings.grpc_endpoint.clone(),
+            solana_settings.x_token.clone(),
+            solana_settings.get_dex_programs(),
+        );
+
         Ok(Self {
-            grpc_endpoint: config.solana_dex.grpc_endpoint.clone(),
-            x_token: config.solana_dex.x_token.clone(),
-            exchanges: config.solana_dex.exchanges.clone(),
+            tx_stream: Arc::new(tx_stream),
         })
     }
 }
@@ -31,23 +37,22 @@ impl ExchangeService {
 impl Exchange for ExchangeService {
     /// Starts the arbitrage process.
     async fn start_arbitrage(&self, token: CancellationToken) -> anyhow::Result<()> {
-        let program_ids = self
-            .exchanges
-            .iter()
-            .map(|d| Pubkey::from_str(&d.program_id).unwrap())
-            .collect::<Vec<_>>();
+        let mut tasks_set = JoinSet::new();
 
-        let config = GrpcConfig {
-            endpoint: self.grpc_endpoint.clone(),
-            x_token: self.x_token.clone(),
-            options: None,
-            program_ids,
-        };
+        tasks_set.spawn({
+            let tx_stream = self.tx_stream.clone();
+            let token = token.clone();
 
-        GrpcClient::new(config)
-            .with_callback(|event: Event| Ok(()))
-            .subscribe(token)
-            .await?;
+            async move { tx_stream.start(token).await }
+        });
+
+        let result = tasks_set.join_next().await.context("Failed to join task")?;
+
+        match result {
+            Ok(Err(e)) => error!("task failed: {e}"),
+            Err(e) => error!("join error: {e}"),
+            _ => {}
+        }
 
         Ok(())
     }

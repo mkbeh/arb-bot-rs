@@ -17,7 +17,7 @@ use tracing::{debug, info};
 
 use crate::{
     config::Asset,
-    libs::kucoin_api::{
+    libs::kucoin_client::{
         Market,
         models::{Symbol, Ticker},
     },
