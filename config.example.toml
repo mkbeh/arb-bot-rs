@@ -1,15 +1,26 @@
 # TOML configuration for the arbitrage bot.
-# Defines server settings, exchange selection, API limits, and asset chains for trading.
 
-[settings]
+[general]
 # Application server address.
 server_addr = "127.0.0.1:9000"
 
 # Metrics server address (for Prometheus).
 metrics_addr = "127.0.0.1:9007"
 
-# Selected exchange (binance or kucoin). Only one exchange is active per run.
-exchange_name = "binance"
+[binance]
+# Binance REST API base URL.
+api_url = "https://api.binance.com"
+
+# API key and secret (replace placeholders).
+api_token = "<api_token>"
+api_secret_key = "<api_secret_key>"
+
+# WebSocket URLs.
+ws_url = "wss://ws-api.binance.com:443/ws-api/v3"
+ws_streams_url = "wss://stream.binance.com:443"
+
+# Websocket Streams connections limit.
+ws_max_connections = 50
 
 # Exchange fee percentage. Check your account settings.
 fee_percent = 0.075
@@ -32,33 +43,34 @@ max_order_qty = 500
 # Minimum 24h trading volume for ticker validation (0 = no limit).
 min_ticker_qty_24h = 0
 
-# Order book depth limit (system param).
-market_depth_limit = 1
-
 # List of assets to skip during symbol filtering and sorting (e.g., for avoiding high-volatility or restricted pairs).
 # Example: ["BTC", "ETH"] — will exclude any symbols where base_asset or quote_asset matches these (case-sensitive).
 # Empty array = no skips.
 # Default: [] (no assets skipped).
 skip_assets = []
 
+# Asset list: base assets for arbitrage chains.
+# IMPORTANT: 'symbol' must be a REAL trading pair on the exchange.
+[[binance.assets]]
+asset = "BTC"
+min_profit_qty = 0
+max_order_qty = 0
+min_ticker_qty_24h = 0
+symbol = "BTCUSDT"
 
-[binance-settings]
-# Binance REST API base URL.
-api_url = "https://api.binance.com"
+[[binance.assets]]
+asset = "USDT"
+min_profit_qty = 0
+max_order_qty = 0
+min_ticker_qty_24h = 0
 
-# API key and secret (replace placeholders).
-api_token = "<api_token>"
-api_secret_key = "<api_secret_key>"
+[[binance.assets]]
+asset = "JPY"
+min_profit_qty = 400
+max_order_qty = 4500
+min_ticker_qty_24h = 0
 
-# WebSocket URLs.
-ws_url = "wss://ws-api.binance.com:443/ws-api/v3"
-ws_streams_url = "wss://stream.binance.com:443"
-
-# Max concurrent WebSocket stream connections.
-ws_max_connections = 50
-
-
-[kucoin-settings]
+[kucoin]
 # KuCoin REST API base URL.
 api_url = "https://api.kucoin.com"
 
@@ -70,89 +82,60 @@ api_passphrase = "<api_passphrase>"
 # Private WebSocket URL.
 ws_private_url = "wss://wsapi.kucoin.com/v1/private"
 
+# Exchange fee percentage. Check your account settings.
+fee_percent = 0.08
 
-[solana-dex-settings]
+# API request weight limit per minute.
+api_weight_limit = 5000
 
-# todo
+# Error retry timeout in seconds.
+error_timeout = 30
 
+# Enable real order placement (false for dry-run simulation).
+send_orders = false
 
-# Asset list: Base assets for arbitrage chains.
-# IMPORTANT: 'symbol' must be a REAL trading pair on the SELECTED exchange (e.g., binance).
-# - Exact match required: full name as in API (case-sensitive, e.g., "BTCUSDT", "USDTTRY").
-# - For Binance: Check https://api.binance.com/api/v3/exchangeInfo.
-# - For KuCoin: Check https://api.kucoin.com/api/v1/symbols.
-# - If invalid: Bot won't fetch tickers, chains will fail.
-# - symbol: Required for crypto/fiat; None for stables (uses defaults).
-# - qty limits: 0 = use global defaults from settings; overrides per asset.
-[[settings.assets]]
+# Minimum profit threshold in USD (supports negative for loss tolerance).
+min_profit_qty = 0.1
+
+# Maximum order quantity in USD.
+max_order_qty = 500
+
+# Minimum 24h trading volume for ticker validation (0 = no limit).
+min_ticker_qty_24h = 0
+
+# List of assets to skip during symbol filtering and sorting (e.g., for avoiding high-volatility or restricted pairs).
+# Example: ["BTC", "ETH"] — will exclude any symbols where base_asset or quote_asset matches these (case-sensitive).
+# Empty array = no skips.
+# Default: [] (no assets skipped).
+skip_assets = []
+
+# Asset list: base assets for arbitrage chains.
+# IMPORTANT: 'symbol' must be a REAL trading pair on the exchange.
+[[kucoin.assets]]
 asset = "BTC"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
-symbol = "BTCUSDT"
+symbol = "BTC-USDT"
 
-[[settings.assets]]
-asset = "ETH"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
-symbol = "ETHUSDT"
-
-[[settings.assets]]
-asset = "LTC"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
-symbol = "LTCUSDT"
-
-[[settings.assets]]
-asset = "BNB"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
-symbol = "BNBUSDT"
-
-[[settings.assets]]
+[[kucoin.assets]]
 asset = "USDT"
 min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 
-[[settings.assets]]
-asset = "USDC"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
+[solana]
+# Solana RPC endpoint.
+rpc_endpoint = "https://api.mainnet-beta.solana.com"
 
-[[settings.assets]]
-asset = "FDUSD"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
+# Solana gRPC endpoint
+grpc_endpoint = "https://grpc.mainnet.solana.com:10000"
 
-[[settings.assets]]
-asset = "EUR"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
-symbol = "EURUSDT"
+# X-Token (or API key): For authentication in private RPC/gRPC
+# x_token = ""
 
-[[settings.assets]]
-asset = "TRY"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
-symbol = "USDTTRY"
+[[solana.exchanges]]
+program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # radium
 
-[[settings.assets]]
-asset = "BRL"
-min_profit_qty = 0
-max_order_qty = 0
-min_ticker_qty_24h = 0
-symbol = "USDTBRL"
-
-[[settings.assets]]
-asset = "JPY"
-min_profit_qty = 400
-max_order_qty = 4500
-min_ticker_qty_24h = 0
+[[solana.exchanges]]
+program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # meteora

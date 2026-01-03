@@ -1,0 +1,29 @@
+[package]
+name = "tools"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+default = []
+derive = ["dep:tools-derive"]
+
+[dependencies]
+tools-derive = { path = "../tools-derive", optional = true }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+metrics-exporter-prometheus = { version = "0.18.1" }
+rustls = { version = "0.23", features = ["ring"] }
+toml = { version = "0.9.10" }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+
+[lints]
+workspace = true

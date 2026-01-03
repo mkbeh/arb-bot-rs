@@ -1,0 +1,43 @@
+[package]
+name = "cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bot"
+path = "src/main.rs"
+
+[features]
+default = [
+    "dep:binance_bot",
+    "dep:kucoin_bot",
+    "dep:solana_bot"
+]
+
+binance = ["dep:binance_bot"]
+kucoin = ["dep:kucoin_bot"]
+solana = ["dep:solana_bot"]
+
+[dependencies]
+engine = { path = "../engine" }
+tools = { path = "../tools", features = ["derive"] }
+
+binance_bot = { path = "../binance_bot", optional = true }
+kucoin_bot = { path = "../kucoin_bot", optional = true }
+solana_bot = { path = "../solana_bot", optional = true }
+
+anyhow = { workspace = true }
+clap = { workspace = true }
+comfy-table = { workspace = true }
+owo-colors = { workspace = true }
+serde = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true
+

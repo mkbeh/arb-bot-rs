@@ -1,87 +1,92 @@
-# arb-bot-rs
+# ⚡ arb-bot-rs
 
 ![GitHub CI](https://github.com/mkbeh/arb-bot-rs/actions/workflows/ci.yml/badge.svg)
 
 Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
 triangular arbitrage opportunities on cryptocurrency exchanges.
 
-Full documentation of the project can be found [here](https://github.com/mkbeh/arb-bot-rs/tree/main/docs).
 
-### Content
+[📖 Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Monitoring]()
 
-* [Installation](#installation)
-* [Usage](#usage)
-* [Monitoring](#monitoring)
-* [Translations](#translations)
+---
 
-### Supports
+### 📖 Table of Contents
+
+- [⚡ Quick Start](#-quick-start)
+- [📊 Observability & Monitoring](#-observability--monitoring)
+- [🏛 Supported Exchanges](#-supported-exchanges)
+- [❤️ Support & Donations](#️-support-the-project)
+
+## 🏛 Supported Exchanges
 
 List of supported cryptocurrency exchanges.
 
-| Exchange | Status  |
-|:--------:|:-------:|
-| Binance  | &check; |
-|  Kucoin  | &check; |
+| Exchange | Status | Features                             |
+|----------|:------:|--------------------------------------|
+| Binance  |   ✅    | Spot, Market Orders                  |
+| Kucoin   |   ✅    | Spot, Market Orders                  |
+| Solana   |   ⏳    | On-chain Dex (Jupiter, Raydium, etc) |
 
-### ❤️ Support Us – Become Part of the Magic!
-
-Open-source projects thrive because of visionaries like you. If this code has sparked a flame of inspiration in your
-heart, share the spark! Your crypto support is the fuel for new features, bug fixes, and groundbreaking updates. We
-accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
-
-| Crypto             | Address                                               | QR Code                                       |
-|--------------------|-------------------------------------------------------|-----------------------------------------------|
-| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="assets/img/btc_qr.png" width="150"> |
-| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="assets/img/eth_qr.png" width="150"> |
-| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="assets/img/eth_qr.png" width="150"> |
-
-Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
-
-**Become a Star:** A GitHub star is free, but it means the world. ⭐
-
-## Installation
+## ⚡ Quick Start
 
 Application is written in Rust, so you'll need to grab a
 [Rust installation](https://www.rust-lang.org/) in order to compile it.
-Application compiles with Rust 1.90.0 (stable) or newer.
 
-### Build from source
+#### 🛠 Prerequisites
+
+* **Rust**: 1.91.0 or newer.
+
+* **Linux Users**: Requires `clang` and `lld` for high-performance linking:
+
+**Ubuntu/Debian:**
+
+```shell
+sudo apt-get update && sudo apt-get install -y clang lld
+```
+
+#### 🏗 Build from Source
 
 ```shell
 git clone https://github.com/mkbeh/arb-bot-rs.git
 cd arb-bot-rs
-cargo build --release
+cargo build -p cli --profile release-lto --all-features
 ```
 
-## Usage
+#### ✅ Running Tests
 
-Fill in the [example](https://github.com/mkbeh/arb-bot-rs/blob/main/config.example.toml) config file and rename the
-file to `config.toml`.
-
-_For demo run you do not need to specify your API tokens. You only need to specify API tokens if you toggle the flag
-`send_orders = true` in `config.toml`._
-
-Run app:
+The project includes a robust suite of unit and integration tests.
 
 ```shell
-target/release/bot 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
+cargo test --all
 ```
 
-### Docker
+### 🚀 Execution & CLI
 
-Build image:
+The bot provides a structured command-line interface:
+
+```text
+Commands:
+  list     List available exchanges
+  version  Show version
+  run      Run arbitrage bot
+  help     Print this message or the help of the given subcommand(s)
+```
+
+**Steps to start:**
+
+1. **Configure**: Copy the example config and add your API keys.
 
 ```shell
-docker build --build-arg SERVICE_NAME=bot --build-arg BUILD_PROFILE=release -t arb-bot-rs:latest .
+cp config.example.toml config.toml
 ```
 
-Run app:
+2. **Start Trading**: Execute the run command.
 
 ```shell
-docker run --cpus="1" --cpuset-cpus="0" --memory="512m" arb-bot-rs:latest
+RUST_LOG=INFO ./release-lto/bot run --exchange binance --config config.toml 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
 ```
 
-## Monitoring
+## 📊 Observability & Monitoring
 
 ![Grafana](https://img.shields.io/badge/-Grafana-orange?logo=grafana&logoColor=white&style=flat)
 ![Prometheus](https://img.shields.io/badge/-Prometheus-red?logo=prometheus&logoColor=white&style=flat)
@@ -89,43 +94,39 @@ docker run --cpus="1" --cpuset-cpus="0" --memory="512m" arb-bot-rs:latest
 The bot's core performance is monitored in real-time using a Grafana dashboard, providing deep insights into market data
 processing and arbitrage efficiency.
 
-### 📊 Key Metrics Tracked
-
-| Metric                                                                                      | Description                                                 |
-|:--------------------------------------------------------------------------------------------|:------------------------------------------------------------|
-| **📈 Market Data Intensity**                                                                |                                                             |
-| - Total rate of order book update events from exchanges                                     | 🔄 Rate of updates received from various exchanges.         |
-| - The most active trading pairs by update frequency                                         | 💱 Top pairs with the highest volume of order book changes. |
-| **⚡ Arbitrage Engine Performance**                                                          |                                                             |
-| - How many potential arbitrage chains the engine analyzes per second                        | ⏱️ Chains processed per second for opportunity detection.   |
-| - The most frequently processed and profitable currency chains                              | 💰 Top chains by frequency and average profitability.       |
-| **🎯 Trading Strategy Effectiveness**                                                       |                                                             |
-| - The percentage of profitable chains found versus all chains processed                     | 📊 Success rate of profitable detections (%).               |
-| - The absolute count of profitable opportunities identified                                 | ✅ Total number of viable arbitrage opportunities found.     |
-| **🛠️ Order Execution Status**                                                              |                                                             |
-| - A real-time log of the most recent order execution attempts (success, failure, cancelled) | 📝 Latest executions with status and timestamps.            |            
+| Category       | Metric            | Insight                                                      |
+|----------------|-------------------|--------------------------------------------------------------|
+| 📈 Market Data | Update Rate       | 🔄 Frequency of order book events across all exchanges.      |
+|                | Hot Pairs         | 💱 Identification of the most volatile trading pairs.        |
+| ⚡ Engine       | Analysis Speed    | ⏱️ Number of arbitrage chains processed per second.          |
+|                | Top Chains        | 💰 Most frequent and profitable currency paths.              |
+| 🎯 Strategy    | Profit Ratio      | 📊 Success rate of profitable detections vs. total analyzed. |
+|                | Opportunity Count | ✅ Total count of viable arbitrage signals identified.        |
+| 🛠️ Execution  | Order Status      | 📝 Real-time log of filled, failed, or canceled attempts.    |
 
 ### Dashboard Preview
 
 The dashboard provides a live look at the bot's decision-making process and market impact.
 
-![img](assets/img/grafana.png)
+![img](https://gist.github.com/mkbeh/f53b9e64c2afa2e92b8fa60ecf5710c5?permalink_comment_id=5928957#gistcomment-5928957)
 
 _Live dashboard showing market data throughput, arbitrage processing rates, and trading performance._
 
-## Running tests
+## ❤️ Support Us – Become Part of the Magic!
 
-Application is relatively well-tested, including both unit tests and integration tests. To run the full test suite, use:
+Open-source projects thrive because of visionaries like you. If this code has sparked a flame of inspiration in your
+heart, share the spark! Your crypto support is the fuel for new features, bug fixes, and groundbreaking updates. We
+accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
 
-```shell
-cargo test --all
-```
+| Crypto             | Address                                               | QR Code                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|--------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="https://private-user-images.githubusercontent.com/26373902/530220329-831a4129-f074-432a-ab5d-859e9d538308.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NjY2Nzg5MDcsIm5iZiI6MTc2NjY3ODYwNywicGF0aCI6Ii8yNjM3MzkwMi81MzAyMjAzMjktODMxYTQxMjktZjA3NC00MzJhLWFiNWQtODU5ZTlkNTM4MzA4LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTEyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUxMjI1VDE2MDMyN1omWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTM2OTU1YjQxYWI2YzI2MmMyZGRlMTBiZWQ2NDdlYzhmM2Q0MTc2MWExZjg4ZTAyMjY3YzE4NDc1OWQ5YjZmMGImWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.335PO_Q1I9ShV0gJAZeywtIEIMs7jhr5DhVdsf4rMOg" width="150"> |
+| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="https://private-user-images.githubusercontent.com/26373902/530220341-9b3dec53-c5ff-4e5b-a897-8f94833703c7.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NjY2Nzg5MTQsIm5iZiI6MTc2NjY3ODYxNCwicGF0aCI6Ii8yNjM3MzkwMi81MzAyMjAzNDEtOWIzZGVjNTMtYzVmZi00ZTViLWE4OTctOGY5NDgzMzcwM2M3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTEyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUxMjI1VDE2MDMzNFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTc4MTRmNzRlMTg1MmMwNDVhNWY4OGU3NGM5OGJjMDhlZjY4M2Y0NmE4ZTA4NmU5OTIxZWI1YWRmMzA2ZjZkYjYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.06oGo60qU3jsaJmRNKtHlyBcz_gKXqUY88bkQKA3Eno" width="150"> |
+| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="https://private-user-images.githubusercontent.com/26373902/530220341-9b3dec53-c5ff-4e5b-a897-8f94833703c7.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NjY2Nzg5MTQsIm5iZiI6MTc2NjY3ODYxNCwicGF0aCI6Ii8yNjM3MzkwMi81MzAyMjAzNDEtOWIzZGVjNTMtYzVmZi00ZTViLWE4OTctOGY5NDgzMzcwM2M3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTEyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUxMjI1VDE2MDMzNFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTc4MTRmNzRlMTg1MmMwNDVhNWY4OGU3NGM5OGJjMDhlZjY4M2Y0NmE4ZTA4NmU5OTIxZWI1YWRmMzA2ZjZkYjYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.06oGo60qU3jsaJmRNKtHlyBcz_gKXqUY88bkQKA3Eno" width="150"> |
 
-## Translations
+Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
 
-The following is a list of known translations of application documentation.
-
-* [English](https://github.com/mkbeh/arb-bot-rs/tree/main/docs/en)
+**Become a Star:** A GitHub star is free, but it means the world. ⭐
 
 ## License
 
@@ -137,4 +138,4 @@ notice.
 
 Full details in the [LICENSE](https://github.com/mkbeh/arb-bot-rs/blob/main/LICENSE) file.
 
-> "Code is poetry. Share it generously!" — inspired by Richard Stallman (with a twist 😉)
+> "Code is poetry. Share it generously!" — inspired by Richard Stallman.

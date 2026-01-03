@@ -5,25 +5,66 @@ vars:
 
 tasks:
   run:
-    desc: "Full cycle"
     deps:
-      - lint
+      - check
+      - check-docs
+      - test-docs
+      - test-versions
+      - dependencies-are-sorted
       - test
       - coverage
-      - bench
 
-  lint:
-    desc: "lint"
+  check:
     cmds:
       - docker run --rm
         -u $(id -u):$(id -g)
         -v {{.PWD}}:/src
         -w /src
         {{.RUST_IMAGE}}
-        cargo clippy -- -D warnings && cargo +nightly fmt --all --check
+        cargo clippy --workspace --all-targets --all-features -- -D warnings;
+        cargo +nightly fmt --all --check
+
+  check-docs:
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo doc --package tools --all-features --no-deps;
+        cargo doc --package binance --all-features --no-deps;
+        cargo doc --package kucoin --all-features --no-deps;
+        cargo doc --package solana --all-features --no-deps;
+
+  test-versions:
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo test --workspace --all-features --all-targets
+
+  test-docs:
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo test --all-features --doc
+
+  dependencies-are-sorted:
+    cmds:
+      - docker run --rm
+        -u $(id -u):$(id -g)
+        -v {{.PWD}}:/src
+        -w /src
+        {{.RUST_IMAGE}}
+        cargo install cargo-sort --force &&
+        cargo sort --workspace --grouped --check
 
   test:
-    desc: "test"
     cmds:
       - docker run --rm
         -u $(id -u):$(id -g)
@@ -33,7 +74,6 @@ tasks:
         cargo test
 
   coverage:
-    desc: "coverage"
     cmds:
       - docker run --rm
         -u $(id -u):$(id -g)
@@ -42,14 +82,3 @@ tasks:
         --security-opt seccomp=unconfined
         xd009642/tarpaulin:develop-nightly
         cargo +nightly tarpaulin --all-features --workspace --timeout 120
-
-  bench:
-    desc: "bench"
-    cmds:
-      - docker run --rm
-        -u $(id -u):$(id -g)
-        -v {{.PWD}}:/src
-        -w /src
-        {{.RUST_IMAGE}}
-        cargo bench --bench benches
-
