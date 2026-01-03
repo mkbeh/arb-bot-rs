@@ -5,8 +5,7 @@
 Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
 triangular arbitrage opportunities on cryptocurrency exchanges.
 
-
-[📖 Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Monitoring]()
+[📖 Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Monitoring](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy)
 
 ---
 
@@ -15,17 +14,7 @@ triangular arbitrage opportunities on cryptocurrency exchanges.
 - [⚡ Quick Start](#-quick-start)
 - [📊 Observability & Monitoring](#-observability--monitoring)
 - [🏛 Supported Exchanges](#-supported-exchanges)
-- [❤️ Support & Donations](#️-support-the-project)
-
-## 🏛 Supported Exchanges
-
-List of supported cryptocurrency exchanges.
-
-| Exchange | Status | Features                             |
-|----------|:------:|--------------------------------------|
-| Binance  |   ✅    | Spot, Market Orders                  |
-| Kucoin   |   ✅    | Spot, Market Orders                  |
-| Solana   |   ⏳    | On-chain Dex (Jupiter, Raydium, etc) |
+- [❤️ Support & Donations](#-support-us--become-part-of-the-magic)
 
 ## ⚡ Quick Start
 
@@ -111,6 +100,16 @@ The dashboard provides a live look at the bot's decision-making process and mark
 ![img](https://gist.github.com/mkbeh/f53b9e64c2afa2e92b8fa60ecf5710c5?permalink_comment_id=5928957#gistcomment-5928957)
 
 _Live dashboard showing market data throughput, arbitrage processing rates, and trading performance._
+
+## 🏛 Supported Exchanges
+
+List of supported cryptocurrency exchanges.
+
+| Exchange | Status | Features                             |
+|----------|:------:|--------------------------------------|
+| Binance  |   ✅    | Spot, Market Orders                  |
+| Kucoin   |   ✅    | Spot, Market Orders                  |
+| Solana   |   ⏳    | On-chain Dex (Jupiter, Raydium, etc) |
 
 ## ❤️ Support Us – Become Part of the Magic!
 
