@@ -4,7 +4,7 @@
 //!
 //! ```rust,no_run
 //! use anyhow::Result;
-//! use kucoin_bot::libs::kucoin_client::ws::{
+//! use kucoin::libs::kucoin_client::ws::{
 //!     AddOrderRequest, ConnectConfig, WebsocketClient, connect_ws,
 //! };
 //! use tokio_util::sync::CancellationToken;

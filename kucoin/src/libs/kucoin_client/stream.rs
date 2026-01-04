@@ -4,7 +4,7 @@
 //!
 //! ```rust,no_run
 //! use anyhow::Result;
-//! use kucoin_bot::libs::kucoin_client::stream::{
+//! use kucoin::libs::kucoin_client::stream::{
 //!     Topic, WebsocketStream, order_book_increment_topic,
 //! };
 //! use tokio_util::sync::CancellationToken;

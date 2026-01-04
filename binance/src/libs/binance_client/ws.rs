@@ -4,7 +4,7 @@
 //!
 //! ```rust,no_run
 //! use anyhow::Result;
-//! use binance_bot::libs::binance_client::{
+//! use binance::libs::binance_client::{
 //!     OrderSide, OrderType,
 //!     ws::{ConnectConfig, WebsocketReader, WebsocketWriter, connect_ws},
 //! };

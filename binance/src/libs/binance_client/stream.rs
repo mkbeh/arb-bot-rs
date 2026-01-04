@@ -17,7 +17,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
-//!     use binance_bot::libs::binance_client::stream::WebsocketStream;
+//!     use binance::libs::binance_client::stream::WebsocketStream;
 //!
 //!     let mut ws = WebsocketStream::new("wss://stream.example.com/ws".to_string()).with_callback(
 //!         |event: MyEvent| {

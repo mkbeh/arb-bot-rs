@@ -32,9 +32,12 @@ tasks:
         -w /src
         {{.RUST_IMAGE}}
         cargo doc --package tools --all-features --no-deps;
+        cargo doc --package tools-derive --all-features --no-deps;
         cargo doc --package binance --all-features --no-deps;
         cargo doc --package kucoin --all-features --no-deps;
         cargo doc --package solana --all-features --no-deps;
+        cargo doc --package engine --all-features --no-deps;
+        cargo doc --package cli --all-features --no-deps;
 
   test-versions:
     cmds:

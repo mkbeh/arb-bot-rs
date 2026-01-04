@@ -6,7 +6,7 @@
 //! use std::time::Duration;
 //!
 //! use anyhow::Result;
-//! use kucoin_bot::libs::kucoin_client::{
+//! use kucoin::libs::kucoin_client::{
 //!     Client, ClientConfig,
 //!     api::{Api, Spot},
 //!     models::{RestResponse, Token},
