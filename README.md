@@ -20,9 +20,6 @@ triangular arbitrage opportunities on cryptocurrency exchanges.
 
 Get up and running in minutes! This bot is optimized for Linux but works on macOS/Windows with minor tweaks.
 
-Application is written in Rust, so you'll need to grab a
-[Rust installation](https://www.rust-lang.org/) in order to compile it.
-
 #### 🛠 Prerequisites
 
 * **Rust**: Version 1.92.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
