@@ -49,7 +49,7 @@ Verify everything works with our full test suite:
 cargo test --all
 ```
 
-### 🚀 Execution & CLI
+#### 🚀 Execution & CLI
 
 The CLI is intuitive—check available commands:
 
