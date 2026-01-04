@@ -117,11 +117,11 @@ Open-source projects thrive because of visionaries like you. If this code has sp
 heart, share the spark! Your crypto support is the fuel for new features, bug fixes, and groundbreaking updates. We
 accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
 
-| Crypto             | Address                                               | QR Code                                                                                                      |
-|--------------------|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="https://gist.github.com/user-attachments/assets/831a4129-f074-432a-ab5d-859e9d538308" width="150"> |
-| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="https://gist.github.com/user-attachments/assets/9b3dec53-c5ff-4e5b-a897-8f94833703c7" width="150"> |
-| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="https://gist.github.com/user-attachments/assets/9b3dec53-c5ff-4e5b-a897-8f94833703c7" width="150"> |
+| Crypto             | Address                                               | QR Code                                                                                                 |
+|--------------------|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="https://github.com/user-attachments/assets/55b48540-bd38-4567-a409-775dd9400052" width="150"> |
+| **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="https://github.com/user-attachments/assets/6e8b9ce8-86f1-4d94-ba17-0c9bca16718f" width="150"> |
+| **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="https://github.com/user-attachments/assets/6e8b9ce8-86f1-4d94-ba17-0c9bca16718f" width="150"> |
 
 Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
 
