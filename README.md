@@ -97,7 +97,7 @@ processing and arbitrage efficiency.
 
 The dashboard provides a live look at the bot's decision-making process and market impact.
 
-![img](https://gist.github.com/user-attachments/assets/e30f5065-7e89-45d4-9dbc-6a3a809d70a4)
+![img](https://gist.github.com/user-attachments/assets/9c983593-fc91-4d1d-a7ba-319273b1978e)
 
 _Live dashboard showing market data throughput, arbitrage processing rates, and trading performance._
 
