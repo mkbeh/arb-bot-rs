@@ -5,7 +5,7 @@
 Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
 triangular arbitrage opportunities on cryptocurrency exchanges.
 
-[📖 Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Monitoring](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy)
+[📖 Full Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Live Monitoring Setup](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy)
 
 ---
 
@@ -18,22 +18,25 @@ triangular arbitrage opportunities on cryptocurrency exchanges.
 
 ## ⚡ Quick Start
 
+Get up and running in minutes! This bot is optimized for Linux but works on macOS/Windows with minor tweaks.
+
 Application is written in Rust, so you'll need to grab a
 [Rust installation](https://www.rust-lang.org/) in order to compile it.
 
 #### 🛠 Prerequisites
 
-* **Rust**: 1.91.0 or newer.
+* **Rust**: Version 1.92.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
-* **Linux Users**: Requires `clang` and `lld` for high-performance linking:
+* **Linux Users**: Install `clang` and `lld` for optimized linking:
 
-**Ubuntu/Debian:**
-
-```shell
-sudo apt-get update && sudo apt-get install -y clang lld
-```
+    ```shell
+    sudo apt-get update && sudo apt-get install -y clang lld  # Ubuntu/Debian
+    # Or for other distros: brew install llvm (macOS), etc.
+    ```
 
 #### 🏗 Build from Source
+
+Clone and build the CLI binary:
 
 ```shell
 git clone https://github.com/mkbeh/arb-bot-rs.git
@@ -43,7 +46,7 @@ cargo build -p cli --profile release-lto --all-features
 
 #### ✅ Running Tests
 
-The project includes a robust suite of unit and integration tests.
+Verify everything works with our full test suite:
 
 ```shell
 cargo test --all
@@ -51,28 +54,28 @@ cargo test --all
 
 ### 🚀 Execution & CLI
 
-The bot provides a structured command-line interface:
+The CLI is intuitive—check available commands:
 
-```text
-Commands:
-  list     List available exchanges
-  version  Show version
-  run      Run arbitrage bot
-  help     Print this message or the help of the given subcommand(s)
+```shell
+./target/release-lto/bot --help
 ```
 
-**Steps to start:**
+**Core Commands:**
 
-1. **Configure**: Copy the example config and add your API keys.
+* `list`: List supported exchanges.
+* `version`: Show bot version.
+* `run`: Start the arbitrage engine.
+
+**Configure**: Copy the example config and add your API keys.
 
 ```shell
 cp config.example.toml config.toml
 ```
 
-2. **Start Trading**: Execute the run command.
+**Launch Example (Binance spot trading):**
 
 ```shell
-RUST_LOG=INFO ./release-lto/bot run --exchange binance --config config.toml 2>&1 | tee debug_$(date "+%Y.%m.%d-%H.%M.%S").log
+RUST_LOG=INFO ./target/release-lto/bot run --exchange binance --config config.toml
 ```
 
 ## 📊 Observability & Monitoring
@@ -80,18 +83,20 @@ RUST_LOG=INFO ./release-lto/bot run --exchange binance --config config.toml 2>&1
 ![Grafana](https://img.shields.io/badge/-Grafana-orange?logo=grafana&logoColor=white&style=flat)
 ![Prometheus](https://img.shields.io/badge/-Prometheus-red?logo=prometheus&logoColor=white&style=flat)
 
-The bot's core performance is monitored in real-time using a Grafana dashboard, providing deep insights into market data
-processing and arbitrage efficiency.
+Track every tick with Prometheus + Grafana. Setup instructions
+in [/deploy](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy).
 
-| Category       | Metric            | Insight                                                      |
-|----------------|-------------------|--------------------------------------------------------------|
-| 📈 Market Data | Update Rate       | 🔄 Frequency of order book events across all exchanges.      |
-|                | Hot Pairs         | 💱 Identification of the most volatile trading pairs.        |
-| ⚡ Engine       | Analysis Speed    | ⏱️ Number of arbitrage chains processed per second.          |
-|                | Top Chains        | 💰 Most frequent and profitable currency paths.              |
-| 🎯 Strategy    | Profit Ratio      | 📊 Success rate of profitable detections vs. total analyzed. |
-|                | Opportunity Count | ✅ Total count of viable arbitrage signals identified.        |
-| 🛠️ Execution  | Order Status      | 📝 Real-time log of filled, failed, or canceled attempts.    |
+**Key Metrics Dashboard**:
+
+| Category           | Metric            | Insight                                                      |
+|--------------------|-------------------|--------------------------------------------------------------|
+| 📈 **Market Data** | Update Rate       | 🔄 Frequency of order book events across all exchanges.      |
+|                    | Hot Pairs         | 💱 Identification of the most volatile trading pairs.        |
+| ⚡ **Engine**       | Analysis Speed    | ⏱️ Number of arbitrage chains processed per second.          |
+|                    | Top Chains        | 💰 Most frequent and profitable currency paths.              |
+| 🎯 **Strategy**    | Profit Ratio      | 📊 Success rate of profitable detections vs. total analyzed. |
+|                    | Opportunity Count | ✅ Total count of viable arbitrage signals identified.        |
+| 🛠️ **Execution**  | Order Status      | 📝 Real-time log of filled, failed, or canceled attempts.    |
 
 ### Dashboard Preview
 
@@ -105,11 +110,11 @@ _Live dashboard showing market data throughput, arbitrage processing rates, and 
 
 List of supported cryptocurrency exchanges.
 
-| Exchange | Status | Features                             |
-|----------|:------:|--------------------------------------|
-| Binance  |   ✅    | Spot, Market Orders                  |
-| Kucoin   |   ✅    | Spot, Market Orders                  |
-| Solana   |   ⏳    | On-chain Dex (Jupiter, Raydium, etc) |
+| Exchange    | Status | Features                                     |
+|-------------|:------:|----------------------------------------------|
+| **Binance** | ✅ Live | Spot trading, market orders, WebSocket feeds |
+| **Kucoin**  | ✅ Live | Spot trading, market orders, WebSocket feeds |
+| **Solana**  | ⏳ WIP  | On-chain swaps (Jupiter, Raydium, Orca, etc) |
 
 ## ❤️ Support Us – Become Part of the Magic!
 
@@ -131,10 +136,7 @@ Every satoshi, every ether – it's a step toward something greater. Thank you f
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This project is **open source** and distributed under the **MIT license**. You are free to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of the project, subject to the conditions of retaining the copyright
-notice.
-
-Full details in the [LICENSE](https://github.com/mkbeh/arb-bot-rs/blob/main/LICENSE) file.
+This project is open-source under the [MIT License](https://github.com/mkbeh/arb-bot-rs/blob/main/LICENSE). Use it
+freely, but trade responsibly.
 
 > "Code is poetry. Share it generously!" — inspired by Richard Stallman.

@@ -126,8 +126,7 @@ impl GrpcClient {
                 .context("Failed to subscribe")
                 .map_err(BackoffError::transient)?;
 
-                let request = Self::build_subscribe_request(program_ids, &options)
-                    .map_err(BackoffError::transient)?;
+                let request = Self::build_subscribe_request(program_ids, &options);
 
                 subscribe_tx
                     .send(request)
@@ -173,7 +172,7 @@ impl GrpcClient {
     fn build_subscribe_request(
         program_ids: Vec<String>,
         options: &SubscribeOptions,
-    ) -> anyhow::Result<SubscribeRequest> {
+    ) -> SubscribeRequest {
         let transactions_filter = SubscribeRequestFilterTransactions {
             failed: Some(!options.include_failed),
             vote: Some(options.include_vote),
@@ -194,7 +193,7 @@ impl GrpcClient {
             ..Default::default()
         };
 
-        Ok(request)
+        request
     }
 
     /// Processes the gRPC stream in a blocking loop with cancellation support.
