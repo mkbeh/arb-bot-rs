@@ -124,6 +124,13 @@ min_profit_qty = 0
 max_order_qty = 0
 min_ticker_qty_24h = 0
 
+[[kucoin.assets]]
+asset = "ETH"
+min_profit_qty = 0
+max_order_qty = 0
+min_ticker_qty_24h = 0
+symbol = "ETH-USDT"
+
 [solana]
 # Solana RPC endpoint.
 rpc_endpoint = "https://api.mainnet-beta.solana.com"
