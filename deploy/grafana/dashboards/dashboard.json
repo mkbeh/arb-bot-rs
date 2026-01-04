@@ -93,7 +93,7 @@
         ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 7,
         "x": 0,
         "y": 0
@@ -231,7 +231,7 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 17,
         "x": 7,
         "y": 0
@@ -264,7 +264,6 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "editorMode": "code",
           "expr": "sum by (a, b, c, status) (increase(profit_orders_total[15m])) > 0",
           "format": "table",
           "instant": true,
@@ -287,11 +286,11 @@
               "service": true
             },
             "indexByName": {
-              "Value": 4,
-              "a": 1,
-              "b": 2,
-              "c": 3,
-              "status": 0
+              "Value": 3,
+              "a": 0,
+              "b": 1,
+              "c": 2,
+              "status": 4
             },
             "renameByName": {
               "Value": "Qty",
@@ -303,81 +302,6 @@
         }
       ],
       "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 75
-              },
-              {
-                "color": "purple",
-                "value": 95
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 7,
-        "x": 0,
-        "y": 7
-      },
-      "id": 7,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(profit_orders_total{status=\"filled\"}[5m])) / sum(rate(profit_orders_total{status=~\"filled|canceled\"}[5m]))) * 100",
-          "legendFormat": "Success Rate",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Success Rate (%) (Completed Orders)",
-      "type": "stat"
     },
     {
       "datasource": {
@@ -443,10 +367,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 8
       },
       "id": 1,
       "options": {
@@ -540,10 +464,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -626,10 +550,10 @@
         ]
       },
       "gridPos": {
-        "h": 15,
+        "h": 16,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 17
       },
       "id": 2,
       "options": {
@@ -780,10 +704,10 @@
         ]
       },
       "gridPos": {
-        "h": 15,
+        "h": 16,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 17
       },
       "id": 4,
       "options": {
