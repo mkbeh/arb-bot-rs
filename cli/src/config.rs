@@ -6,13 +6,13 @@ use tools::toml;
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     #[cfg(feature = "binance")]
-    pub binance: Option<binance_bot::Config>,
+    pub binance: Option<binance::Config>,
 
     #[cfg(feature = "kucoin")]
-    pub kucoin: Option<kucoin_bot::Config>,
+    pub kucoin: Option<kucoin::Config>,
 
     #[cfg(feature = "solana")]
-    pub solana: Option<solana_bot::Config>,
+    pub solana: Option<solana::Config>,
 
     #[allow(dead_code)]
     pub general: GeneralConfig,

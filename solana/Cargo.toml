@@ -1,5 +1,5 @@
 [package]
-name = "solana_bot"
+name = "solana"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

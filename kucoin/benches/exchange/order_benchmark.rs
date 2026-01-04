@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group};
 use engine::enums::SymbolOrder;
-use kucoin_bot::services::{
+use kucoin::services::{
     exchange::order::{OrderBuilder, OrderSymbol},
     storage::BookTickerEvent,
 };

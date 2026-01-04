@@ -1,6 +1,6 @@
 use std::hint::black_box;
 
-use binance_bot::services::{
+use binance::services::{
     exchange::order::{OrderBuilder, OrderSymbol, SymbolFilter},
     storage::BookTickerEvent,
 };

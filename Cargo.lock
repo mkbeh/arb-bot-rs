@@ -452,7 +452,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d809780667f4410e7c41b07f52439b94d2bdf8528eeedc287fa38d3b7f95d82"
 
 [[package]]
-name = "binance_bot"
+name = "binance"
 version = "0.6.0"
 dependencies = [
  "anyhow",
@@ -813,14 +813,14 @@ name = "cli"
 version = "0.6.0"
 dependencies = [
  "anyhow",
- "binance_bot",
+ "binance",
  "clap",
  "comfy-table",
  "engine",
- "kucoin_bot",
+ "kucoin",
  "owo-colors",
  "serde",
- "solana_bot",
+ "solana",
  "strum",
  "strum_macros",
  "tokio",
@@ -2302,7 +2302,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kucoin_bot"
+name = "kucoin"
 version = "0.6.0"
 dependencies = [
  "anyhow",
@@ -3969,6 +3969,29 @@ checksum = "17129e116933cf371d018bb80ae557e889637989d8638274fb25622827b03881"
 dependencies = [
  "libc",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "solana"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "backoff",
+ "base64 0.22.1",
+ "borsh",
+ "engine",
+ "futures-util",
+ "rayon",
+ "serde",
+ "solana-client",
+ "solana-sdk",
+ "tokio",
+ "tokio-util",
+ "tools",
+ "tracing",
+ "yellowstone-grpc-client",
+ "yellowstone-grpc-proto",
 ]
 
 [[package]]
@@ -5745,29 +5768,6 @@ dependencies = [
  "thiserror 2.0.17",
  "wasm-bindgen",
  "zeroize",
-]
-
-[[package]]
-name = "solana_bot"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "backoff",
- "base64 0.22.1",
- "borsh",
- "engine",
- "futures-util",
- "rayon",
- "serde",
- "solana-client",
- "solana-sdk",
- "tokio",
- "tokio-util",
- "tools",
- "tracing",
- "yellowstone-grpc-client",
- "yellowstone-grpc-proto",
 ]
 
 [[package]]

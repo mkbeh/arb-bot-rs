@@ -79,7 +79,7 @@ async fn run_bot(exchange: ExchangeType, config: Option<std::path::PathBuf>) -> 
         ExchangeType::Binance => {
             #[cfg(feature = "binance")]
             {
-                use binance_bot::Provider;
+                use binance::Provider;
                 bootstrap::<Provider, _>(_config.binance.as_ref(), &_config.general, exchange).await
             }
             #[cfg(not(feature = "binance"))]
@@ -88,7 +88,7 @@ async fn run_bot(exchange: ExchangeType, config: Option<std::path::PathBuf>) -> 
         ExchangeType::Kucoin => {
             #[cfg(feature = "kucoin")]
             {
-                use kucoin_bot::Provider;
+                use kucoin::Provider;
                 bootstrap::<Provider, _>(_config.kucoin.as_ref(), &_config.general, exchange).await
             }
             #[cfg(not(feature = "kucoin"))]
@@ -97,7 +97,7 @@ async fn run_bot(exchange: ExchangeType, config: Option<std::path::PathBuf>) -> 
         ExchangeType::Solana => {
             #[cfg(feature = "solana")]
             {
-                use solana_bot::Provider;
+                use solana::Provider;
                 bootstrap::<Provider, _>(_config.solana.as_ref(), &_config.general, exchange).await
             }
             #[cfg(not(feature = "solana"))]

@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "binance_bot",
+    "binance",
     "cli",
     "engine",
-    "kucoin_bot",
-    "solana_bot",
+    "kucoin",
+    "solana",
     "tools",
     "tools-derive",
 ]
@@ -111,6 +111,7 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+incremental = false
 
 [profile.bench]
 inherits = "release"

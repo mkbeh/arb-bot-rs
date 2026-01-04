@@ -1,5 +1,5 @@
 [package]
-name = "kucoin_bot"
+name = "kucoin"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
