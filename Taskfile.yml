@@ -2,6 +2,7 @@ version: 3
 
 vars:
   RUST_IMAGE: "rustlang/rust:nightly"
+  TARP_IMAGE: "xd009642/tarpaulin:develop-nightly"
 
 tasks:
   run:
@@ -83,5 +84,5 @@ tasks:
         -v {{.PWD}}:/src
         -w /src
         --security-opt seccomp=unconfined
-        xd009642/tarpaulin:develop-nightly
+        {{.TARP_IMAGE}}
         cargo +nightly tarpaulin --all-features --workspace --timeout 120

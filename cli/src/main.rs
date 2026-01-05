@@ -72,7 +72,10 @@ async fn run_bot(exchange: ExchangeType, config: Option<std::path::PathBuf>) -> 
     let config_path = config.unwrap_or_else(|| "config.toml".into());
     let _config = match Config::parse(&config_path) {
         Ok(cfg) => cfg,
-        Err(e) => return Ok(ui::print_config_error(&config_path, &e)),
+        Err(e) => {
+            ui::print_config_error(&config_path, &e);
+            return Ok(());
+        }
     };
 
     match exchange {

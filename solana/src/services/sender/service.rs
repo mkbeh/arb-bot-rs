@@ -4,12 +4,11 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Config;
 
-pub struct SenderService {
-    //
-}
+/// Service for sending and polling orders from arbitrage chains.
+pub struct SenderService {}
 
 impl SenderService {
-    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
+    pub async fn from_config(_config: &Config) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 }
@@ -18,7 +17,7 @@ impl Sender for SenderService {}
 
 #[async_trait]
 impl ArbitrageService for SenderService {
-    async fn start(&self, token: CancellationToken) -> anyhow::Result<()> {
+    async fn start(&self, _token: CancellationToken) -> anyhow::Result<()> {
         Ok(())
     }
 }

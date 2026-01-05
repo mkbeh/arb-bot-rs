@@ -130,10 +130,9 @@ pub fn print_feature_error(feature_name: &str) {
         ])
         .add_row(vec![
             Cell::new(format!(
-                "The feature for \"{}\" was not enabled during compilation.\n\n\
+                "The feature for \"{feature_name}\" was not enabled during compilation.\n\n\
                  To use this exchange, please recompile with:\n\
-                 cargo build --features \"{}\"",
-                feature_name, feature_name
+                 cargo build --features \"{feature_name}\"",
             ))
             .fg(Color::Yellow),
         ]);
@@ -203,19 +202,18 @@ pub fn print_config_error(path: &std::path::Path, error: &anyhow::Error) {
     let mut error_chain = String::new();
     for (i, cause) in error.chain().enumerate() {
         if i == 0 {
-            error_chain.push_str(&format!("{}\n", cause));
+            error_chain.push_str(&format!("{cause}\n"));
         } else {
-            error_chain.push_str(&format!("  └─ Caused by: {}\n", cause));
+            error_chain.push_str(&format!("  └─ Caused by: {cause}\n"));
         }
     }
 
     let error_text = format!(
         "Failed to load configuration file.\n\n\
          Path: {}\n\
-         Error: {}\n\n\
+         Error: {error_chain}\n\n\
          Please check if the file exists and has correct permissions.",
         path.display(),
-        error_chain,
     );
 
     table.add_row(vec![Cell::new(error_text).fg(Color::White)]);

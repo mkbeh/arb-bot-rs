@@ -3,7 +3,7 @@
 ![GitHub CI](https://github.com/mkbeh/arb-bot-rs/actions/workflows/ci.yml/badge.svg)
 
 Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
-triangular arbitrage opportunities on cryptocurrency exchanges.
+arbitrage opportunities on cryptocurrency exchanges.
 
 [📖 Full Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Live Monitoring Setup](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy)
 
@@ -20,7 +20,7 @@ triangular arbitrage opportunities on cryptocurrency exchanges.
 
 Get up and running in minutes! This bot is optimized for Linux but works on macOS/Windows with minor tweaks.
 
-#### 🛠 Prerequisites
+### 🛠 Prerequisites
 
 * **Rust**: Version 1.92.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
@@ -31,7 +31,7 @@ Get up and running in minutes! This bot is optimized for Linux but works on macO
     # Or for other distros: brew install llvm (macOS), etc.
     ```
 
-#### 🏗 Build from Source
+### 🏗 Build from Source
 
 Clone and build the CLI binary:
 
@@ -41,7 +41,7 @@ cd arb-bot-rs
 cargo build -p cli --profile release-lto --all-features
 ```
 
-#### ✅ Running Tests
+### ✅ Running Tests
 
 Verify everything works with our full test suite:
 
@@ -49,7 +49,7 @@ Verify everything works with our full test suite:
 cargo test --all
 ```
 
-#### 🚀 Execution & CLI
+### 🚀 Execution & CLI
 
 The CLI is intuitive—check available commands:
 
@@ -107,8 +107,8 @@ _Live dashboard showing market data throughput, arbitrage processing rates, and 
 
 List of supported cryptocurrency exchanges.
 
-| Exchange    | Status | Features                                     |
-|-------------|:------:|----------------------------------------------|
+|  Exchange   | Status | Features                                     |
+|:-----------:|:------:|----------------------------------------------|
 | **Binance** | ✅ Live | Spot trading, market orders, WebSocket feeds |
 | **Kucoin**  | ✅ Live | Spot trading, market orders, WebSocket feeds |
 | **Solana**  | ⏳ WIP  | On-chain swaps (Jupiter, Raydium, Orca, etc) |

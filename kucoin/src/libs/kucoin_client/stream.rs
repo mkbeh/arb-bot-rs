@@ -4,9 +4,7 @@
 //!
 //! ```rust,no_run
 //! use anyhow::Result;
-//! use kucoin::libs::kucoin_client::stream::{
-//!     Topic, WebsocketStream, order_book_increment_topic,
-//! };
+//! use kucoin::libs::kucoin_client::stream::{Topic, WebsocketStream, order_book_increment_topic};
 //! use tokio_util::sync::CancellationToken;
 //!
 //! #[derive(serde::Deserialize, Debug)]

@@ -183,7 +183,7 @@ impl GrpcClient {
         let mut transactions = HashMap::new();
         transactions.insert("".to_owned(), transactions_filter);
 
-        let request = SubscribeRequest {
+        SubscribeRequest {
             transactions,
             commitment: options
                 .commitment
@@ -191,9 +191,7 @@ impl GrpcClient {
                 .map(|c| c as i32),
             accounts_data_slice: vec![],
             ..Default::default()
-        };
-
-        request
+        }
     }
 
     /// Processes the gRPC stream in a blocking loop with cancellation support.
