@@ -26,7 +26,5 @@ target/
 /target
 
 # Custom
-.env
-tmp
-config.toml
-/docker-compose.infra.yml
+/tmp
+/config.toml
