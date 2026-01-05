@@ -20,13 +20,13 @@ arbitrage opportunities on cryptocurrency exchanges.
 
 Get up and running in minutes! This bot is optimized for Linux but works on macOS/Windows with minor tweaks.
 
-### 🛠 Prerequisites
+#### 🛠 Prerequisites
 
 * **Rust**: Version 1.92.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
 
 
-### 🏗 Build from Source
+#### 🏗 Build from Source
 
 Clone and build the CLI binary:
 
@@ -36,7 +36,7 @@ cd arb-bot-rs
 cargo build -p cli --profile release-lto --all-features
 ```
 
-### ✅ Running Tests
+#### ✅ Running Tests
 
 Verify everything works with our full test suite:
 
@@ -44,7 +44,7 @@ Verify everything works with our full test suite:
 cargo test --all
 ```
 
-### 🚀 Execution & CLI
+#### 🚀 Execution & CLI
 
 The CLI is intuitive—check available commands:
 
