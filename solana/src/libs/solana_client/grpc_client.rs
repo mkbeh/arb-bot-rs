@@ -1,14 +1,14 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::{Context, bail};
-use backoff::{Error as BackoffError, ExponentialBackoff, future::retry};
+use backon::{ExponentialBuilder, Retryable};
 use base64::{Engine, engine::general_purpose};
 use futures_util::{SinkExt, TryFutureExt};
 use rayon::{iter::ParallelIterator, prelude::*};
 use solana_sdk::pubkey::Pubkey;
 use tokio::{sync::Mutex, time::timeout};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, warn};
+use tracing::error;
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient, Interceptor};
 use yellowstone_grpc_proto::{
     prelude::{
@@ -111,44 +111,40 @@ impl GrpcClient {
                     Self::connect(config),
                 )
                 .await
-                .context("Connect timeout")
-                .map_err(BackoffError::transient)?
-                .context("Failed to connect to gRPC")
-                .map_err(BackoffError::transient)?;
+                .context("Connect timeout")?
+                .context("Failed to connect to gRPC")?;
 
                 let (mut subscribe_tx, stream) = timeout(
                     Duration::from_secs(options.connect_timeout),
                     client.subscribe(),
                 )
                 .await
-                .context("Subscribe timeout")
-                .map_err(BackoffError::transient)?
-                .context("Failed to subscribe")
-                .map_err(BackoffError::transient)?;
+                .context("Subscribe timeout")?
+                .context("Failed to subscribe")?;
 
                 let request = Self::build_subscribe_request(program_ids, &options);
 
                 subscribe_tx
                     .send(request)
                     .await
-                    .map_err(|e| BackoffError::transient(anyhow::anyhow!("Send error: {e}")))?;
+                    .map_err(|e| anyhow::anyhow!("Send error: {e}"))?;
 
-                Self::handle_events(stream, token.clone(), callback)
-                    .await
-                    .map_err(|e| {
-                        if token.is_cancelled() {
-                            BackoffError::permanent(e)
-                        } else {
-                            BackoffError::transient(e)
-                        }
-                    })?;
+                Self::handle_events(stream, token.clone(), callback).await?;
 
-                Ok::<(), backoff::Error<anyhow::Error>>(())
+                Ok(())
             }
-            .inspect_err(log_backoff_error)
+            .inspect_err(|e| {
+                error!(
+                    error = %e,
+                    "Subscription attempt failed, checking retry conditions..."
+                );
+            })
         };
 
-        retry(ExponentialBackoff::default(), operation).await
+        operation
+            .retry(ExponentialBuilder::default())
+            .when(|_: &anyhow::Error| !token.is_cancelled())
+            .await
     }
 
     async fn connect(
@@ -318,19 +314,4 @@ fn extract_program_id(instruction: &CompiledInstruction, message: &Message) -> O
     let program_id_index = instruction.program_id_index as usize;
     let key_bytes = message.account_keys.get(program_id_index)?;
     Some(Pubkey::try_from(key_bytes.as_slice()).ok()?.to_string())
-}
-
-/// Logs a `BackoffError` with type-specific level and full error chain.
-fn log_backoff_error(e: &BackoffError<anyhow::Error>) {
-    match e {
-        BackoffError::Permanent(err) => {
-            error!("PERMANENT ERROR (stopping): {:#}", err);
-        }
-        BackoffError::Transient {
-            err,
-            retry_after: _,
-        } => {
-            warn!("TRANSIENT ERROR (will retry): {:#}", err);
-        }
-    }
 }

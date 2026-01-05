@@ -7,7 +7,7 @@ arbitrage opportunities on cryptocurrency exchanges.
 
 [📖 Full Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Live Monitoring Setup](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy)
 
----
+***
 
 ### 📖 Table of Contents
 
