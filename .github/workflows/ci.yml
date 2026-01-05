@@ -56,7 +56,7 @@ jobs:
         run: cargo hack check --each-feature --no-dev-deps --all
 
   test-versions:
-    needs: check
+    needs: [ "check" ]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -73,7 +73,7 @@ jobs:
         run: cargo test --workspace --all-features --all-targets
 
   test-docs:
-    needs: check
+    needs: [ "check" ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
