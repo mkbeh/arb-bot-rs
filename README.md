@@ -100,6 +100,8 @@ _Live dashboard showing market data throughput, arbitrage processing rates, and 
 
 ## 🏛 Supported Exchanges
 
+List of supported cryptocurrency exchanges.
+
 |  Exchange   | Status | Features                                     |
 |:-----------:|:------:|----------------------------------------------|
 | **Binance** | ✅ Live | Spot trading, market orders, WebSocket feeds |
