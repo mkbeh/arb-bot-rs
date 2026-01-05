@@ -26,6 +26,7 @@ jobs:
         run: cargo +nightly fmt --all --check
 
   check-docs:
+    needs: [ "check" ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +40,7 @@ jobs:
       RUSTDOCFLAGS: "-D rustdoc::all -A rustdoc::private-doc-tests"
 
   cargo-hack:
+    needs: [ "build" ]
     runs-on: ubuntu-24.04
     env:
       # Fail the build if there are any warnings
