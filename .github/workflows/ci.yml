@@ -33,10 +33,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: cargo doc -p caslex
-        run: cargo doc --package caslex --all-features --no-deps
-      - name: cargo doc -p caslex-extra
-        run: cargo doc --package caslex-extra --all-features --no-deps
+      - name: check-docs
+        run: cargo doc --workspace --all-features --no-deps
     env:
       RUSTDOCFLAGS: "-D rustdoc::all -A rustdoc::private-doc-tests"
 

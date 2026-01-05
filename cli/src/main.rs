@@ -83,28 +83,32 @@ async fn run_bot(exchange: ExchangeType, config: Option<std::path::PathBuf>) -> 
             #[cfg(feature = "binance")]
             {
                 use binance::Provider;
-                bootstrap::<Provider, _>(_config.binance.as_ref(), &_config.general, exchange).await
+                bootstrap::<Provider, _>(_config.binance.as_ref(), &_config.general, exchange)
+                    .await?
             }
             #[cfg(not(feature = "binance"))]
-            Ok(ui::print_feature_error("binance"))
+            ui::print_feature_error("binance");
+            Ok(())
         }
         ExchangeType::Kucoin => {
             #[cfg(feature = "kucoin")]
             {
                 use kucoin::Provider;
-                bootstrap::<Provider, _>(_config.kucoin.as_ref(), &_config.general, exchange).await
+                bootstrap::<Provider, _>(_config.kucoin.as_ref(), &_config.general, exchange)
+                    .await?
             }
             #[cfg(not(feature = "kucoin"))]
-            Ok(ui::print_feature_error("kucoin"))
+            ui::print_feature_error("kucoin");
+            Ok(())
         }
         ExchangeType::Solana => {
             #[cfg(feature = "solana")]
             {
-                use solana::Provider;
-                bootstrap::<Provider, _>(_config.solana.as_ref(), &_config.general, exchange).await
+                println!("🚧 Solana support is under active development")
             }
             #[cfg(not(feature = "solana"))]
-            Ok(ui::print_feature_error("solana"))
+            ui::print_feature_error("solana");
+            Ok(())
         }
     }
 }

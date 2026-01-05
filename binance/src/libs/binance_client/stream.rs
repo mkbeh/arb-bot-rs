@@ -78,6 +78,7 @@ pub struct WebsocketStream<'a, Event> {
 }
 
 impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
+    #[must_use]
     pub fn new(ws_url: String) -> Self {
         Self {
             ws_url,
@@ -90,6 +91,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
     /// Sets a callback to handle incoming deserialized events.
     ///
     /// The callback is invoked for each valid text message after deserialization.
+    #[must_use]
     pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
     where
         Callback: FnMut(Event) -> anyhow::Result<()> + 'a + Send,
@@ -176,11 +178,11 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
             match serde_json::from_str::<Event>(text) {
                 Ok(event) => {
                     if let Err(e) = callback(event) {
-                        bail!("Failed to call callback: {e} - {:?}", text);
+                        bail!("Failed to call callback: {e} - {text:?}");
                     };
                 }
                 Err(e) => {
-                    bail!("Failed to parse websocket event: {e} - {:?}", text);
+                    bail!("Failed to parse websocket event: {e} - {text:?}");
                 }
             }
         };
@@ -196,7 +198,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
                 self.reader = Some(reader);
                 Ok(())
             }
-            Err(e) => bail!("Received error during handshake: {}", e),
+            Err(e) => bail!("Received error during handshake: {e}"),
         }
     }
 
@@ -213,6 +215,7 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
 /// # Arguments
 ///
 /// * `symbol`: the market symbol
+#[must_use]
 pub fn book_ticker_stream(symbol: &str) -> String {
     format!("{symbol}@bookTicker")
 }
@@ -222,6 +225,7 @@ pub fn book_ticker_stream(symbol: &str) -> String {
 /// * `symbol`: the market symbol
 /// * `levels`: 5, 10 or 20
 /// * `update_speed`: 1000 or 100
+#[must_use]
 pub fn partial_book_depth_stream(symbol: &str, levels: u16, update_speed: u16) -> String {
     format!("{symbol}@depth{levels}@{update_speed}ms")
 }

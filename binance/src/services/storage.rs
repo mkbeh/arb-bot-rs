@@ -28,6 +28,7 @@ pub struct BookTickerStore {
 
 impl BookTickerStore {
     /// Creates a new empty store.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             data: HashMap::new(),
@@ -49,16 +50,19 @@ impl BookTickerStore {
     }
 
     /// Retrieves the latest event for a symbol.
+    #[must_use]
     pub fn get(&self, symbol: &str) -> Option<&BookTickerEvent> {
         self.data.get(symbol)
     }
 
     /// Returns the number of stored symbols.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
     /// Checks if the store is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }

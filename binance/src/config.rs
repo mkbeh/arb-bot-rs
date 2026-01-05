@@ -51,7 +51,7 @@ impl Asset {
         match &self.symbol {
             Some(symbol) => {
                 if !symbol.contains("USDT") {
-                    bail!("Symbol must contain 'USDT': {}", symbol);
+                    bail!("Symbol must contain 'USDT': {symbol}");
                 }
             }
             None => {

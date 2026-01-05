@@ -24,12 +24,7 @@ Get up and running in minutes! This bot is optimized for Linux but works on macO
 
 * **Rust**: Version 1.92.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
-* **Linux Users**: Install `clang` and `lld` for optimized linking:
 
-    ```shell
-    sudo apt-get update && sudo apt-get install -y clang lld  # Ubuntu/Debian
-    # Or for other distros: brew install llvm (macOS), etc.
-    ```
 
 ### 🏗 Build from Source
 

@@ -17,6 +17,7 @@ pub struct AssetBuilder {
 }
 
 impl AssetBuilder {
+    #[must_use]
     pub fn new(
         market_api: Market,
         base_assets: Vec<Asset>,

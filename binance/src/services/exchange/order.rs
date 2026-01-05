@@ -77,6 +77,7 @@ pub struct OrderBuilder {
 }
 
 impl OrderBuilder {
+    #[must_use]
     pub fn new(fee_percent: Decimal) -> Self {
         Self {
             market_depth_limit: 1, // always 1
@@ -273,6 +274,7 @@ impl OrderBuilder {
     }
 
     /// Builds orders for the chain and calculates profit.
+    #[must_use]
     pub fn calculate_chain_profit(
         chain: &[OrderSymbol],
         market_depth_limit: usize,
@@ -513,7 +515,7 @@ fn define_symbol_filter(filters: &Vec<Filters>) -> SymbolFilter {
             } => {
                 symbol_filter.tick_size = tick_size.normalize().scale();
             }
-            _ => continue,
+            _ => {}
         };
     }
 
@@ -565,7 +567,7 @@ mod tests {
 
         let order_book_1 = BookTickerEvent {
             update_id: 1,
-            symbol: "BTCUSDT".to_string(),
+            symbol: "BTCUSDT".to_owned(),
             bid_price: Decimal::from_f64(109615.46000000).unwrap(),
             bid_qty: Decimal::from_f64(7.27795000).unwrap(),
             ask_price: Decimal::from_f64(109615.47000000).unwrap(),
@@ -574,7 +576,7 @@ mod tests {
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHUSDT".to_string(),
+            symbol: "ETHUSDT".to_owned(),
             bid_price: Decimal::from_f64(2585.70000000).unwrap(),
             bid_qty: Decimal::from_f64(14.64600000).unwrap(),
             ask_price: Decimal::from_f64(2585.71000000).unwrap(),
@@ -583,7 +585,7 @@ mod tests {
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             bid_price: Decimal::from_f64(0.02858000).unwrap(),
             bid_qty: Decimal::from_f64(105.74550000).unwrap(),
             ask_price: Decimal::from_f64(0.02359000).unwrap(),
@@ -592,7 +594,7 @@ mod tests {
 
         let order_symbols = vec![
             OrderSymbol {
-                symbol: "BTCUSDT".to_string(),
+                symbol: "BTCUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -606,7 +608,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHUSDT".to_string(),
+                symbol: "ETHUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
@@ -620,7 +622,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHBTC".to_string(),
+                symbol: "ETHBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -670,7 +672,7 @@ mod tests {
 
         let order_book_1 = BookTickerEvent {
             update_id: 1,
-            symbol: "BTCUSDT".to_string(),
+            symbol: "BTCUSDT".to_owned(),
             bid_price: Decimal::from_f64(109615.46000000).unwrap(),
             bid_qty: Decimal::from_f64(0.00020000).unwrap(), // <---- here,
             ask_price: Decimal::from_f64(109615.47000000).unwrap(),
@@ -679,7 +681,7 @@ mod tests {
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHUSDT".to_string(),
+            symbol: "ETHUSDT".to_owned(),
             bid_price: Decimal::from_f64(2585.70000000).unwrap(),
             bid_qty: Decimal::from_f64(14.64600000).unwrap(),
             ask_price: Decimal::from_f64(2585.71000000).unwrap(),
@@ -688,7 +690,7 @@ mod tests {
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             bid_price: Decimal::from_f64(0.02858000).unwrap(),
             bid_qty: Decimal::from_f64(105.74550000).unwrap(),
             ask_price: Decimal::from_f64(0.02359000).unwrap(),
@@ -697,7 +699,7 @@ mod tests {
 
         let order_symbols = vec![
             OrderSymbol {
-                symbol: "BTCUSDT".to_string(),
+                symbol: "BTCUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -711,7 +713,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHUSDT".to_string(),
+                symbol: "ETHUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
@@ -725,7 +727,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHBTC".to_string(),
+                symbol: "ETHBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -775,7 +777,7 @@ mod tests {
 
         let order_book_1 = BookTickerEvent {
             update_id: 1,
-            symbol: "BTCUSDT".to_string(),
+            symbol: "BTCUSDT".to_owned(),
             bid_price: Decimal::from_f64(109615.46000000).unwrap(),
             bid_qty: Decimal::from_f64(0.20000000).unwrap(),
             ask_price: Decimal::from_f64(109615.47000000).unwrap(),
@@ -784,7 +786,7 @@ mod tests {
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHUSDT".to_string(),
+            symbol: "ETHUSDT".to_owned(),
             bid_price: Decimal::from_f64(1585.70000000).unwrap(),
             bid_qty: Decimal::from_f64(19.28810000).unwrap(),
             ask_price: Decimal::from_f64(1585.71000000).unwrap(),
@@ -793,7 +795,7 @@ mod tests {
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             bid_price: Decimal::from_f64(0.02858000).unwrap(),
             bid_qty: Decimal::from_f64(105.74550000).unwrap(),
             ask_price: Decimal::from_f64(0.02359000).unwrap(),
@@ -802,7 +804,7 @@ mod tests {
 
         let order_symbols = vec![
             OrderSymbol {
-                symbol: "BTCUSDT".to_string(),
+                symbol: "BTCUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -816,7 +818,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHUSDT".to_string(),
+                symbol: "ETHUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
@@ -830,7 +832,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHBTC".to_string(),
+                symbol: "ETHBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -880,7 +882,7 @@ mod tests {
 
         let order_book_1 = BookTickerEvent {
             update_id: 1,
-            symbol: "BTCUSDT".to_string(),
+            symbol: "BTCUSDT".to_owned(),
             bid_price: Decimal::from_f64(109615.46000000).unwrap(),
             bid_qty: Decimal::from_f64(0.20000000).unwrap(),
             ask_price: Decimal::from_f64(109615.47000000).unwrap(),
@@ -889,7 +891,7 @@ mod tests {
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHUSDT".to_string(),
+            symbol: "ETHUSDT".to_owned(),
             bid_price: Decimal::from_f64(2585.70000000).unwrap(),
             bid_qty: Decimal::from_f64(19.28810000).unwrap(),
             ask_price: Decimal::from_f64(2585.71000000).unwrap(),
@@ -898,7 +900,7 @@ mod tests {
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             bid_price: Decimal::from_f64(0.02858000).unwrap(),
             bid_qty: Decimal::from_f64(0.01).unwrap(), // <---- here,
             ask_price: Decimal::from_f64(0.02359000).unwrap(),
@@ -907,7 +909,7 @@ mod tests {
 
         let order_symbols = vec![
             OrderSymbol {
-                symbol: "BTCUSDT".to_string(),
+                symbol: "BTCUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -921,7 +923,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHUSDT".to_string(),
+                symbol: "ETHUSDT".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
@@ -935,7 +937,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "ETHBTC".to_string(),
+                symbol: "ETHBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -984,7 +986,7 @@ mod tests {
 
         let order_book_1 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             bid_price: Decimal::from_f64(0.03615000).unwrap(),
             bid_qty: Decimal::from_f64(0.20000000).unwrap(),
             ask_price: Decimal::from_f64(0.03216000).unwrap(),
@@ -993,7 +995,7 @@ mod tests {
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
-            symbol: "WBTCBTC".to_string(),
+            symbol: "WBTCBTC".to_owned(),
             bid_price: Decimal::from_f64(0.99920000).unwrap(),
             bid_qty: Decimal::from_f64(19.28810000).unwrap(),
             ask_price: Decimal::from_f64(0.99930000).unwrap(),
@@ -1002,7 +1004,7 @@ mod tests {
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
-            symbol: "WBTCETH".to_string(),
+            symbol: "WBTCETH".to_owned(),
             bid_price: Decimal::from_f64(31.07000000).unwrap(),
             bid_qty: Decimal::from_f64(1.5).unwrap(), // <---- here
             ask_price: Decimal::from_f64(31.08000000).unwrap(),
@@ -1011,7 +1013,7 @@ mod tests {
 
         let order_symbols = vec![
             OrderSymbol {
-                symbol: "ETHBTC".to_string(),
+                symbol: "ETHBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -1025,7 +1027,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "WBTCBTC".to_string(),
+                symbol: "WBTCBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
@@ -1039,7 +1041,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "WBTCETH".to_string(),
+                symbol: "WBTCETH".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -1068,7 +1070,7 @@ mod tests {
 
         let order_book_1 = BookTickerEvent {
             update_id: 1,
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             bid_price: Decimal::from_f64(0.03402000).unwrap(),
             bid_qty: Decimal::from_f64(23.09700000).unwrap(),
             ask_price: Decimal::from_f64(0.03203000).unwrap(),
@@ -1077,7 +1079,7 @@ mod tests {
 
         let order_book_2 = BookTickerEvent {
             update_id: 1,
-            symbol: "WBTCBTC".to_string(),
+            symbol: "WBTCBTC".to_owned(),
             bid_price: Decimal::from_f64(0.00007820).unwrap(),
             bid_qty: Decimal::from_f64(1.62000000).unwrap(),
             ask_price: Decimal::from_f64(0.00007810).unwrap(),
@@ -1086,7 +1088,7 @@ mod tests {
 
         let order_book_3 = BookTickerEvent {
             update_id: 1,
-            symbol: "WBTCETH".to_string(),
+            symbol: "WBTCETH".to_owned(),
             bid_price: Decimal::from_f64(0.00243200).unwrap(),
             bid_qty: Decimal::from_f64(0.54000000).unwrap(), // <---- here
             ask_price: Decimal::from_f64(0.00243300).unwrap(),
@@ -1094,7 +1096,7 @@ mod tests {
         };
         let order_symbols = vec![
             OrderSymbol {
-                symbol: "ETHBTC".to_string(),
+                symbol: "ETHBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,
@@ -1108,7 +1110,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "SSVBTC".to_string(),
+                symbol: "SSVBTC".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Desc,
@@ -1122,7 +1124,7 @@ mod tests {
                 },
             },
             OrderSymbol {
-                symbol: "SSVETH".to_string(),
+                symbol: "SSVETH".to_owned(),
                 base_asset_precision: 8,
                 quote_precision: 8,
                 symbol_order: SymbolOrder::Asc,

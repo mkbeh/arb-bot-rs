@@ -11,7 +11,7 @@ use rust_decimal::{Decimal, prelude::FromPrimitive};
 pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
     let order_book_1 = BookTickerEvent {
         update_id: 1,
-        symbol: "BTCUSDT".to_string(),
+        symbol: "BTCUSDT".to_owned(),
         bid_price: Decimal::from_f64(109615.46000000).unwrap(),
         bid_qty: Decimal::from_f64(7.27795000).unwrap(),
         ask_price: Decimal::from_f64(109615.47000000).unwrap(),
@@ -20,7 +20,7 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
 
     let order_book_2 = BookTickerEvent {
         update_id: 1,
-        symbol: "ETHUSDT".to_string(),
+        symbol: "ETHUSDT".to_owned(),
         bid_price: Decimal::from_f64(2585.70000000).unwrap(),
         bid_qty: Decimal::from_f64(14.64600000).unwrap(),
         ask_price: Decimal::from_f64(2585.71000000).unwrap(),
@@ -29,7 +29,7 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
 
     let order_book_3 = BookTickerEvent {
         update_id: 1,
-        symbol: "ETHBTC".to_string(),
+        symbol: "ETHBTC".to_owned(),
         bid_price: Decimal::from_f64(0.02858000).unwrap(),
         bid_qty: Decimal::from_f64(105.74550000).unwrap(),
         ask_price: Decimal::from_f64(0.02359000).unwrap(),
@@ -38,7 +38,7 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
 
     let order_symbols = vec![
         OrderSymbol {
-            symbol: "BTCUSDT".to_string(),
+            symbol: "BTCUSDT".to_owned(),
             base_asset_precision: 8,
             quote_precision: 8,
             symbol_order: SymbolOrder::Asc,
@@ -52,7 +52,7 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
             },
         },
         OrderSymbol {
-            symbol: "ETHUSDT".to_string(),
+            symbol: "ETHUSDT".to_owned(),
             base_asset_precision: 8,
             quote_precision: 8,
             symbol_order: SymbolOrder::Desc,
@@ -66,7 +66,7 @@ pub fn calculate_chain_profit_benchmark(c: &mut Criterion) {
             },
         },
         OrderSymbol {
-            symbol: "ETHBTC".to_string(),
+            symbol: "ETHBTC".to_owned(),
             base_asset_precision: 8,
             quote_precision: 8,
             symbol_order: SymbolOrder::Asc,

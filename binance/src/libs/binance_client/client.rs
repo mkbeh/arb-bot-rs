@@ -14,7 +14,7 @@ use crate::libs::binance_client::{api::Api, utils::generate_signature};
 /// Uses a configurable `reqwest::Client` for HTTP transport.
 #[derive(Clone)]
 pub struct Client {
-    /// Base host URL for API requests (e.g., "https://api.binance.com").
+    /// Base host URL for API requests (e.g., "<https://api.binance.com>").
     host: String,
     /// API key for authentication.
     api_key: String,
@@ -34,7 +34,7 @@ impl Client {
     ///
     /// # Errors
     /// Returns an error if the inner client builder fails (e.g., invalid timeouts).
-    pub fn from_config(cfg: ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
+    pub fn from_config(cfg: &ClientConfig) -> anyhow::Result<Self, anyhow::Error> {
         let client = Self {
             host: cfg.api_url.clone(),
             api_key: cfg.api_token.clone(),
@@ -148,7 +148,7 @@ impl Client {
         }
 
         if with_signature {
-            url.push_str(format!("?{}", self.build_signature(query_params)).as_str());
+            url.push_str(format!("?{}", self.build_signature(&query_params)).as_str());
         } else {
             url.push_str(format!("?{query_params}").as_str());
         }
@@ -162,11 +162,11 @@ impl Client {
     ///
     /// # Arguments
     /// * `query_params` - Existing query string (without leading '?').
-    fn build_signature(&self, query_params: String) -> String {
+    fn build_signature(&self, query_params: &str) -> String {
         let signature = if query_params.is_empty() {
             generate_signature(&self.secret_key, None)
         } else {
-            generate_signature(&self.secret_key, Some(&query_params))
+            generate_signature(&self.secret_key, Some(query_params))
         };
 
         if query_params.is_empty() {
@@ -199,8 +199,7 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
         StatusCode::UNAUTHORIZED => bail!("Unauthorized"),
         code => {
             bail!(format!(
-                "Received error: code={} msg={}",
-                code,
+                "Received error: code={code} msg={}",
                 resp.text().await.map_err(|e| anyhow!(e))?
             ));
         }
@@ -278,25 +277,25 @@ mod tests {
 
     fn create_test_client(server_url: &str) -> Client {
         let config = ClientConfig {
-            api_url: server_url.to_string(),
-            api_token: "test_api_key".to_string(),
-            api_secret_key: "test_secret_key".to_string(),
+            api_url: server_url.to_owned(),
+            api_token: "test_api_key".to_owned(),
+            api_secret_key: "test_secret_key".to_owned(),
             http_config: HttpConfig::default(),
         };
 
-        Client::from_config(config).unwrap()
+        Client::from_config(&config).unwrap()
     }
 
     #[tokio::test]
     async fn test_client_creation() {
         let config = ClientConfig {
-            api_url: "https://api.binance.com".to_string(),
-            api_token: "test_key".to_string(),
-            api_secret_key: "test_secret".to_string(),
+            api_url: "https://api.binance.com".to_owned(),
+            api_token: "test_key".to_owned(),
+            api_secret_key: "test_secret".to_owned(),
             http_config: HttpConfig::default(),
         };
 
-        let client = Client::from_config(config);
+        let client = Client::from_config(&config);
         assert!(client.is_ok());
     }
 
@@ -307,8 +306,8 @@ mod tests {
             .mock(
                 "GET",
                 mockito::Matcher::AnyOf(vec![
-                    mockito::Matcher::Exact("/api/v3/ticker/price?".to_string()),
-                    mockito::Matcher::Regex(r"^/api/v3/ticker/price\?".to_string()),
+                    mockito::Matcher::Exact("/api/v3/ticker/price?".to_owned()),
+                    mockito::Matcher::Regex(r"^/api/v3/ticker/price\?".to_owned()),
                 ]),
             )
             .with_status(200)
@@ -335,7 +334,7 @@ mod tests {
             .mock(
                 "GET",
                 mockito::Matcher::Regex(
-                    r"^/api/v3/ticker/price\?.*symbol=BTCUSDT.*interval=1h".to_string(),
+                    r"^/api/v3/ticker/price\?.*symbol=BTCUSDT.*interval=1h".to_owned(),
                 ),
             )
             .with_status(200)
@@ -346,8 +345,8 @@ mod tests {
 
         let client = create_test_client(&server.url());
         let query_params = vec![
-            ("symbol".to_string(), "BTCUSDT".to_string()),
-            ("interval".to_string(), "1h".to_string()),
+            ("symbol".to_owned(), "BTCUSDT".to_owned()),
+            ("interval".to_owned(), "1h".to_owned()),
         ];
 
         let result: anyhow::Result<TestResponse> = client
@@ -364,7 +363,7 @@ mod tests {
         let mock = server
             .mock(
                 "GET",
-                mockito::Matcher::Regex(r"^/api/v3/account\?.*signature=[^&]+".to_string()),
+                mockito::Matcher::Regex(r"^/api/v3/account\?.*signature=[^&]+".to_owned()),
             )
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -387,7 +386,7 @@ mod tests {
             .mock(
                 "GET",
                 mockito::Matcher::Regex(
-                    r"^/api/v3/order\?.*symbol=BTCUSDT.*side=BUY.*signature=[^&]+".to_string(),
+                    r"^/api/v3/order\?.*symbol=BTCUSDT.*side=BUY.*signature=[^&]+".to_owned(),
                 ),
             )
             .with_status(200)
@@ -398,8 +397,8 @@ mod tests {
 
         let client = create_test_client(&server.url());
         let query_params = vec![
-            ("symbol".to_string(), "BTCUSDT".to_string()),
-            ("side".to_string(), "BUY".to_string()),
+            ("symbol".to_owned(), "BTCUSDT".to_owned()),
+            ("side".to_owned(), "BUY".to_owned()),
         ];
 
         let result: anyhow::Result<TestResponse> = client
@@ -416,7 +415,7 @@ mod tests {
         let mock = server
             .mock(
                 "POST",
-                mockito::Matcher::Regex(r"^/api/v3/order\?".to_string()),
+                mockito::Matcher::Regex(r"^/api/v3/order\?".to_owned()),
             )
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -435,8 +434,8 @@ mod tests {
     #[tokio::test]
     async fn test_response_handler_success() {
         let expected_response = TestResponse {
-            symbol: "BTCUSDT".to_string(),
-            price: "50000.0".to_string(),
+            symbol: "BTCUSDT".to_owned(),
+            price: "50000.0".to_owned(),
         };
 
         let response = reqwest::Response::from(
@@ -529,8 +528,8 @@ mod tests {
     #[test]
     fn test_build_query() {
         let params = vec![
-            ("key1".to_string(), "value1".to_string()),
-            ("key2".to_string(), "value2".to_string()),
+            ("key1".to_owned(), "value1".to_owned()),
+            ("key2".to_owned(), "value2".to_owned()),
         ];
 
         let query = build_query(&params);
@@ -549,7 +548,7 @@ mod tests {
 
     #[test]
     fn test_build_query_single_param() {
-        let params = vec![("key1".to_string(), "value1".to_string())];
+        let params = vec![("key1".to_owned(), "value1".to_owned())];
         let query = build_query(&params);
         assert_eq!(query, "key1=value1");
     }
@@ -577,7 +576,7 @@ mod tests {
     #[test]
     fn test_build_url_with_query_without_signature() {
         let client = create_test_client("https://api.binance.com");
-        let query_params = vec![("symbol".to_string(), "BTCUSDT".to_string())];
+        let query_params = vec![("symbol".to_owned(), "BTCUSDT".to_owned())];
 
         let url = client
             .build_url(Api::Spot(Spot::Price), Some(&query_params), false)
@@ -592,7 +591,7 @@ mod tests {
     #[test]
     fn test_build_url_with_query_and_signature() {
         let client = create_test_client("https://api.binance.com");
-        let query_params = vec![("symbol".to_string(), "BTCUSDT".to_string())];
+        let query_params = vec![("symbol".to_owned(), "BTCUSDT".to_owned())];
 
         let url = client
             .build_url(Api::Spot(Spot::Order), Some(&query_params), true)
@@ -642,9 +641,9 @@ mod tests {
     #[test]
     fn test_build_headers_invalid_api_key() {
         let client = Client {
-            host: "https://api.binance.com".to_string(),
-            api_key: "invalid\nkey".to_string(),
-            secret_key: "test_secret".to_string(),
+            host: "https://api.binance.com".to_owned(),
+            api_key: "invalid\nkey".to_owned(),
+            secret_key: "test_secret".to_owned(),
             inner_client: reqwest::Client::new(),
         };
 

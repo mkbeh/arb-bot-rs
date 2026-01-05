@@ -16,10 +16,10 @@ pub enum SymbolStatus {
 impl Display for SymbolStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SymbolStatus::Trading => write!(f, "TRADING"),
-            SymbolStatus::EndOfDay => write!(f, "END_OF_DAY"),
-            SymbolStatus::Halt => write!(f, "HALT"),
-            SymbolStatus::Break => write!(f, "BREAK"),
+            Self::Trading => write!(f, "TRADING"),
+            Self::EndOfDay => write!(f, "END_OF_DAY"),
+            Self::Halt => write!(f, "HALT"),
+            Self::Break => write!(f, "BREAK"),
         }
     }
 }
@@ -34,8 +34,8 @@ pub enum OrderSide {
 impl Display for OrderSide {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OrderSide::Buy => write!(f, "BUY"),
-            OrderSide::Sell => write!(f, "SELL"),
+            Self::Buy => write!(f, "BUY"),
+            Self::Sell => write!(f, "SELL"),
         }
     }
 }
@@ -55,13 +55,13 @@ pub enum OrderType {
 impl Display for OrderType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OrderType::Limit => write!(f, "LIMIT"),
-            OrderType::Market => write!(f, "MARKET"),
-            OrderType::StopLoss => write!(f, "STOP_LOSS"),
-            OrderType::StopLossLimit => write!(f, "STOP_LOSS_LIMIT"),
-            OrderType::TakeProfit => write!(f, "TAKE_PROFIT"),
-            OrderType::TakeProfitLimit => write!(f, "TAKE_PROFIT_LIMIT"),
-            OrderType::LimitMaker => write!(f, "LIMIT_MAKER"),
+            Self::Limit => write!(f, "LIMIT"),
+            Self::Market => write!(f, "MARKET"),
+            Self::StopLoss => write!(f, "STOP_LOSS"),
+            Self::StopLossLimit => write!(f, "STOP_LOSS_LIMIT"),
+            Self::TakeProfit => write!(f, "TAKE_PROFIT"),
+            Self::TakeProfitLimit => write!(f, "TAKE_PROFIT_LIMIT"),
+            Self::LimitMaker => write!(f, "LIMIT_MAKER"),
         }
     }
 }
@@ -77,9 +77,9 @@ pub enum TimeInForce {
 impl Display for TimeInForce {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TimeInForce::Gtc => write!(f, "GTC"),
-            TimeInForce::Ioc => write!(f, "IOC"),
-            TimeInForce::Fok => write!(f, "FOK"),
+            Self::Gtc => write!(f, "GTC"),
+            Self::Ioc => write!(f, "IOC"),
+            Self::Fok => write!(f, "FOK"),
         }
     }
 }
@@ -95,9 +95,9 @@ pub enum NewOrderRespType {
 impl Display for NewOrderRespType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NewOrderRespType::Ack => write!(f, "ACK"),
-            NewOrderRespType::Result => write!(f, "RESULT"),
-            NewOrderRespType::Full => write!(f, "FULL"),
+            Self::Ack => write!(f, "ACK"),
+            Self::Result => write!(f, "RESULT"),
+            Self::Full => write!(f, "FULL"),
         }
     }
 }
@@ -115,11 +115,11 @@ pub enum SelfTradePreventionMode {
 impl Display for SelfTradePreventionMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SelfTradePreventionMode::None => write!(f, "NONE"),
-            SelfTradePreventionMode::ExpireMaker => write!(f, "EXPIRE_MAKER"),
-            SelfTradePreventionMode::ExpireTaker => write!(f, "EXPIRE_TAKER"),
-            SelfTradePreventionMode::ExpireBoth => write!(f, "EXPIRE_BOTH"),
-            SelfTradePreventionMode::Decrement => write!(f, "DECREMENT"),
+            Self::None => write!(f, "NONE"),
+            Self::ExpireMaker => write!(f, "EXPIRE_MAKER"),
+            Self::ExpireTaker => write!(f, "EXPIRE_TAKER"),
+            Self::ExpireBoth => write!(f, "EXPIRE_BOTH"),
+            Self::Decrement => write!(f, "DECREMENT"),
         }
     }
 }
@@ -139,13 +139,13 @@ pub enum OrderStatus {
 impl Display for OrderStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OrderStatus::Canceled => write!(f, "CANCELED"),
-            OrderStatus::Expired => write!(f, "EXPIRED"),
-            OrderStatus::Filled => write!(f, "FILLED"),
-            OrderStatus::New => write!(f, "NEW"),
-            OrderStatus::PartiallyFilled => write!(f, "PARTIALLY_FILLED"),
-            OrderStatus::PendingCancel => write!(f, "PENDING_CANCELED"),
-            OrderStatus::Rejected => write!(f, "REJECTED"),
+            Self::Canceled => write!(f, "CANCELED"),
+            Self::Expired => write!(f, "EXPIRED"),
+            Self::Filled => write!(f, "FILLED"),
+            Self::New => write!(f, "NEW"),
+            Self::PartiallyFilled => write!(f, "PARTIALLY_FILLED"),
+            Self::PendingCancel => write!(f, "PENDING_CANCELED"),
+            Self::Rejected => write!(f, "REJECTED"),
         }
     }
 }
@@ -160,8 +160,8 @@ pub enum TickerPriceResponseType {
 impl Display for TickerPriceResponseType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TickerPriceResponseType::Full => write!(f, "FULL"),
-            TickerPriceResponseType::Mini => write!(f, "MINI"),
+            Self::Full => write!(f, "FULL"),
+            Self::Mini => write!(f, "MINI"),
         }
     }
 }

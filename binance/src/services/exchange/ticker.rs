@@ -28,6 +28,7 @@ pub struct TickerBuilder {
 }
 
 impl TickerBuilder {
+    #[must_use]
     pub fn new(ws_streams_url: String, ws_max_connections: usize) -> Self {
         Self {
             ws_streams_url,
@@ -41,8 +42,8 @@ impl TickerBuilder {
         token: CancellationToken,
         chains: Vec<[ChainSymbol; 3]>,
     ) -> anyhow::Result<()> {
-        let symbols = self.collect_unique_symbols(&chains);
-        let streams = self.create_streams(&symbols);
+        let symbols = Self::collect_unique_symbols(&chains);
+        let streams = Self::create_streams(&symbols);
 
         info!(
             streams = streams.len(),
@@ -125,7 +126,7 @@ impl TickerBuilder {
         Ok(())
     }
 
-    fn collect_unique_symbols(&self, chains: &[[ChainSymbol; 3]]) -> Vec<String> {
+    fn collect_unique_symbols(chains: &[[ChainSymbol; 3]]) -> Vec<String> {
         chains
             .iter()
             .flat_map(|chain| chain.iter())
@@ -135,7 +136,7 @@ impl TickerBuilder {
             .collect()
     }
 
-    fn create_streams(&self, symbols: &[String]) -> Vec<String> {
+    fn create_streams(symbols: &[String]) -> Vec<String> {
         symbols
             .iter()
             .map(|symbol| book_ticker_stream(symbol))

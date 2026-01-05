@@ -37,6 +37,9 @@ criterion = { workspace = true }
 http = { workspace = true }
 mockito = { workspace = true }
 
+[lints]
+workspace = true
+
 [[bench]]
 name = "benches"
 harness = false

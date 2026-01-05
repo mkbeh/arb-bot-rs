@@ -89,7 +89,7 @@ pub enum Futures {
 
 impl From<Api> for String {
     fn from(item: Api) -> Self {
-        String::from(match item {
+        Self::from(match item {
             Api::Spot(route) => match route {
                 Spot::Ping => "/api/v3/ping",
                 Spot::Time => "/api/v3/time",
@@ -173,33 +173,33 @@ pub trait Binance {
 }
 
 impl Binance for General {
-    fn new(cfg: ClientConfig) -> anyhow::Result<General> {
-        Ok(General {
-            client: Client::from_config(cfg)?,
+    fn new(cfg: ClientConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            client: Client::from_config(&cfg)?,
         })
     }
 }
 
 impl Binance for Account {
-    fn new(cfg: ClientConfig) -> anyhow::Result<Account> {
-        Ok(Account {
-            client: Client::from_config(cfg)?,
+    fn new(cfg: ClientConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            client: Client::from_config(&cfg)?,
         })
     }
 }
 
 impl Binance for Trade {
-    fn new(cfg: ClientConfig) -> anyhow::Result<Trade> {
-        Ok(Trade {
-            client: Client::from_config(cfg)?,
+    fn new(cfg: ClientConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            client: Client::from_config(&cfg)?,
         })
     }
 }
 
 impl Binance for Market {
-    fn new(cfg: ClientConfig) -> anyhow::Result<Market> {
-        Ok(Market {
-            client: Client::from_config(cfg)?,
+    fn new(cfg: ClientConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            client: Client::from_config(&cfg)?,
         })
     }
 }

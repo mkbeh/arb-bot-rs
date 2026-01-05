@@ -22,9 +22,10 @@ impl TickerBroadcast {
     }
 
     /// Retrieves or creates a sender for the given symbol (clones if exists).
+    #[must_use]
     pub fn get_sender(&self, symbol: &str) -> watch::Sender<BookTickerEvent> {
         self.channels
-            .entry(symbol.to_string())
+            .entry(symbol.to_owned())
             .or_insert_with(|| {
                 let (tx, _rx) = watch::channel(BookTickerEvent::default());
                 tx
@@ -40,6 +41,7 @@ impl TickerBroadcast {
     }
 
     /// Subscribes to changes for the given symbol (creates channel if missing).
+    #[must_use]
     pub fn subscribe(&self, ticker: &str) -> watch::Receiver<BookTickerEvent> {
         let tx = self.get_sender(ticker);
         tx.subscribe()

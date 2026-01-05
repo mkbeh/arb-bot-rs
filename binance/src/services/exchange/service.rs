@@ -116,7 +116,6 @@ impl ArbitrageService for ExchangeService {
             match result {
                 Ok(Ok(())) => {
                     token.cancel();
-                    continue;
                 }
                 Ok(Err(e)) => {
                     error!(error = ?e, "Task failed");

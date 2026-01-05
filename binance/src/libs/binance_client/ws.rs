@@ -128,6 +128,7 @@ pub async fn connect_ws(conf: ConnectConfig) -> anyhow::Result<(WebsocketWriter,
 }
 
 impl ConnectConfig {
+    #[must_use]
     pub fn new(ws_url: String, api_key: String, secret_key: String) -> Self {
         Self {
             ws_url,
@@ -154,22 +155,22 @@ impl WebsocketWriter {
         params.push(("type".to_owned(), request.order_type.to_string()));
 
         if let Some(ref v) = request.iceberg_qty {
-            params.push(("icebergQty".to_owned(), v.to_string()));
+            params.push(("icebergQty".to_owned(), v.clone()));
         }
         if let Some(ref v) = request.new_client_order_id {
-            params.push(("newClientOrderId".to_owned(), v.to_string()));
+            params.push(("newClientOrderId".to_owned(), v.clone()));
         }
         if let Some(ref v) = request.new_order_resp_type {
             params.push(("newOrderRespType".to_owned(), v.to_string()));
         }
         if let Some(ref v) = request.price {
-            params.push(("price".to_owned(), v.to_string()));
+            params.push(("price".to_owned(), v.clone()));
         }
         if let Some(ref v) = request.quantity {
-            params.push(("quantity".to_owned(), v.to_string()));
+            params.push(("quantity".to_owned(), v.clone()));
         }
         if let Some(ref v) = request.quote_order_qty {
-            params.push(("quoteOrderQty".to_owned(), v.to_string()));
+            params.push(("quoteOrderQty".to_owned(), v.clone()));
         }
         if let Some(v) = request.recv_window {
             params.push(("recvWindow".to_owned(), v.to_string()));
@@ -178,7 +179,7 @@ impl WebsocketWriter {
             params.push(("selfTradePreventionMode".to_owned(), v.to_string()));
         }
         if let Some(ref v) = request.stop_price {
-            params.push(("stopPrice".to_owned(), v.to_string()));
+            params.push(("stopPrice".to_owned(), v.clone()));
         }
         if let Some(v) = request.strategy_id {
             params.push(("strategyId".to_owned(), v.to_string()));
@@ -190,12 +191,12 @@ impl WebsocketWriter {
             params.push(("timeInForce".to_owned(), v.to_string()));
         }
         if let Some(ref v) = request.trailing_delta {
-            params.push(("trailingDelta".to_owned(), v.to_string()));
+            params.push(("trailingDelta".to_owned(), v.clone()));
         }
 
         params.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let query = build_query_string(params);
+        let query = build_query_string(&params);
         let signature = generate_signature(&self.secret_key, Some(&query));
 
         request.timestamp = Some(timestamp);
@@ -236,7 +237,7 @@ impl WebsocketWriter {
 
         params.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let query = build_query_string(params);
+        let query = build_query_string(&params);
         let signature = generate_signature(&self.secret_key, Some(&query));
 
         request.timestamp = Some(timestamp);
@@ -251,7 +252,7 @@ impl WebsocketWriter {
     }
 
     /// Sends a generic signed request over the WebSocket and awaits the response.
-    async fn send_request<T, R>(&mut self, method: WebsocketApi, params: T) -> anyhow::Result<R>
+    async fn send_request<T, R>(&self, method: WebsocketApi, params: T) -> anyhow::Result<R>
     where
         T: Serialize,
         R: DeserializeOwned,
@@ -316,7 +317,7 @@ impl WebsocketReader {
                         Some(Ok(Message::Ping(data))) => {
                             let mut writer = self.writer.lock().await;
                             writer.send(Message::Pong(data)).await
-                                .map_err(|e| anyhow!("Failed to send pong: {}", e))?;
+                                .map_err(|e| anyhow!("Failed to send pong: {e}"))?;
                         }
                         Some(Ok(Message::Close(frame))) => {
                             debug!("WebSocket closed: {:?}", frame);
@@ -353,7 +354,7 @@ impl WebsocketReader {
             }
             Err(e) => {
                 error!(error = ?e, response = ?text, "Failed to parse message");
-                bail!("Failed to parse message: {:?}", text);
+                bail!("Failed to parse message: {text:?}");
             }
         }
         Ok(())
@@ -361,7 +362,7 @@ impl WebsocketReader {
 }
 
 /// Builds a query string from a vector of sorted key-value pairs.
-fn build_query_string(params: Vec<(String, String)>) -> String {
+fn build_query_string(params: &[(String, String)]) -> String {
     params
         .iter()
         .map(|(k, v)| format!("{k}={v}"))
@@ -391,8 +392,8 @@ pub enum WebsocketApi {
 }
 
 impl From<WebsocketApi> for String {
-    fn from(api: WebsocketApi) -> String {
-        String::from(match api {
+    fn from(api: WebsocketApi) -> Self {
+        Self::from(match api {
             WebsocketApi::PlaceOrder => "order.place",
             WebsocketApi::QueryOrder => "order.status",
         })
@@ -400,10 +401,11 @@ impl From<WebsocketApi> for String {
 }
 
 impl WebsocketApi {
+    #[must_use]
     pub fn weight(&self) -> u16 {
         match self {
-            WebsocketApi::PlaceOrder => 1,
-            WebsocketApi::QueryOrder => 4,
+            Self::PlaceOrder => 1,
+            Self::QueryOrder => 4,
         }
     }
 }
@@ -457,12 +459,12 @@ impl<T> ResponseContent<T> {
         T: Into<Value>,
     {
         match self {
-            ResponseContent::Success { result, .. } => {
+            Self::Success { result, .. } => {
                 let value = result.into();
                 serde_json::from_value::<R>(value)
-                    .map_err(|e| anyhow!("Failed to deserialize result: {}", e))
+                    .map_err(|e| anyhow!("Failed to deserialize result: {e}"))
             }
-            ResponseContent::Error { error, .. } => {
+            Self::Error { error, .. } => {
                 bail!("Websocket API error: {} - {}", error.code, error.msg)
             }
         }

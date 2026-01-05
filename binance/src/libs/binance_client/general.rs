@@ -13,9 +13,9 @@ impl General {
     /// Exchange information.
     pub async fn exchange_info(&self) -> anyhow::Result<ExchangeInformation> {
         let params: Vec<(String, String)> = vec![
-            ("symbolStatus".to_owned(), "TRADING".to_string()),
-            ("showPermissionSets".to_owned(), "false".to_string()),
-            ("permissions".to_owned(), "[\"SPOT\"]".to_string()),
+            ("symbolStatus".to_owned(), "TRADING".to_owned()),
+            ("showPermissionSets".to_owned(), "false".to_owned()),
+            ("permissions".to_owned(), "[\"SPOT\"]".to_owned()),
         ];
 
         self.client
