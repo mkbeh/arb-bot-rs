@@ -1,15 +1,9 @@
 mod config;
+mod launcher;
 mod ui;
 
-use std::sync::Arc;
-
-use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
-use engine::{Exchange, Sender, ServiceFactory, build_processes, build_services};
 use strum_macros::{Display, EnumIter, EnumString};
-use tools::http::http_server::{HttpServer, HttpServerConfig, HttpServerProcess};
-
-use crate::config::{Config, GeneralConfig};
 
 #[derive(Parser)]
 #[command(name = "arb-bot")]
@@ -34,8 +28,8 @@ enum Commands {
         exchange: ExchangeType,
 
         /// Path to config.toml file
-        #[arg(short, long)]
-        config: Option<std::path::PathBuf>,
+        #[arg(short, long, default_value = "config.toml")]
+        config: std::path::PathBuf,
     },
 }
 
@@ -54,95 +48,12 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.commands {
-        Commands::Version => {
-            ui::print_version();
-        }
-        Commands::List => {
-            ui::print_exchanges();
-        }
+        Commands::Version => ui::print_version(),
+        Commands::List => ui::print_exchanges(),
         Commands::Run { exchange, config } => {
-            run_bot(exchange, config).await?;
+            launcher::start(exchange, config).await?;
         }
     }
-
-    Ok(())
-}
-
-async fn run_bot(exchange: ExchangeType, config: Option<std::path::PathBuf>) -> anyhow::Result<()> {
-    let config_path = config.unwrap_or_else(|| "config.toml".into());
-    let _config = match Config::parse(&config_path) {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            ui::print_config_error(&config_path, &e);
-            return Ok(());
-        }
-    };
-
-    match exchange {
-        ExchangeType::Binance => {
-            #[cfg(feature = "binance")]
-            {
-                use binance::Provider;
-                bootstrap::<Provider, _>(_config.binance.as_ref(), &_config.general, exchange)
-                    .await?
-            }
-            #[cfg(not(feature = "binance"))]
-            ui::print_feature_error("binance");
-            Ok(())
-        }
-        ExchangeType::Kucoin => {
-            #[cfg(feature = "kucoin")]
-            {
-                use kucoin::Provider;
-                bootstrap::<Provider, _>(_config.kucoin.as_ref(), &_config.general, exchange)
-                    .await?
-            }
-            #[cfg(not(feature = "kucoin"))]
-            ui::print_feature_error("kucoin");
-            Ok(())
-        }
-        ExchangeType::Solana => {
-            #[cfg(feature = "solana")]
-            {
-                println!("🚧 Solana support is under active development")
-            }
-            #[cfg(not(feature = "solana"))]
-            ui::print_feature_error("solana");
-            Ok(())
-        }
-    }
-}
-
-pub async fn bootstrap<P, C>(
-    config: Option<&C>,
-    settings: &GeneralConfig,
-    exchange_type: ExchangeType,
-) -> anyhow::Result<()>
-where
-    P: ServiceFactory<dyn Exchange, Config = C> + ServiceFactory<dyn Sender, Config = C>,
-{
-    let config =
-        config.ok_or_else(|| anyhow::anyhow!("{exchange_type} config not found in config.toml"))?;
-    let (exchange, sender) = build_services::<P, C>(config).await?;
-    let processes = build_processes(exchange, sender);
-    run_http_server(settings, processes).await
-}
-
-async fn run_http_server(
-    settings: &GeneralConfig,
-    processes: Vec<Arc<dyn HttpServerProcess>>,
-) -> anyhow::Result<()> {
-    let server_config = HttpServerConfig {
-        addr: settings.server_addr.clone(),
-        metrics_addr: settings.metrics_addr.clone(),
-        ..Default::default()
-    };
-
-    HttpServer::from_config(server_config)
-        .with_processes(processes)
-        .run()
-        .await
-        .with_context(|| "HTTP Server execution failed")?;
 
     Ok(())
 }

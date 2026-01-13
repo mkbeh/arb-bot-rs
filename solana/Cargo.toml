@@ -15,13 +15,13 @@ backon = { workspace = true }
 base64 = { workspace = true }
 futures-util = { workspace = true }
 rayon = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 borsh = { version = "1.6.0" }
-serde = { version = "1.0.228", features = ["derive"] }
-solana-client = { version = "3.1.5" }
+solana-client = { version = "3.1.6" }
 solana-sdk = { version = "3.0.0" }
 yellowstone-grpc-client = { version = "10.2.0" }
 yellowstone-grpc-proto = { version = "10.1.1" }

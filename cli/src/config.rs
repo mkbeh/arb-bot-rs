@@ -45,40 +45,26 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn parse(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let mut config = toml::parse_file::<Self>(path)?;
-        config.validate()?;
-        Ok(config)
+    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        toml::parse_file::<Self>(path)?.validate()
     }
 
-    pub fn validate(&mut self) -> anyhow::Result<()> {
-        #[cfg(feature = "binance")]
-        if let Some(ref mut cfg) = self.binance {
-            for asset in &mut cfg.assets.iter_mut() {
-                asset.validate(
-                    cfg.min_profit_qty,
-                    cfg.max_order_qty,
-                    cfg.min_ticker_qty_24h,
-                )?;
-            }
+    pub fn validate(mut self) -> anyhow::Result<Self> {
+        use engine::Validatable;
+
+        let configs: Vec<Option<&mut dyn Validatable>> = vec![
+            #[cfg(feature = "binance")]
+            self.binance.as_mut().map(|c| c as &mut dyn Validatable),
+            #[cfg(feature = "kucoin")]
+            self.kucoin.as_mut().map(|c| c as &mut dyn Validatable),
+            #[cfg(feature = "solana")]
+            self.solana.as_mut().map(|c| c as &mut dyn Validatable),
+        ];
+
+        for cfg in configs.into_iter().flatten() {
+            cfg.validate()?;
         }
 
-        #[cfg(feature = "kucoin")]
-        if let Some(ref mut cfg) = self.kucoin {
-            for asset in &mut cfg.assets.iter_mut() {
-                asset.validate(
-                    cfg.min_profit_qty,
-                    cfg.max_order_qty,
-                    cfg.min_ticker_qty_24h,
-                )?;
-            }
-        }
-
-        #[cfg(feature = "solana")]
-        if let Some(ref mut cfg) = self.solana {
-            cfg.validate()?
-        }
-
-        Ok(())
+        Ok(self)
     }
 }

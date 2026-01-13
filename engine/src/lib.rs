@@ -10,7 +10,7 @@ pub use runtime::{
     weight::{REQUEST_WEIGHT, RequestWeight},
 };
 pub use service::{
-    build_processes, build_services,
+    builder::{build_processes, build_services},
     factory::ServiceFactory,
-    traits::{Exchange, Sender},
+    traits::{Exchange, Sender, Validatable},
 };
