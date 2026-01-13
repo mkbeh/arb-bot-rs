@@ -11,7 +11,12 @@ use crate::{
 pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> Result<()> {
     let cfg = match Config::load(&config_path) {
         Ok(cfg) => cfg,
-        Err(e) => return Ok(ui::print_config_error(&config_path, &e)),
+        Err(e) => {
+            return {
+                ui::print_config_error(&config_path, &e);
+                Ok(())
+            };
+        }
     };
 
     match exchange {

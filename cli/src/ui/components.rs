@@ -24,7 +24,7 @@ pub fn build_banner() -> String {
 
     let mut logo = String::new();
     for line in raw_logo_lines {
-        logo.push_str(&format!("{}{}\n", indent, line));
+        logo.push_str(&format!("{indent}{line}\n"));
     }
     let logo = logo.bright_cyan().bold().to_string();
 
@@ -34,8 +34,7 @@ pub fn build_banner() -> String {
     let v = "v".cyan().to_string();
     let rain = format!(
         "{indent}   {d}      {i}   {s}   {d}   {v}      {i}   {d}   {s}   {v}   {i}   {d}   {s}\n\
-         {indent}   {s}      {d}   {i}   {v}   {d}      {s}   {v}   {i}   {d}   {s}   {i}   {v}",
-        indent = indent
+         {indent}   {s}      {d}   {i}   {v}   {d}      {s}   {v}   {i}   {d}   {s}   {i}   {v}"
     );
 
     let line = format!("{indent}{}", "━".repeat(width).dimmed());
@@ -43,16 +42,13 @@ pub fn build_banner() -> String {
     let version = env!("CARGO_PKG_VERSION");
     let arch = std::env::consts::ARCH;
 
-    let raw_text = format!(
-        "ARCH: {} • High-Frequency Trading Engine • v{}",
-        arch, version
-    );
+    let raw_text = format!("ARCH: {arch} • High-Frequency Trading Engine • v{version}");
     let raw_len = raw_text.chars().count();
 
     let padding = width.saturating_sub(raw_len) / 2;
     let leading_spaces = " ".repeat(padding);
 
-    let arch_txt = format!("ARCH: {}", arch).white().bold().to_string();
+    let arch_txt = format!("ARCH: {arch}").white().bold().to_string();
     let sep = "•".dimmed().to_string();
     let desc = "High-Frequency Trading Engine".dimmed().to_string();
     let ver = format!("v{version}").bright_yellow().to_string();
@@ -105,8 +101,7 @@ pub fn print_exchanges() {
     for (name, desc, _) in active_items {
         let dot = "●".bright_green();
         println!(
-            "  {} {:<10} {} {}",
-            dot,
+            "  {dot} {:<10} {} {}",
             name.white().bold(),
             "•".dimmed(),
             desc.white()

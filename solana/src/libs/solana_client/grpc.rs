@@ -5,12 +5,14 @@ use backon::{ExponentialBuilder, Retryable};
 use base64::{Engine, engine::general_purpose};
 use futures_util::{SinkExt, TryFutureExt};
 use rayon::{iter::ParallelIterator, prelude::*};
+use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::pubkey::Pubkey;
 use tokio::{sync::Mutex, time::timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient, Interceptor};
 use yellowstone_grpc_proto::{
+    geyser::SubscribeUpdateAccount,
     prelude::{
         CommitmentLevel, CompiledInstruction, Message, SubscribeRequest,
         SubscribeRequestFilterTransactions, SubscribeUpdate, SubscribeUpdateTransaction,
@@ -24,7 +26,7 @@ use yellowstone_grpc_proto::{
 
 use crate::libs::solana_client::{
     Event,
-    dex::{BlockMetaEvent, DEX_PARSERS, SlotEvent, TxEvent},
+    dex::{AccountEvent, BlockMetaEvent, DEX_REGISTRY, SlotEvent, TxEvent},
 };
 
 type EventCallback = Box<dyn FnMut(Event) -> anyhow::Result<()> + Send + 'static>;
@@ -255,15 +257,6 @@ impl EventCallbackWrapper {
 /// Parses a `UpdateOneof` to an `Event`.
 fn parse_update_to_event(event: &UpdateOneof) -> Option<Event> {
     match event {
-        UpdateOneof::Transaction(tx) => {
-            let tx_events = parse_tx_update_to_event(tx);
-            (!tx_events.is_empty()).then(|| Event::Tx(Box::new(tx_events)))
-        }
-        UpdateOneof::Slot(slot) => Some(Event::Slot(Box::new(SlotEvent {
-            slot: slot.slot,
-            parent: slot.parent,
-            status: slot.status,
-        }))),
         UpdateOneof::BlockMeta(meta) => Some(Event::BlockMeta(Box::new(BlockMetaEvent {
             slot: meta.slot,
             blockhash: meta.blockhash.clone(),
@@ -272,8 +265,48 @@ fn parse_update_to_event(event: &UpdateOneof) -> Option<Event> {
             parent_block_hash: meta.parent_blockhash.clone(),
             parent_slot: meta.parent_slot,
         }))),
+        UpdateOneof::Slot(slot) => Some(Event::Slot(Box::new(SlotEvent {
+            slot: slot.slot,
+            parent: slot.parent,
+            status: slot.status,
+        }))),
+        UpdateOneof::Transaction(tx) => {
+            let tx_events = parse_tx_update_to_event(tx);
+            (!tx_events.is_empty()).then(|| Event::Tx(tx_events.into_boxed_slice()))
+        }
+        UpdateOneof::Account(acc) => {
+            let account_event = parse_account_update_to_event(acc);
+            account_event.map(|event| Event::Account(Box::new(event)))
+        }
+
         _ => None,
     }
+}
+
+/// Parses an account update to a `AccountEvent`.
+fn parse_account_update_to_event(acc: &SubscribeUpdateAccount) -> Option<AccountEvent> {
+    let account_info = acc.account.as_ref()?;
+    let program_id_bytes = account_info.owner.as_slice();
+    let program_id = Pubkey::try_from(program_id_bytes).ok()?;
+
+    let parsers = DEX_REGISTRY.get(&program_id)?;
+    let pool_state = (parsers.pool)(&account_info.data)?;
+
+    Some(AccountEvent {
+        slot: acc.slot,
+        is_startup: acc.is_startup,
+        pubkey: Pubkey::try_from(account_info.pubkey.as_slice()).ok()?,
+        lamports: account_info.lamports,
+        owner: Pubkey::try_from(account_info.owner.as_slice()).ok()?,
+        executable: account_info.executable,
+        rent_epoch: account_info.rent_epoch,
+        write_version: account_info.write_version,
+        txn_signature: account_info
+            .txn_signature
+            .as_ref()
+            .and_then(|s| Signature::try_from(s.as_slice()).ok()),
+        pool_state,
+    })
 }
 
 /// Parses a transaction update to a `TxEvent`.
@@ -286,17 +319,10 @@ fn parse_tx_update_to_event(tx: &SubscribeUpdateTransaction) -> Vec<TxEvent> {
     instructions
         .par_iter()
         .filter_map(|instruction| {
-            let Some(program_id) = extract_program_id(instruction, message) else {
-                return None; // skip bad instruction
-            };
-
-            let Ok(payload) = general_purpose::STANDARD.decode(&instruction.data) else {
-                return None; // Skip bad data
-            };
-
-            DEX_PARSERS
-                .get(&program_id)
-                .and_then(|parser| parser(&payload)) // None if no parser or fail.
+            let program_id = extract_program_id(instruction, message)?;
+            let parsers = DEX_REGISTRY.get(&program_id)?;
+            let payload = general_purpose::STANDARD.decode(&instruction.data).ok()?;
+            (parsers.tx)(&payload)
         })
         .collect()
 }
@@ -310,8 +336,9 @@ fn extract_message(tx: &SubscribeUpdateTransaction) -> Option<&Message> {
         .as_ref()
 }
 
-fn extract_program_id(instruction: &CompiledInstruction, message: &Message) -> Option<String> {
+fn extract_program_id(instruction: &CompiledInstruction, message: &Message) -> Option<Pubkey> {
     let program_id_index = instruction.program_id_index as usize;
     let key_bytes = message.account_keys.get(program_id_index)?;
-    Some(Pubkey::try_from(key_bytes.as_slice()).ok()?.to_string())
+    let arr: [u8; 32] = key_bytes.as_slice().try_into().ok()?;
+    Some(Pubkey::from(arr))
 }
