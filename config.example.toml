@@ -160,4 +160,4 @@ rpc_endpoint = "https://api.mainnet-beta.solana.com"
 program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # radium
 
 [[solana.exchanges]]
-program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # meteora
+program_id = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo" # meteora

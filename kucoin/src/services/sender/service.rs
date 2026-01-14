@@ -39,36 +39,6 @@ pub struct SenderService {
     base_info_api: BaseInfo,
 }
 
-impl SenderService {
-    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        // Configure global request weight limit for API rate limiting.
-        {
-            let mut weight_lock = REQUEST_WEIGHT.lock().await;
-            weight_lock.set_weight_limit(config.api_weight_limit);
-        }
-
-        let api_config = kucoin_client::ClientConfig {
-            host: config.api_url.clone(),
-            api_key: config.api_token.clone(),
-            api_secret: config.api_secret_key.clone(),
-            api_passphrase: config.api_passphrase.clone(),
-            http_config: kucoin_client::HttpConfig::default(),
-        };
-        let base_info_api: BaseInfo =
-            Kucoin::new(api_config).context("Failed to create kucoin base info api")?;
-
-        Ok(Self {
-            send_orders: config.send_orders,
-            process_chain_interval: Duration::from_secs(5),
-            ws_url: config.ws_private_url.clone(),
-            api_token: config.api_token.clone(),
-            api_secret: config.api_secret_key.clone(),
-            api_passphrase: config.api_passphrase.clone(),
-            base_info_api,
-        })
-    }
-}
-
 impl Sender for SenderService {}
 
 #[async_trait]
@@ -112,6 +82,34 @@ impl ArbitrageService for SenderService {
 }
 
 impl SenderService {
+    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
+        // Configure global request weight limit for API rate limiting.
+        {
+            let mut weight_lock = REQUEST_WEIGHT.lock().await;
+            weight_lock.set_weight_limit(config.api_weight_limit);
+        }
+
+        let api_config = kucoin_client::ClientConfig {
+            host: config.api_url.clone(),
+            api_key: config.api_token.clone(),
+            api_secret: config.api_secret_key.clone(),
+            api_passphrase: config.api_passphrase.clone(),
+            http_config: kucoin_client::HttpConfig::default(),
+        };
+        let base_info_api: BaseInfo =
+            Kucoin::new(api_config).context("Failed to create kucoin base info api")?;
+
+        Ok(Self {
+            send_orders: config.send_orders,
+            process_chain_interval: Duration::from_secs(5),
+            ws_url: config.ws_private_url.clone(),
+            api_token: config.api_token.clone(),
+            api_secret: config.api_secret_key.clone(),
+            api_passphrase: config.api_passphrase.clone(),
+            base_info_api,
+        })
+    }
+
     /// Listens to the balance stream (order changes) via WebSocket.
     /// Fetches private endpoint, connects, and forwards order changes to a channel.
     async fn listen_balance_stream(
