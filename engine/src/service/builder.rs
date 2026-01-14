@@ -8,7 +8,6 @@ pub async fn build_services<P, C>(
     config: &C,
 ) -> anyhow::Result<(Arc<dyn Exchange>, Arc<dyn Sender>)>
 where
-    // Используем прямой синтаксис ассоциированного типа Config = C
     P: ServiceFactory<dyn Exchange, Config = C> + ServiceFactory<dyn Sender, Config = C>,
 {
     let exchange = P::from_config(config).await?;
