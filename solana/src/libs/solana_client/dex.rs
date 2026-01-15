@@ -8,29 +8,43 @@ type ParserFn<T> = Box<dyn Fn(&[u8]) -> Option<T> + Send + Sync + 'static>;
 pub const RAYDIUM_PROGRAM_ID: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 pub const METEORA_PROGRAM_ID: Pubkey = pubkey!("LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo");
 
-pub static DEX_REGISTRY: LazyLock<HashMap<Pubkey, DexParsers>> = LazyLock::new(init_dex_registry);
+pub static DEX_REGISTRY: LazyLock<HashMap<Pubkey, DexConfig>> = LazyLock::new(init_dex_registry);
+
+pub struct DexConfig {
+    pub name: &'static str,
+    pub pool_size: u64,
+    pub parser: DexParsers,
+}
 
 pub struct DexParsers {
     pub tx: ParserFn<TxEvent>,
     pub pool: ParserFn<PoolState>,
 }
 
-fn init_dex_registry() -> HashMap<Pubkey, DexParsers> {
+fn init_dex_registry() -> HashMap<Pubkey, DexConfig> {
     let mut m = HashMap::new();
 
     m.insert(
         RAYDIUM_PROGRAM_ID,
-        DexParsers {
-            tx: build_parser::<SwapRadium, TxEvent>(|i| TxEvent::Radium(Box::new(i))),
-            pool: build_parser::<RaydiumPool, PoolState>(PoolState::Radium),
+        DexConfig {
+            name: "raydium_v4",
+            pool_size: 352,
+            parser: DexParsers {
+                tx: build_parser::<SwapRadium, TxEvent>(|i| TxEvent::Radium(Box::new(i))),
+                pool: build_parser::<RaydiumPool, PoolState>(PoolState::Radium),
+            },
         },
     );
 
     m.insert(
         METEORA_PROGRAM_ID,
-        DexParsers {
-            tx: build_parser::<SwapMeteora, TxEvent>(|i| TxEvent::Meteora(Box::new(i))),
-            pool: build_parser::<MeteoraPool, PoolState>(PoolState::Meteora),
+        DexConfig {
+            name: "meteora_dlmm",
+            pool_size: 904,
+            parser: DexParsers {
+                tx: build_parser::<SwapMeteora, TxEvent>(|i| TxEvent::Meteora(Box::new(i))),
+                pool: build_parser::<MeteoraPool, PoolState>(PoolState::Meteora),
+            },
         },
     );
 

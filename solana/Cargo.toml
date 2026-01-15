@@ -16,6 +16,7 @@ base64 = { workspace = true }
 futures-util = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
+serde_with = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }

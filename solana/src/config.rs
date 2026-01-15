@@ -3,6 +3,7 @@ use std::time::Duration;
 use anyhow::bail;
 use engine::Validatable;
 use serde::Deserialize;
+use serde_with::{DurationMicroSeconds, serde_as};
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -11,6 +12,7 @@ pub enum Transport {
     Grpc,
 }
 
+#[serde_as]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub transport: Transport,
@@ -20,6 +22,7 @@ pub struct Config {
     pub ws_endpoint: Option<String>,
     pub ws_api_key: Option<String>,
     pub stream_batch_size: usize,
+    #[serde_as(as = "DurationMicroSeconds<u64>")]
     pub stream_wait_timeout_us: Duration,
     pub exchanges: Vec<Dex>,
 }
@@ -46,5 +49,4 @@ impl Config {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Dex {
     pub program_id: String,
-    pub api_url: String,
 }

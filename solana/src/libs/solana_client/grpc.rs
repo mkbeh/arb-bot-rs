@@ -12,12 +12,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::error;
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient, Interceptor};
 use yellowstone_grpc_proto::{
-    prelude::{
-        CommitmentLevel, CompiledInstruction, Message, SubscribeRequest,
-        SubscribeRequestFilterAccounts, SubscribeRequestFilterTransactions, SubscribeUpdate,
-        SubscribeUpdateAccount, SubscribeUpdateBlockMeta, SubscribeUpdateSlot,
-        SubscribeUpdateTransaction, subscribe_update::UpdateOneof,
-    },
+    prelude::{subscribe_update::UpdateOneof, *},
     tonic::{
         Status,
         codegen::tokio_stream::{Stream, StreamExt},
@@ -47,8 +42,6 @@ pub struct GrpcConfig {
     pub batch_fill_timeout: Duration,
     /// List of Dex's programs ids.
     pub program_ids: Vec<String>,
-    /// A list of specific Token Account addresses (Vaults/Reserves) to monitor.
-    pub vault_addresses: Vec<String>,
     /// Options for subscription.
     pub options: Option<SubscribeOptions>,
 }
@@ -104,43 +97,40 @@ impl GrpcClient {
     }
 
     /// Subscribes to transaction updates from the specified program IDs.
-    pub async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
+    pub async fn subscribe(
+        &mut self,
+        token: CancellationToken,
+        targets: &[SubscribeTarget],
+    ) -> anyhow::Result<()> {
         if self.config.program_ids.is_empty() {
             bail!("Program IDs cannot be empty");
         }
 
-        let ctx = SubscriptionCtx {
-            config: self.config.clone(),
-            options: self.config.options.clone().unwrap_or_default(),
-            callback: self.callback.clone(),
-        };
-
         let operation = || {
             let token = token.clone();
-            let ctx = ctx.clone();
+            let config = self.config.clone();
+            let options = self.config.options.clone().unwrap_or_default();
+            let callback = self.callback.clone();
 
             async move {
                 let mut client = timeout(
-                    Duration::from_secs(ctx.options.connect_timeout),
-                    Self::connect(ctx.config.clone()),
+                    Duration::from_secs(options.connect_timeout),
+                    Self::connect(config.clone()),
                 )
                 .await
                 .context("Connect timeout")?
                 .context("Failed to connect to gRPC")?;
 
                 let (mut subscribe_tx, stream) = timeout(
-                    Duration::from_secs(ctx.options.connect_timeout),
+                    Duration::from_secs(options.connect_timeout),
                     client.subscribe(),
                 )
                 .await
                 .context("Subscribe timeout")?
                 .context("Failed to subscribe")?;
 
-                let request = Self::build_subscribe_request(
-                    ctx.config.program_ids.clone(),
-                    ctx.config.vault_addresses.clone(),
-                    &ctx.options,
-                );
+                let request =
+                    Self::build_subscribe_request(targets, config.program_ids.clone(), &options);
 
                 subscribe_tx
                     .send(request)
@@ -150,9 +140,9 @@ impl GrpcClient {
                 Self::handle_events(
                     stream,
                     token.clone(),
-                    ctx.callback,
-                    ctx.config.batch_size,
-                    ctx.config.batch_fill_timeout,
+                    callback,
+                    config.batch_size,
+                    config.batch_fill_timeout,
                 )
                 .await?;
 
@@ -191,45 +181,107 @@ impl GrpcClient {
 
     /// Builds the initial SubscribeRequest based on program IDs and options.
     fn build_subscribe_request(
+        targets: &[SubscribeTarget],
         program_ids: Vec<String>,
-        vault_addresses: Vec<String>,
         options: &SubscribeOptions,
     ) -> SubscribeRequest {
-        let accounts = if vault_addresses.is_empty() {
-            HashMap::new()
-        } else {
-            HashMap::from([(
-                "vault_sub".to_owned(),
-                SubscribeRequestFilterAccounts {
-                    account: vault_addresses,
-                    ..Default::default()
-                },
-            )])
-        };
-
-        let transactions = if program_ids.is_empty() {
-            HashMap::new()
-        } else {
-            HashMap::from([(
-                "tx_sub".to_owned(),
-                SubscribeRequestFilterTransactions {
-                    failed: Some(!options.include_failed),
-                    vote: Some(options.include_vote),
-                    account_include: program_ids,
-                    ..Default::default()
-                },
-            )])
-        };
+        let valid_program_ids: Vec<String> = program_ids
+            .into_iter()
+            .filter(|id_str| {
+                if let Ok(pubkey) = id_str.parse::<Pubkey>() {
+                    if DEX_REGISTRY.contains_key(&pubkey) {
+                        true
+                    } else {
+                        error!("Program ID {} not found in DEX_REGISTRY", id_str);
+                        false
+                    }
+                } else {
+                    error!("Invalid Pubkey: {}", id_str);
+                    false
+                }
+            })
+            .collect();
 
         SubscribeRequest {
-            accounts,
-            transactions,
+            blocks: HashMap::new(),
+
+            slots: if targets.contains(&SubscribeTarget::Slot) {
+                Self::build_subscribe_slots()
+            } else {
+                HashMap::new()
+            },
+
+            accounts: if targets.contains(&SubscribeTarget::Account) {
+                Self::build_subscribe_accounts(&valid_program_ids)
+            } else {
+                HashMap::new()
+            },
+
+            transactions: if targets.contains(&SubscribeTarget::Transaction) {
+                Self::build_subscribe_transactions(&valid_program_ids, options)
+            } else {
+                HashMap::new()
+            },
+
             commitment: options
                 .commitment
                 .map(|c| c as i32)
                 .or(Some(CommitmentLevel::Processed as i32)),
             ..Default::default()
         }
+    }
+
+    fn build_subscribe_slots() -> HashMap<String, SubscribeRequestFilterSlots> {
+        HashMap::from([(
+            "slot_sub".to_owned(),
+            SubscribeRequestFilterSlots {
+                filter_by_commitment: Some(true),
+                ..Default::default()
+            },
+        )])
+    }
+
+    fn build_subscribe_accounts(
+        program_ids: &[String],
+    ) -> HashMap<String, SubscribeRequestFilterAccounts> {
+        program_ids
+            .iter()
+            .map(|id_str| {
+                let pubkey = id_str.parse::<Pubkey>().unwrap();
+                let config = DEX_REGISTRY.get(&pubkey).unwrap();
+
+                (
+                    config.name.to_owned(),
+                    SubscribeRequestFilterAccounts {
+                        owner: vec![id_str.clone()],
+                        nonempty_txn_signature: Some(true),
+                        filters: vec![SubscribeRequestFilterAccountsFilter {
+                            filter: Some(
+                                subscribe_request_filter_accounts_filter::Filter::Datasize(
+                                    config.pool_size,
+                                ),
+                            ),
+                        }],
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn build_subscribe_transactions(
+        program_ids: &[String],
+        options: &SubscribeOptions,
+    ) -> HashMap<String, SubscribeRequestFilterTransactions> {
+        HashMap::from([(
+            "tx_sub".to_owned(),
+            SubscribeRequestFilterTransactions {
+                failed: Some(!options.include_failed),
+                vote: Some(options.include_vote),
+                account_include: program_ids.to_vec(),
+                ..Default::default()
+            },
+        )])
     }
 
     /// Processes the gRPC stream in an optimized event loop with batching and parallel parsing
@@ -283,11 +335,11 @@ impl GrpcClient {
     }
 }
 
-#[derive(Clone)]
-struct SubscriptionCtx {
-    config: GrpcConfig,
-    options: SubscribeOptions,
-    callback: Option<BatchEventCallbackWrapper>,
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SubscribeTarget {
+    Slot,
+    Transaction,
+    Account,
 }
 
 /// Thread-safe wrapper for event callbacks.
@@ -359,9 +411,9 @@ fn parse_tx(tx: &SubscribeUpdateTransaction) -> Option<Event> {
         .par_iter()
         .filter_map(|instruction| {
             let program_id = extract_program_id(instruction, message)?;
-            let parsers = DEX_REGISTRY.get(&program_id)?;
+            let dex_conf = DEX_REGISTRY.get(&program_id)?;
             let payload = general_purpose::STANDARD.decode(&instruction.data).ok()?;
-            (parsers.tx)(&payload)
+            (dex_conf.parser.tx)(&payload)
         })
         .collect();
 
@@ -377,8 +429,8 @@ fn parse_account(acc: &SubscribeUpdateAccount) -> Option<Event> {
     let account_info = acc.account.as_ref()?;
     let program_id = Pubkey::try_from(account_info.owner.as_slice()).ok()?;
 
-    let parsers = DEX_REGISTRY.get(&program_id)?;
-    let pool_state = (parsers.pool)(&account_info.data)?;
+    let dex_conf = DEX_REGISTRY.get(&program_id)?;
+    let pool_state = (dex_conf.parser.pool)(&account_info.data)?;
 
     let event = AccountEvent {
         slot: acc.slot,
