@@ -208,14 +208,12 @@ async fn response_handler<T: DeserializeOwned>(resp: Response) -> anyhow::Result
 
 /// Builds a query string from key-value pairs.
 fn build_query(params: &Vec<(String, String)>) -> String {
-    params
-        .iter()
-        .map(|(k, v)| {
-            // Кодируем и ключ, и значение
-            format!("{}={}", urlencoding::encode(k), urlencoding::encode(v))
-        })
-        .collect::<Vec<_>>()
-        .join("&")
+    let mut query = String::new();
+    for (k, v) in params {
+        query.push_str(&format!("{k}={v}&"));
+    }
+    query.pop();
+    query
 }
 
 /// Configuration for the Binance API client.
