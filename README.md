@@ -33,7 +33,7 @@ Clone and build the CLI binary:
 ```shell
 git clone https://github.com/mkbeh/arb-bot-rs.git
 cd arb-bot-rs
-cargo build -p cli --profile release --all-features
+cargo build -p cli --release --all-features
 ```
 
 #### ✅ Running Tests
