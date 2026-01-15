@@ -12,11 +12,11 @@ use tokio_util::sync::CancellationToken;
 use tracing::error;
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient, Interceptor};
 use yellowstone_grpc_proto::{
-    geyser::SubscribeUpdateAccount,
     prelude::{
         CommitmentLevel, CompiledInstruction, Message, SubscribeRequest,
-        SubscribeRequestFilterTransactions, SubscribeUpdate, SubscribeUpdateTransaction,
-        subscribe_update::UpdateOneof,
+        SubscribeRequestFilterAccounts, SubscribeRequestFilterTransactions, SubscribeUpdate,
+        SubscribeUpdateAccount, SubscribeUpdateBlockMeta, SubscribeUpdateSlot,
+        SubscribeUpdateTransaction, subscribe_update::UpdateOneof,
     },
     tonic::{
         Status,
@@ -29,7 +29,7 @@ use crate::libs::solana_client::{
     dex::{AccountEvent, BlockMetaEvent, DEX_REGISTRY, SlotEvent, TxEvent},
 };
 
-type EventCallback = Box<dyn FnMut(Event) -> anyhow::Result<()> + Send + 'static>;
+type BatchEventCallback = Box<dyn FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static>;
 
 /// Configuration for the Solana RPC client.
 #[derive(Clone, Default)]
@@ -39,7 +39,16 @@ pub struct GrpcConfig {
     /// Optional API token for authenticated endpoints.
     pub x_token: Option<String>,
     /// Program IDs to subscribe to (via account_include).
+    /// The maximum number of gRPC messages to
+    /// accumulate in a single processing burst.
+    pub batch_size: usize,
+    /// The microsecond-grade duration to wait for additional
+    /// messages after the first one arrives in the stream.
+    pub batch_fill_timeout: Duration,
+    /// List of Dex's programs ids.
     pub program_ids: Vec<String>,
+    /// A list of specific Token Account addresses (Vaults/Reserves) to monitor.
+    pub vault_addresses: Vec<String>,
     /// Options for subscription.
     pub options: Option<SubscribeOptions>,
 }
@@ -71,7 +80,7 @@ impl Default for SubscribeOptions {
 /// Wrapper for Solana RPC gRPC client using Yellowstone Geyser protocol.
 pub struct GrpcClient {
     config: GrpcConfig,
-    callback: Option<EventCallbackWrapper>,
+    callback: Option<BatchEventCallbackWrapper>,
 }
 
 impl GrpcClient {
@@ -88,9 +97,9 @@ impl GrpcClient {
     #[must_use]
     pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
     where
-        Callback: FnMut(Event) -> anyhow::Result<()> + Send + 'static,
+        Callback: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static,
     {
-        self.callback = Some(EventCallbackWrapper::new(callback));
+        self.callback = Some(BatchEventCallbackWrapper::new(callback));
         self
     }
 
@@ -100,38 +109,52 @@ impl GrpcClient {
             bail!("Program IDs cannot be empty");
         }
 
+        let ctx = SubscriptionCtx {
+            config: self.config.clone(),
+            options: self.config.options.clone().unwrap_or_default(),
+            callback: self.callback.clone(),
+        };
+
         let operation = || {
             let token = token.clone();
-            let config = self.config.clone();
-            let options = self.config.options.clone().unwrap_or_default();
-            let program_ids = self.config.program_ids.clone();
-            let callback = self.callback.clone();
+            let ctx = ctx.clone();
 
             async move {
                 let mut client = timeout(
-                    Duration::from_secs(options.connect_timeout),
-                    Self::connect(config),
+                    Duration::from_secs(ctx.options.connect_timeout),
+                    Self::connect(ctx.config.clone()),
                 )
                 .await
                 .context("Connect timeout")?
                 .context("Failed to connect to gRPC")?;
 
                 let (mut subscribe_tx, stream) = timeout(
-                    Duration::from_secs(options.connect_timeout),
+                    Duration::from_secs(ctx.options.connect_timeout),
                     client.subscribe(),
                 )
                 .await
                 .context("Subscribe timeout")?
                 .context("Failed to subscribe")?;
 
-                let request = Self::build_subscribe_request(program_ids, &options);
+                let request = Self::build_subscribe_request(
+                    ctx.config.program_ids.clone(),
+                    ctx.config.vault_addresses.clone(),
+                    &ctx.options,
+                );
 
                 subscribe_tx
                     .send(request)
                     .await
                     .map_err(|e| anyhow::anyhow!("Send error: {e}"))?;
 
-                Self::handle_events(stream, token.clone(), callback).await?;
+                Self::handle_events(
+                    stream,
+                    token.clone(),
+                    ctx.callback,
+                    ctx.config.batch_size,
+                    ctx.config.batch_fill_timeout,
+                )
+                .await?;
 
                 Ok(())
             }
@@ -169,60 +192,90 @@ impl GrpcClient {
     /// Builds the initial SubscribeRequest based on program IDs and options.
     fn build_subscribe_request(
         program_ids: Vec<String>,
+        vault_addresses: Vec<String>,
         options: &SubscribeOptions,
     ) -> SubscribeRequest {
-        let transactions_filter = SubscribeRequestFilterTransactions {
-            failed: Some(!options.include_failed),
-            vote: Some(options.include_vote),
-            account_include: program_ids,
-            ..Default::default()
+        let accounts = if vault_addresses.is_empty() {
+            HashMap::new()
+        } else {
+            HashMap::from([(
+                "vault_sub".to_owned(),
+                SubscribeRequestFilterAccounts {
+                    account: vault_addresses,
+                    ..Default::default()
+                },
+            )])
         };
 
-        let mut transactions = HashMap::new();
-        transactions.insert("".to_owned(), transactions_filter);
+        let transactions = if program_ids.is_empty() {
+            HashMap::new()
+        } else {
+            HashMap::from([(
+                "tx_sub".to_owned(),
+                SubscribeRequestFilterTransactions {
+                    failed: Some(!options.include_failed),
+                    vote: Some(options.include_vote),
+                    account_include: program_ids,
+                    ..Default::default()
+                },
+            )])
+        };
 
         SubscribeRequest {
+            accounts,
             transactions,
             commitment: options
                 .commitment
-                .or(Some(CommitmentLevel::Processed))
-                .map(|c| c as i32),
-            accounts_data_slice: vec![],
+                .map(|c| c as i32)
+                .or(Some(CommitmentLevel::Processed as i32)),
             ..Default::default()
         }
     }
 
-    /// Processes the gRPC stream in a blocking loop with cancellation support.
+    /// Processes the gRPC stream in an optimized event loop with batching and parallel parsing
+    /// support.
     async fn handle_events<S>(
         mut stream: S,
         token: CancellationToken,
-        callback: Option<EventCallbackWrapper>,
+        callback: Option<BatchEventCallbackWrapper>,
+        batch_size: usize,
+        batch_fill_timeout: Duration,
     ) -> anyhow::Result<()>
     where
         S: Stream<Item = Result<SubscribeUpdate, Status>> + Unpin + Send + 'static,
     {
-        loop {
-            tokio::select! {
-                _ = token.cancelled() => {
-                    break;
-                }
+        while !token.is_cancelled() {
+            let mut batch = Vec::with_capacity(batch_size);
 
-                Some(message) = stream.next() => {
-                    match message {
-                        Ok(update) => {
-                            if let Some(oneof) = update.update_oneof.as_ref()
-                                && let Some(event) = parse_update_to_event(oneof)
-                                    && let Some(cb) = &callback
-                                        && let Err(e) = cb.call(event).await {
-                                            error!("Callback error: {}", e);
-                                        }
-                        }
-                        Err(status) => {
-                            error!("grpc stream error: {}", status);
-                            bail!("grpc error: {status}");
-                        }
-                    }
+            // Blocking wait for the initial message in the burst
+            if let Some(msg) = stream.next().await {
+                batch.push(msg);
+            } else {
+                bail!("Stream closed by the remote host");
+            }
+
+            // Fill the batch with already buffered messages
+            while batch.len() < batch_size {
+                // Micro-timeout ensures we don't wait for non-existent data
+                // while holding up the current burst processing
+                match timeout(batch_fill_timeout, stream.next()).await {
+                    Ok(Some(msg)) => batch.push(msg),
+                    _ => break, // Buffer empty or timeout reached
                 }
+            }
+
+            // Parallel parsing of the batch
+            let events: Vec<Event> = batch
+                .into_par_iter()
+                .filter_map(|res| res.ok())
+                .filter_map(|update| parse_update(update.update_oneof.as_ref()?))
+                .collect();
+
+            if !events.is_empty()
+                && let Some(cb) = &callback
+                && let Err(e) = cb.call(events).await
+            {
+                error!(error = %e, "Batch processing error");
             }
         }
 
@@ -230,17 +283,24 @@ impl GrpcClient {
     }
 }
 
-/// Thread-safe wrapper for event callbacks.
 #[derive(Clone)]
-pub struct EventCallbackWrapper {
-    inner: Arc<Mutex<EventCallback>>,
+struct SubscriptionCtx {
+    config: GrpcConfig,
+    options: SubscribeOptions,
+    callback: Option<BatchEventCallbackWrapper>,
 }
 
-impl EventCallbackWrapper {
-    /// Creates a new `EventCallback` from a mutable closure.
+/// Thread-safe wrapper for event callbacks.
+#[derive(Clone)]
+pub struct BatchEventCallbackWrapper {
+    inner: Arc<Mutex<BatchEventCallback>>,
+}
+
+impl BatchEventCallbackWrapper {
+    /// Creates a new `BatchEventCallback` from a mutable closure.
     pub fn new<F>(callback: F) -> Self
     where
-        F: FnMut(Event) -> anyhow::Result<()> + Send + 'static,
+        F: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static,
     {
         Self {
             inner: Arc::new(Mutex::new(Box::new(callback))),
@@ -248,51 +308,79 @@ impl EventCallbackWrapper {
     }
 
     /// Invokes the callback with the given event.
-    pub async fn call(&self, event: Event) -> anyhow::Result<()> {
+    pub async fn call(&self, events: Vec<Event>) -> anyhow::Result<()> {
+        if events.is_empty() {
+            return Ok(());
+        }
+
         let mut guard = self.inner.lock().await;
-        guard(event)
+        guard(events)
     }
 }
 
 /// Parses a `UpdateOneof` to an `Event`.
-fn parse_update_to_event(event: &UpdateOneof) -> Option<Event> {
+fn parse_update(event: &UpdateOneof) -> Option<Event> {
     match event {
-        UpdateOneof::BlockMeta(meta) => Some(Event::BlockMeta(Box::new(BlockMetaEvent {
-            slot: meta.slot,
-            blockhash: meta.blockhash.clone(),
-            block_time: meta.block_time.map(|ts| ts.timestamp as u64),
-            block_height: meta.block_height.map(|bh| bh.block_height),
-            parent_block_hash: meta.parent_blockhash.clone(),
-            parent_slot: meta.parent_slot,
-        }))),
-        UpdateOneof::Slot(slot) => Some(Event::Slot(Box::new(SlotEvent {
-            slot: slot.slot,
-            parent: slot.parent,
-            status: slot.status,
-        }))),
-        UpdateOneof::Transaction(tx) => {
-            let tx_events = parse_tx_update_to_event(tx);
-            (!tx_events.is_empty()).then(|| Event::Tx(tx_events.into_boxed_slice()))
-        }
-        UpdateOneof::Account(acc) => {
-            let account_event = parse_account_update_to_event(acc);
-            account_event.map(|event| Event::Account(Box::new(event)))
-        }
-
+        UpdateOneof::BlockMeta(meta) => parse_block_meta(meta),
+        UpdateOneof::Slot(slot) => parse_slot(slot),
+        UpdateOneof::Transaction(tx) => parse_tx(tx),
+        UpdateOneof::Account(acc) => parse_account(acc),
         _ => None,
     }
 }
 
+/// Parses a block meta update to a `TxEvent`.
+fn parse_block_meta(meta: &SubscribeUpdateBlockMeta) -> Option<Event> {
+    Some(Event::BlockMeta(Box::new(BlockMetaEvent {
+        slot: meta.slot,
+        blockhash: meta.blockhash.clone(),
+        block_time: meta.block_time.as_ref().map(|ts| ts.timestamp as u64),
+        block_height: meta.block_height.as_ref().map(|bh| bh.block_height),
+        parent_block_hash: meta.parent_blockhash.clone(),
+        parent_slot: meta.parent_slot,
+    })))
+}
+
+/// Parses a slot update to a `TxEvent`.
+fn parse_slot(slot: &SubscribeUpdateSlot) -> Option<Event> {
+    Some(Event::Slot(Box::new(SlotEvent {
+        slot: slot.slot,
+        parent: slot.parent,
+        status: slot.status,
+    })))
+}
+
+/// Parses a transaction update to a `TxEvent`.
+fn parse_tx(tx: &SubscribeUpdateTransaction) -> Option<Event> {
+    let message = extract_message(tx)?;
+    let instructions = &message.instructions;
+
+    let events: Vec<TxEvent> = instructions
+        .par_iter()
+        .filter_map(|instruction| {
+            let program_id = extract_program_id(instruction, message)?;
+            let parsers = DEX_REGISTRY.get(&program_id)?;
+            let payload = general_purpose::STANDARD.decode(&instruction.data).ok()?;
+            (parsers.tx)(&payload)
+        })
+        .collect();
+
+    if events.is_empty() {
+        None
+    } else {
+        Some(Event::Tx(events.into_boxed_slice()))
+    }
+}
+
 /// Parses an account update to a `AccountEvent`.
-fn parse_account_update_to_event(acc: &SubscribeUpdateAccount) -> Option<AccountEvent> {
+fn parse_account(acc: &SubscribeUpdateAccount) -> Option<Event> {
     let account_info = acc.account.as_ref()?;
-    let program_id_bytes = account_info.owner.as_slice();
-    let program_id = Pubkey::try_from(program_id_bytes).ok()?;
+    let program_id = Pubkey::try_from(account_info.owner.as_slice()).ok()?;
 
     let parsers = DEX_REGISTRY.get(&program_id)?;
     let pool_state = (parsers.pool)(&account_info.data)?;
 
-    Some(AccountEvent {
+    let event = AccountEvent {
         slot: acc.slot,
         is_startup: acc.is_startup,
         pubkey: Pubkey::try_from(account_info.pubkey.as_slice()).ok()?,
@@ -306,25 +394,9 @@ fn parse_account_update_to_event(acc: &SubscribeUpdateAccount) -> Option<Account
             .as_ref()
             .and_then(|s| Signature::try_from(s.as_slice()).ok()),
         pool_state,
-    })
-}
-
-/// Parses a transaction update to a `TxEvent`.
-fn parse_tx_update_to_event(tx: &SubscribeUpdateTransaction) -> Vec<TxEvent> {
-    let Some(message) = extract_message(tx) else {
-        return vec![];
     };
-    let instructions = &message.instructions;
 
-    instructions
-        .par_iter()
-        .filter_map(|instruction| {
-            let program_id = extract_program_id(instruction, message)?;
-            let parsers = DEX_REGISTRY.get(&program_id)?;
-            let payload = general_purpose::STANDARD.decode(&instruction.data).ok()?;
-            (parsers.tx)(&payload)
-        })
-        .collect()
+    Some(Event::Account(Box::new(event)))
 }
 
 fn extract_message(tx: &SubscribeUpdateTransaction) -> Option<&Message> {

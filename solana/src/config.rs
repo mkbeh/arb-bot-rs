@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::bail;
 use engine::Validatable;
 use serde::Deserialize;
@@ -17,6 +19,8 @@ pub struct Config {
     pub x_token: Option<String>,
     pub ws_endpoint: Option<String>,
     pub ws_api_key: Option<String>,
+    pub stream_batch_size: usize,
+    pub stream_wait_timeout_us: Duration,
     pub exchanges: Vec<Dex>,
 }
 
@@ -42,4 +46,5 @@ impl Config {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Dex {
     pub program_id: String,
+    pub api_url: String,
 }

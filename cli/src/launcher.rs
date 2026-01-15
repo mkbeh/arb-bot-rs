@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> Result<()> {
-    let cfg = match Config::load(&config_path) {
+    let _cfg = match Config::load(&config_path) {
         Ok(cfg) => cfg,
         Err(e) => {
             return {
@@ -23,7 +23,7 @@ pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> R
         ExchangeType::Binance => {
             #[cfg(feature = "binance")]
             {
-                bootstrap::<binance::Provider, _>(cfg.binance.as_ref(), &cfg.general, exchange)
+                bootstrap::<binance::Provider, _>(_cfg.binance.as_ref(), &_cfg.general, exchange)
                     .await?
             }
             #[cfg(not(feature = "binance"))]
@@ -32,7 +32,7 @@ pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> R
         ExchangeType::Kucoin => {
             #[cfg(feature = "kucoin")]
             {
-                bootstrap::<kucoin::Provider, _>(cfg.kucoin.as_ref(), &cfg.general, exchange)
+                bootstrap::<kucoin::Provider, _>(_cfg.kucoin.as_ref(), &_cfg.general, exchange)
                     .await?
             }
             #[cfg(not(feature = "kucoin"))]
@@ -41,7 +41,7 @@ pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> R
         ExchangeType::Solana => {
             #[cfg(feature = "solana")]
             {
-                bootstrap::<solana::Provider, _>(cfg.solana.as_ref(), &cfg.general, exchange)
+                bootstrap::<solana::Provider, _>(_cfg.solana.as_ref(), &_cfg.general, exchange)
                     .await?
             }
             #[cfg(not(feature = "solana"))]

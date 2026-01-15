@@ -156,8 +156,21 @@ rpc_endpoint = "https://api.mainnet-beta.solana.com"
 # Required for most providers (Helius, QuickNode, etc.) to avoid rate limits and access streaming.
 # ws_api_key = ""
 
+# [System] The maximum number of gRPC messages to accumulate in a single processing burst.
+# This parameter applies to both gRPC and WebSocket transports.
+stream_batch_size = 128
+# [System] The microsecond-grade duration to wait for additional messages after the first one arrives in the stream.
+# This is a low-level tuning parameter for gRPC/WebSocket streams. After receiving
+# the first message, the engine will wait this many microseconds to "drain"
+# already arrived packets from the network stack.
+stream_wait_timeout_us = 5
+
 [[solana.exchanges]]
+# The Public Key of the DEX smart contract (Program ID).
 program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # radium
+# The REST API endpoint provided by the DEX.
+api_url = ""
 
 [[solana.exchanges]]
 program_id = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo" # meteora
+api_url = ""

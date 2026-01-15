@@ -48,7 +48,6 @@ where
 
 /// Main event enum for parsed updates from the Geyser stream.
 #[derive(Debug, Clone)]
-#[repr(C)]
 pub enum Event {
     BlockMeta(Box<BlockMetaEvent>),
     Slot(Box<SlotEvent>),
