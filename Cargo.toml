@@ -33,7 +33,7 @@ metrics = { version = "0.24.3" }
 owo-colors = { version = "4" }
 percent-encoding = { version = "2.3.2" }
 rayon = { version = "1.11.0" }
-reqwest = { version = "0.13.1", default-features = false, features = ["json"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["json", "rustls"] }
 rust_decimal = { version = "1.40.0", features = ["serde-with-float"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.149" }
