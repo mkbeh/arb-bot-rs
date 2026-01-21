@@ -50,6 +50,7 @@ pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> R
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn bootstrap<P, C>(
     config: Option<&C>,
     settings: &GeneralConfig,

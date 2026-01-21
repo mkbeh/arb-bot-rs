@@ -18,6 +18,7 @@ pub struct Config {
     pub general: GeneralConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct GeneralConfig {
     pub server_addr: String,
@@ -49,6 +50,7 @@ impl Config {
         toml::parse_file::<Self>(path)?.validate()
     }
 
+    #[allow(unused_mut)]
     pub fn validate(mut self) -> anyhow::Result<Self> {
         use engine::Validatable;
 
