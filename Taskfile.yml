@@ -25,6 +25,7 @@ tasks:
       - task: test-versions
       - task: dependencies-are-sorted
       - task: test
+      - task: cargo-hack
       - task: coverage
 
   check:
@@ -78,6 +79,16 @@ tasks:
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
         exec cargo test --workspace --all"
+
+  cargo-hack:
+    run: once
+    cmds:
+      - >-
+        {{.DOCKER_RUN}} sh -c "
+        export RUSTUP_TOOLCHAIN=nightly;
+        export RUSTFLAGS=\"-D warnings\";
+        command -v cargo-hack >/dev/null 2>&1 || cargo install cargo-hack;
+        exec cargo hack check --each-feature --no-dev-deps --all"
 
   coverage:
     run: once
