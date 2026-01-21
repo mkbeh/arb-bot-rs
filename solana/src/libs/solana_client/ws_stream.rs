@@ -44,16 +44,23 @@ pub struct StreamConfig {
     pub targets: Vec<SubscribeTarget>,
 }
 
+/// `Stream` manages the lifecycle of a WebSocket connection to a Solana RPC node.
 pub struct Stream {
+    /// Configuration for the stream
     config: StreamConfig,
+    /// Wrapper for a thread-safe callback executed on every batch
     callback: Option<BatchEventCallbackWrapper>,
-    /// request_id -> Target
+    /// Tracks active requests pending server confirmation: `request_id -> TargetInfo`
     pending_requests: HashMap<u64, TargetInfo>,
-    /// server_sub_id -> Target
+    /// Maps server-side subscription IDs to targets: `subscription_id -> TargetInfo`.
     subscriptions: HashMap<u64, TargetInfo, RandomState>,
 }
 
 impl Stream {
+    /// Creates a new `Stream` instance with the provided configuration.
+    ///
+    /// # Arguments
+    /// * `config` - Settings for connection behavior and data processing.
     #[must_use]
     pub fn new(config: StreamConfig) -> Self {
         Self {
@@ -64,6 +71,9 @@ impl Stream {
         }
     }
 
+    /// Attaches a callback function that is triggered whenever a batch of events is ready.
+    /// # Arguments
+    /// * `callback` - A closure or function that processes a vector of events.
     #[must_use]
     pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
     where
@@ -73,6 +83,7 @@ impl Stream {
         self
     }
 
+    /// Starts the main subscription loop with an automatic retry mechanism.
     pub async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         let mut backoff = ExponentialBuilder::default().build();
 
@@ -93,6 +104,7 @@ impl Stream {
         Ok(())
     }
 
+    /// Handles a single WebSocket session.
     async fn subscribe_session(&mut self, token: &CancellationToken) -> anyhow::Result<()> {
         let url = build_url(&self.config.endpoint, self.config.api_token.clone())?;
         let (ws_stream, _) = connect_async(url.to_string())
@@ -102,9 +114,11 @@ impl Stream {
         let (mut write, mut read) = ws_stream.split();
         let mut ping_interval = tokio::time::interval(self.config.ping_interval);
 
+        // Clear local state: server-side subscription IDs are invalid after reconnect
         self.subscriptions.clear();
         self.pending_requests.clear();
 
+        // Send all subscription requests defined in config
         self.send_subscribe_requests(&mut write).await?;
 
         while !token.is_cancelled() {
@@ -132,7 +146,7 @@ impl Stream {
                         }
                     }
 
-                    _ = &mut timeout => break,
+                    _ = &mut timeout => break, // Flush batch on timeout
                 }
 
                 if batch.len() >= self.config.batch_size {
@@ -145,6 +159,7 @@ impl Stream {
         Ok(())
     }
 
+    /// Sends all subscription requests to the WebSocket server based on the current configuration.
     async fn send_subscribe_requests<W>(&mut self, write: &mut W) -> anyhow::Result<()>
     where
         W: SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
@@ -152,8 +167,10 @@ impl Stream {
         let requests =
             Self::build_subscribe_requests(&self.config.program_ids, &self.config.targets);
         for (json_val, target_info) in requests {
+            // Track the request ID to match it with the server's subscription ID later
             self.pending_requests
                 .insert(target_info.request_id, target_info);
+
             write
                 .send(Message::Text(json_val.to_string().into()))
                 .await?;
@@ -161,6 +178,7 @@ impl Stream {
         Ok(())
     }
 
+    /// Handles an incoming WebSocket message and manages subscription state.
     async fn handle_message(&mut self, msg: Message) -> anyhow::Result<Option<RawMessage>> {
         match msg {
             Message::Text(text) => {
@@ -179,6 +197,10 @@ impl Stream {
         }
     }
 
+    /// Processes a batch of raw messages in parallel and triggers the callback.
+    ///
+    /// # Arguments
+    /// * `batch` - A vector of raw messages collected during the batching window.
     async fn process_batch(&mut self, batch: Vec<RawMessage>) -> anyhow::Result<()> {
         if batch.is_empty() {
             return Ok(());
@@ -195,6 +217,7 @@ impl Stream {
         Ok(())
     }
 
+    /// Constructs a list of JSON-RPC subscription requests and their associated metadata.
     fn build_subscribe_requests(
         program_ids: &[String],
         targets: &[SubscribeTarget],
