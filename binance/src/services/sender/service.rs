@@ -32,23 +32,7 @@ pub struct SenderService {
     api_secret_key: String,
 }
 
-impl SenderService {
-    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        // Configure global request weight limit for API rate limiting.
-        {
-            let mut weight_lock = REQUEST_WEIGHT.lock().await;
-            weight_lock.set_weight_limit(config.api_weight_limit);
-        }
-
-        Ok(Self {
-            send_orders: config.send_orders,
-            process_chain_interval: Duration::from_secs(10),
-            ws_url: config.ws_url.clone(),
-            api_token: config.api_token.clone(),
-            api_secret_key: config.api_secret_key.clone(),
-        })
-    }
-}
+impl Sender for SenderService {}
 
 #[async_trait]
 impl ArbitrageService for SenderService {
@@ -81,9 +65,23 @@ impl ArbitrageService for SenderService {
     }
 }
 
-impl Sender for SenderService {}
-
 impl SenderService {
+    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
+        // Configure global request weight limit for API rate limiting.
+        {
+            let mut weight_lock = REQUEST_WEIGHT.lock().await;
+            weight_lock.set_weight_limit(config.api_weight_limit);
+        }
+
+        Ok(Self {
+            send_orders: config.send_orders,
+            process_chain_interval: Duration::from_secs(10),
+            ws_url: config.ws_url.clone(),
+            api_token: config.api_token.clone(),
+            api_secret_key: config.api_secret_key.clone(),
+        })
+    }
+
     /// Main loop for receiving arbitrage chains and sending corresponding orders.
     /// Monitors a watch channel for new chains, processes them with rate limiting,
     /// and handles WebSocket messages in parallel.

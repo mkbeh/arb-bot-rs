@@ -28,47 +28,7 @@ pub struct ExchangeService {
     order_builder: Arc<OrderBuilder>,
 }
 
-impl ExchangeService {
-    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        let api_config = binance_client::ClientConfig {
-            api_url: config.api_url.clone(),
-            api_token: config.api_token.clone(),
-            api_secret_key: config.api_secret_key.clone(),
-            http_config: binance_client::HttpConfig::default(),
-        };
-
-        let general_api: General =
-            Binance::new(api_config.clone()).context("Failed to init general binance client")?;
-        let market_api: Market =
-            Binance::new(api_config).context("Failed to init market binance client")?;
-
-        // Configure global request weight limit for API rate limiting.
-        {
-            let mut weight_lock = REQUEST_WEIGHT.lock().await;
-            weight_lock.set_weight_limit(config.api_weight_limit);
-        }
-
-        Ok(Self {
-            asset_builder: AssetBuilder::new(
-                market_api.clone(),
-                config.assets.clone(),
-                config.min_profit_qty,
-                config.max_order_qty,
-                config.min_ticker_qty_24h,
-            ),
-            ticker_builder: TickerBuilder::new(
-                config.ws_streams_url.clone(),
-                config.ws_max_connections,
-            ),
-            chain_builder: Arc::new(ChainBuilder::new(
-                general_api,
-                market_api,
-                config.skip_assets.clone(),
-            )),
-            order_builder: Arc::new(OrderBuilder::new(config.fee_percent)),
-        })
-    }
-}
+impl Exchange for ExchangeService {}
 
 #[async_trait]
 impl ArbitrageService for ExchangeService {
@@ -141,4 +101,44 @@ impl ArbitrageService for ExchangeService {
     }
 }
 
-impl Exchange for ExchangeService {}
+impl ExchangeService {
+    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let api_config = binance_client::ClientConfig {
+            api_url: config.api_url.clone(),
+            api_token: config.api_token.clone(),
+            api_secret_key: config.api_secret_key.clone(),
+            http_config: binance_client::HttpConfig::default(),
+        };
+
+        let general_api: General =
+            Binance::new(api_config.clone()).context("Failed to init general binance client")?;
+        let market_api: Market =
+            Binance::new(api_config).context("Failed to init market binance client")?;
+
+        // Configure global request weight limit for API rate limiting.
+        {
+            let mut weight_lock = REQUEST_WEIGHT.lock().await;
+            weight_lock.set_weight_limit(config.api_weight_limit);
+        }
+
+        Ok(Self {
+            asset_builder: AssetBuilder::new(
+                market_api.clone(),
+                config.assets.clone(),
+                config.min_profit_qty,
+                config.max_order_qty,
+                config.min_ticker_qty_24h,
+            ),
+            ticker_builder: TickerBuilder::new(
+                config.ws_streams_url.clone(),
+                config.ws_max_connections,
+            ),
+            chain_builder: Arc::new(ChainBuilder::new(
+                general_api,
+                market_api,
+                config.skip_assets.clone(),
+            )),
+            order_builder: Arc::new(OrderBuilder::new(config.fee_percent)),
+        })
+    }
+}

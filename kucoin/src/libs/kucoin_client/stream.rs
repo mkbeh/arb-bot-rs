@@ -137,35 +137,6 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
         Ok(())
     }
 
-    /// Disconnects the WebSocket stream gracefully.
-    pub async fn disconnect(&mut self) {
-        if let Some(tx) = self.shutdown_tx.take() {
-            let _ = tx.send(());
-        }
-
-        if let Some(writer) = self.writer.take() {
-            let mut w = writer.lock().await;
-            let _ = w.close().await;
-        }
-
-        self.writer = None;
-        self.reader = None;
-        self.ping_handle = None;
-    }
-
-    /// Subscribes to a specific topic on the connected WebSocket.
-    pub async fn subscribe(&mut self, ts: u64, topic: &Topic) -> anyhow::Result<()> {
-        let subscribe_msg = SubscribeMessage::new(topic.stream.clone(), ts, topic.private);
-        let json_msg = serde_json::to_string(&subscribe_msg)?;
-        if let Some(ref writer) = self.writer {
-            let mut w = writer.lock().await;
-            w.send(Message::text(json_msg)).await?;
-        } else {
-            bail!("Writer not available for subscribe");
-        }
-        Ok(())
-    }
-
     /// Handles incoming messages in a loop until cancellation or closure.
     pub async fn handle_messages(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         if !self.is_connected() {
@@ -198,6 +169,36 @@ impl<'a, Event: DeserializeOwned> WebsocketStream<'a, Event> {
             }
         }
 
+        Ok(())
+    }
+
+    /// Disconnects the WebSocket stream gracefully.
+    pub async fn disconnect(&mut self) {
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+
+        if let Some(writer) = self.writer.take() {
+            let mut w = writer.lock().await;
+            let _ = w.close().await;
+        }
+
+        self.writer = None;
+        self.reader = None;
+        self.ping_handle = None;
+    }
+
+    /// Subscribes to a specific topic on the connected WebSocket.
+    #[allow(clippy::needless_pass_by_ref_mut)]
+    async fn subscribe(&mut self, ts: u64, topic: &Topic) -> anyhow::Result<()> {
+        let subscribe_msg = SubscribeMessage::new(topic.stream.clone(), ts, topic.private);
+        let json_msg = serde_json::to_string(&subscribe_msg)?;
+        if let Some(ref writer) = self.writer {
+            let mut w = writer.lock().await;
+            w.send(Message::text(json_msg)).await?;
+        } else {
+            bail!("Writer not available for subscribe");
+        }
         Ok(())
     }
 

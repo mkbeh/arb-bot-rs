@@ -33,7 +33,7 @@ Clone and build the CLI binary:
 ```shell
 git clone https://github.com/mkbeh/arb-bot-rs.git
 cd arb-bot-rs
-cargo build -p cli --profile release-lto --all-features
+cargo build -p cli --release --all-features
 ```
 
 #### ✅ Running Tests
@@ -49,7 +49,7 @@ cargo test --all
 The CLI is intuitive—check available commands:
 
 ```shell
-./target/release-lto/bot --help
+./target/release/bot --help
 ```
 
 **Core Commands:**
@@ -67,7 +67,7 @@ cp config.example.toml config.toml
 **Launch Example (Binance spot trading):**
 
 ```shell
-RUST_LOG=INFO ./target/release-lto/bot run --exchange binance --config config.toml
+RUST_LOG=INFO ./target/release/bot run --exchange binance --config config.toml
 ```
 
 ## 📊 Observability & Monitoring

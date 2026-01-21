@@ -1,8 +1,8 @@
 use anyhow::bail;
+use engine::Validatable;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-/// General application settings.
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub api_url: String,
@@ -25,8 +25,19 @@ pub struct Config {
     pub assets: Vec<Asset>,
 }
 
-/// Asset structure for arbitrage.
-/// Describes the base asset and trading limit parameters.
+impl Validatable for Config {
+    fn validate(&mut self) -> anyhow::Result<()> {
+        for asset in self.assets.iter_mut() {
+            asset.validate(
+                self.min_profit_qty,
+                self.max_order_qty,
+                self.min_ticker_qty_24h,
+            )?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Asset {
     pub asset: String,
@@ -40,7 +51,6 @@ pub struct Asset {
 }
 
 impl Asset {
-    /// Validates the asset parameters and sets default values if symbol is missing.
     pub fn validate(
         &mut self,
         min_profit_qty: Decimal,

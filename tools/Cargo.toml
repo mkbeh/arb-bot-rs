@@ -22,7 +22,7 @@ tracing = { workspace = true }
 
 metrics-exporter-prometheus = { version = "0.18.1" }
 rustls = { version = "0.23", features = ["ring"] }
-toml = { version = "0.9.10" }
+toml = { version = "0.9.11" }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 
 [lints]

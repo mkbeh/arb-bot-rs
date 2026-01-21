@@ -4,7 +4,7 @@ vars:
   RUST_IMAGE: "rustlang/rust:nightly"
   TARP_IMAGE: "xd009642/tarpaulin:develop-nightly"
   DOCKER_RUN: >-
-    docker run --rm -t
+    docker run --rm -t --init
     -u $(id -u):$(id -g)
     -e TERM=xterm-256color
     -e CARGO_HOME=/cargo
@@ -12,70 +12,89 @@ vars:
     -v $HOME/.cargo:/cargo:z
     -v $HOME/.rustup:/rustup:z
     -v {{.PWD}}:/src:z
-    -v {{.PWD}}/target:/src/target:z
     -w /src
     {{.RUST_IMAGE}}
 
 tasks:
   run:
-    deps:
-      - check
-      - check-docs
-      - test-docs
-      - test-versions
-      - dependencies-are-sorted
-      - test
-      - coverage
+    run: once
+    cmds:
+      - task: check
+      - task: check-docs
+      - task: test-docs
+      - task: test-versions
+      - task: dependencies-are-sorted
+      - task: test
+      - task: cargo-hack
+      - task: coverage
 
   check:
+    run: once
     cmds:
       - >-
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
-        rustup component add clippy rustfmt;
-        cargo clippy --workspace --all-targets --all-features -- -D warnings;
-        cargo +nightly fmt --all --check"
+        rustup component add clippy rustfmt >/dev/null 2>&1;
+        exec cargo clippy --workspace --all-targets --all-features -- -D warnings"
+      - >-
+        {{.DOCKER_RUN}} sh -c "exec cargo +nightly fmt --all --check"
 
   check-docs:
+    run: once
     cmds:
       - >-
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
-        cargo doc --workspace --all-features --no-deps"
+        exec cargo doc --workspace --all-features --no-deps"
 
   test-versions:
+    run: once
     cmds:
       - >-
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
-        cargo test --workspace --all-features --all-targets"
+        exec cargo test --workspace --all-features --all-targets"
 
   test-docs:
+    run: once
     cmds:
       - >-
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
-        cargo test --all-features --doc"
+        exec cargo test --all-features --doc"
 
   dependencies-are-sorted:
+    run: once
     cmds:
       - >-
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
         command -v cargo-sort >/dev/null 2>&1 || cargo install cargo-sort;
-        cargo sort --workspace --grouped --check"
+        exec cargo sort --workspace --grouped --check"
 
   test:
+    run: once
     cmds:
       - >-
         {{.DOCKER_RUN}} sh -c "
         export RUSTUP_TOOLCHAIN=nightly;
-        cargo test --workspace --all"
+        exec cargo test --workspace --all"
 
-  coverage:
+  cargo-hack:
+    run: once
     cmds:
       - >-
-        docker run --rm -t
+        {{.DOCKER_RUN}} sh -c "
+        export RUSTUP_TOOLCHAIN=nightly;
+        export RUSTFLAGS=\"-D warnings\";
+        command -v cargo-hack >/dev/null 2>&1 || cargo install cargo-hack;
+        exec cargo hack check --each-feature --no-dev-deps --all"
+
+  coverage:
+    run: once
+    cmds:
+      - >-
+        docker run --rm -t --init
         -u $(id -u):$(id -g)
         -e TERM=xterm-256color
         -e RUSTUP_TOOLCHAIN=nightly
@@ -84,4 +103,4 @@ tasks:
         -w /src
         --security-opt seccomp=unconfined
         {{.TARP_IMAGE}}
-        sh -c "cargo +nightly tarpaulin --all-features --workspace --timeout 120 --out Html --output-dir target/coverage"
+        sh -c "exec cargo +nightly tarpaulin --all-features --workspace --timeout 120 --out Html --output-dir target/coverage"
