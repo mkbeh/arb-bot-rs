@@ -9,6 +9,7 @@ license.workspace = true
 engine = { path = "../engine" }
 tools = { path = "../tools" }
 
+ahash = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 backon = { workspace = true }
@@ -16,16 +17,21 @@ base64 = { workspace = true }
 futures-util = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_with = { workspace = true }
+simd-json = { workspace = true }
 tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
+zerocopy = { workspace = true }
 
 borsh = { version = "1.6.0" }
-solana-client = { version = "3.1.6" }
+solana-client = { version = "3.1.7" }
+solana-program = "3.0.0"
 solana-sdk = { version = "3.0.0" }
-yellowstone-grpc-client = { version = "10.2.0" }
-yellowstone-grpc-proto = { version = "10.1.1" }
+yellowstone-grpc-client = { version = "11.0.0" }
+yellowstone-grpc-proto = { version = "11.0.0" }
 
 [lints]
 workspace = true

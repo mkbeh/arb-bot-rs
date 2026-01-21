@@ -5,6 +5,9 @@ mod ui;
 use clap::{Parser, Subcommand, ValueEnum};
 use strum_macros::{Display, EnumIter, EnumString};
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[derive(Parser)]
 #[command(name = "arb-bot")]
 #[command(about = ui::build_banner())]

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use anyhow::{Context, bail};
 use backon::{ExponentialBuilder, Retryable};
@@ -7,7 +7,7 @@ use futures_util::{SinkExt, TryFutureExt};
 use rayon::{iter::ParallelIterator, prelude::*};
 use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::pubkey::Pubkey;
-use tokio::{sync::Mutex, time::timeout};
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient, Interceptor};
@@ -20,11 +20,12 @@ use yellowstone_grpc_proto::{
 };
 
 use crate::libs::solana_client::{
-    Event,
-    dex::{AccountEvent, BlockMetaEvent, DEX_REGISTRY, SlotEvent, TxEvent},
+    callback::BatchEventCallbackWrapper,
+    dex::{
+        model::{AccountEvent, BlockMetaEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
+        registry::DEX_REGISTRY,
+    },
 };
-
-type BatchEventCallback = Box<dyn FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static>;
 
 /// Configuration for the Solana RPC client.
 #[derive(Clone, Default)]
@@ -39,9 +40,11 @@ pub struct GrpcConfig {
     pub batch_size: usize,
     /// The microsecond-grade duration to wait for additional
     /// messages after the first one arrives in the stream.
-    pub batch_fill_timeout: Duration,
+    pub batch_fill_timeout_us: Duration,
     /// List of Dex's programs ids.
     pub program_ids: Vec<String>,
+    /// Defines the specific data streams to subscribe to.
+    pub targets: Vec<SubscribeTarget>,
     /// Options for subscription.
     pub options: Option<SubscribeOptions>,
 }
@@ -49,8 +52,16 @@ pub struct GrpcConfig {
 /// Options for subscription.
 #[derive(Clone)]
 pub struct SubscribeOptions {
-    /// Connect timeout.
-    pub connect_timeout: u64,
+    /// Connect timeout
+    pub connect_timeout: Duration,
+    /// The interval in seconds for sending TCP
+    /// keep-alive probes to the server
+    pub tcp_keepalive: Duration,
+    /// The interval in seconds between HTTP/2 PING frames
+    pub http2_keep_alive_interval: Duration,
+    /// The maximum duration in seconds to wait
+    /// for a response to an HTTP/2 PING
+    pub keep_alive_timeout: Duration,
     /// Include failed transactions
     pub include_failed: bool,
     /// Include vote transactions
@@ -62,7 +73,10 @@ pub struct SubscribeOptions {
 impl Default for SubscribeOptions {
     fn default() -> Self {
         Self {
-            connect_timeout: 30,
+            connect_timeout: Duration::from_secs(30),
+            tcp_keepalive: Duration::from_secs(30),
+            keep_alive_timeout: Duration::from_secs(60),
+            http2_keep_alive_interval: Duration::from_secs(10),
             include_failed: false,
             include_vote: false,
             commitment: Some(CommitmentLevel::Processed),
@@ -97,11 +111,7 @@ impl GrpcClient {
     }
 
     /// Subscribes to transaction updates from the specified program IDs.
-    pub async fn subscribe(
-        &mut self,
-        token: CancellationToken,
-        targets: &[SubscribeTarget],
-    ) -> anyhow::Result<()> {
+    pub async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         if self.config.program_ids.is_empty() {
             bail!("Program IDs cannot be empty");
         }
@@ -113,36 +123,31 @@ impl GrpcClient {
             let callback = self.callback.clone();
 
             async move {
-                let mut client = timeout(
-                    Duration::from_secs(options.connect_timeout),
-                    Self::connect(config.clone()),
-                )
-                .await
-                .context("Connect timeout")?
-                .context("Failed to connect to gRPC")?;
+                let mut client = timeout(options.connect_timeout, Self::connect(config.clone()))
+                    .await
+                    .context("Connect timeout")?
+                    .context("Failed to connect to gRPC")?;
 
-                let (mut subscribe_tx, stream) = timeout(
-                    Duration::from_secs(options.connect_timeout),
-                    client.subscribe(),
-                )
-                .await
-                .context("Subscribe timeout")?
-                .context("Failed to subscribe")?;
+                let (mut subscribe_tx, stream) =
+                    timeout(options.connect_timeout, client.subscribe())
+                        .await
+                        .context("Subscribe timeout")?
+                        .context("Failed to subscribe")?;
 
                 let request =
-                    Self::build_subscribe_request(targets, config.program_ids.clone(), &options);
+                    Self::build_subscribe_request(&config.targets, config.program_ids, &options);
 
                 subscribe_tx
                     .send(request)
                     .await
-                    .map_err(|e| anyhow::anyhow!("Send error: {e}"))?;
+                    .context("Failed to send subscribe request")?;
 
                 Self::handle_events(
                     stream,
-                    token.clone(),
+                    token,
                     callback,
                     config.batch_size,
-                    config.batch_fill_timeout,
+                    config.batch_fill_timeout_us,
                 )
                 .await?;
 
@@ -165,7 +170,11 @@ impl GrpcClient {
     async fn connect(
         config: GrpcConfig,
     ) -> anyhow::Result<GeyserGrpcClient<impl Interceptor + Clone>> {
-        let mut builder = GeyserGrpcClient::build_from_shared(config.endpoint.clone())?;
+        let options = &config.options.unwrap_or_default();
+        let mut builder = GeyserGrpcClient::build_from_shared(config.endpoint.clone())?
+            .tcp_keepalive(Some(options.tcp_keepalive))
+            .http2_keep_alive_interval(options.http2_keep_alive_interval)
+            .keep_alive_timeout(options.keep_alive_timeout);
 
         // Configure TLS for secure HTTPS connections (required for official/mainnet endpoints).
         let tls_config = ClientTlsConfig::new();
@@ -185,7 +194,7 @@ impl GrpcClient {
         program_ids: Vec<String>,
         options: &SubscribeOptions,
     ) -> SubscribeRequest {
-        let valid_program_ids: Vec<String> = program_ids
+        let valid_pubkeys: Vec<String> = program_ids
             .into_iter()
             .filter(|id_str| {
                 if let Ok(pubkey) = id_str.parse::<Pubkey>() {
@@ -212,13 +221,13 @@ impl GrpcClient {
             },
 
             accounts: if targets.contains(&SubscribeTarget::Account) {
-                Self::build_subscribe_accounts(&valid_program_ids)
+                Self::build_subscribe_accounts(&valid_pubkeys)
             } else {
                 HashMap::new()
             },
 
             transactions: if targets.contains(&SubscribeTarget::Transaction) {
-                Self::build_subscribe_transactions(&valid_program_ids, options)
+                Self::build_subscribe_transactions(&valid_pubkeys, options)
             } else {
                 HashMap::new()
             },
@@ -335,41 +344,6 @@ impl GrpcClient {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SubscribeTarget {
-    Slot,
-    Transaction,
-    Account,
-}
-
-/// Thread-safe wrapper for event callbacks.
-#[derive(Clone)]
-pub struct BatchEventCallbackWrapper {
-    inner: Arc<Mutex<BatchEventCallback>>,
-}
-
-impl BatchEventCallbackWrapper {
-    /// Creates a new `BatchEventCallback` from a mutable closure.
-    pub fn new<F>(callback: F) -> Self
-    where
-        F: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static,
-    {
-        Self {
-            inner: Arc::new(Mutex::new(Box::new(callback))),
-        }
-    }
-
-    /// Invokes the callback with the given event.
-    pub async fn call(&self, events: Vec<Event>) -> anyhow::Result<()> {
-        if events.is_empty() {
-            return Ok(());
-        }
-
-        let mut guard = self.inner.lock().await;
-        guard(events)
-    }
-}
-
 /// Parses a `UpdateOneof` to an `Event`.
 fn parse_update(event: &UpdateOneof) -> Option<Event> {
     match event {
@@ -383,23 +357,23 @@ fn parse_update(event: &UpdateOneof) -> Option<Event> {
 
 /// Parses a block meta update to a `TxEvent`.
 fn parse_block_meta(meta: &SubscribeUpdateBlockMeta) -> Option<Event> {
-    Some(Event::BlockMeta(Box::new(BlockMetaEvent {
+    Some(Event::BlockMeta(BlockMetaEvent {
         slot: meta.slot,
         blockhash: meta.blockhash.clone(),
         block_time: meta.block_time.as_ref().map(|ts| ts.timestamp as u64),
         block_height: meta.block_height.as_ref().map(|bh| bh.block_height),
         parent_block_hash: meta.parent_blockhash.clone(),
         parent_slot: meta.parent_slot,
-    })))
+    }))
 }
 
 /// Parses a slot update to a `TxEvent`.
 fn parse_slot(slot: &SubscribeUpdateSlot) -> Option<Event> {
-    Some(Event::Slot(Box::new(SlotEvent {
+    Some(Event::Slot(SlotEvent {
         slot: slot.slot,
         parent: slot.parent,
         status: slot.status,
-    })))
+    }))
 }
 
 /// Parses a transaction update to a `TxEvent`.
@@ -420,7 +394,7 @@ fn parse_tx(tx: &SubscribeUpdateTransaction) -> Option<Event> {
     if events.is_empty() {
         None
     } else {
-        Some(Event::Tx(events.into_boxed_slice()))
+        Some(Event::Tx(events))
     }
 }
 

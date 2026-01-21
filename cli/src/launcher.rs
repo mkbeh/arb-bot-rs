@@ -41,8 +41,7 @@ pub async fn start(exchange: ExchangeType, config_path: std::path::PathBuf) -> R
         ExchangeType::Solana => {
             #[cfg(feature = "solana")]
             {
-                bootstrap::<solana::Provider, _>(_cfg.solana.as_ref(), &_cfg.general, exchange)
-                    .await?
+                println!("🚧 Solana support is under active development")
             }
             #[cfg(not(feature = "solana"))]
             ui::print_feature_error("solana")
