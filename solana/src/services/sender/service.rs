@@ -7,17 +7,17 @@ use crate::Config;
 /// Service for sending and polling orders from arbitrage chains.
 pub struct SenderService {}
 
-impl SenderService {
-    pub async fn from_config(_config: &Config) -> anyhow::Result<Self> {
-        Ok(Self {})
-    }
-}
-
 impl Sender for SenderService {}
 
 #[async_trait]
 impl ArbitrageService for SenderService {
     async fn start(&self, _token: CancellationToken) -> anyhow::Result<()> {
         Ok(())
+    }
+}
+
+impl SenderService {
+    pub async fn from_config(_config: &Config) -> anyhow::Result<Self> {
+        Ok(Self {})
     }
 }

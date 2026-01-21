@@ -27,6 +27,7 @@ solana = { path = "../solana", optional = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 comfy-table = { workspace = true }
+mimalloc = { workspace = true }
 owo-colors = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }

@@ -1,7 +1,8 @@
+pub mod callback;
 pub mod dex;
-pub mod grpc_client;
-pub mod rpc_client;
+pub mod grpc;
+pub mod rpc;
+pub mod ws_stream;
 
-pub use dex::Event;
-pub use grpc_client::{GrpcClient, GrpcConfig, SubscribeOptions};
-pub use rpc_client::{RpcClient, RpcConfig};
+pub use grpc::{GrpcClient, GrpcConfig, SubscribeOptions};
+pub use rpc::{RpcClient, RpcConfig};

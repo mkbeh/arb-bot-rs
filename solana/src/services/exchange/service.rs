@@ -7,17 +7,17 @@ use crate::Config;
 /// Core service for exchange arbitrage operations.
 pub struct ExchangeService {}
 
-impl ExchangeService {
-    pub async fn from_config(_config: &Config) -> anyhow::Result<Self> {
-        Ok(Self {})
-    }
-}
-
 impl Exchange for ExchangeService {}
 
 #[async_trait]
 impl ArbitrageService for ExchangeService {
     async fn start(&self, _token: CancellationToken) -> anyhow::Result<()> {
         Ok(())
+    }
+}
+
+impl ExchangeService {
+    pub async fn from_config(_config: &Config) -> anyhow::Result<Self> {
+        Ok(Self {})
     }
 }

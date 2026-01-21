@@ -1,25 +1,42 @@
-use anyhow::bail;
-use serde::Deserialize;
+use std::time::Duration;
 
-/// General application settings.
+use anyhow::bail;
+use engine::Validatable;
+use serde::Deserialize;
+use serde_with::{DurationMicroSeconds, serde_as};
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Transport {
+    Websocket,
+    Grpc,
+}
+
+#[serde_as]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
+    pub transport: Transport,
     pub rpc_endpoint: String,
-    pub grpc_endpoint: String,
+    pub grpc_endpoint: Option<String>,
     pub x_token: Option<String>,
+    pub ws_endpoint: Option<String>,
+    pub ws_api_key: Option<String>,
+    pub stream_batch_size: usize,
+    #[serde_as(as = "DurationMicroSeconds<u64>")]
+    pub stream_wait_timeout_us: Duration,
     pub exchanges: Vec<Dex>,
 }
 
-impl Config {
-    /// Validates the configuration at startup.
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if self.rpc_endpoint.is_empty() || self.grpc_endpoint.is_empty() {
-            bail!("RPC or gRPC endpoint cannot be empty");
+impl Validatable for Config {
+    fn validate(&mut self) -> anyhow::Result<()> {
+        if self.rpc_endpoint.is_empty() {
+            bail!("RPC endpoint cannot be empty");
         }
         Ok(())
     }
+}
 
-    /// Extracts and returns a list of all DEX program IDs from the configured exchanges.
+impl Config {
     #[must_use]
     pub fn get_dex_programs(&self) -> Vec<String> {
         self.exchanges
@@ -29,7 +46,6 @@ impl Config {
     }
 }
 
-/// A single Decentralized Exchange (DEX) configuration.
 #[derive(Deserialize, Clone, Debug)]
 pub struct Dex {
     pub program_id: String,

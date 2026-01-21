@@ -28,45 +28,6 @@ pub struct ExchangeService {
     order_builder: Arc<OrderBuilder>,
 }
 
-impl ExchangeService {
-    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        let api_config = kucoin_client::ClientConfig {
-            host: config.api_url.clone(),
-            api_key: config.api_token.clone(),
-            api_secret: config.api_secret_key.clone(),
-            api_passphrase: config.api_passphrase.clone(),
-            http_config: kucoin_client::HttpConfig::default(),
-        };
-
-        let market_api: Market =
-            Kucoin::new(api_config.clone()).context("Failed to init market Kucoin client")?;
-        let base_info_api: BaseInfo =
-            Kucoin::new(api_config).context("Failed to init base info Kucoin client")?;
-
-        // Configure global request weight limit for API rate limiting.
-        {
-            let mut weight_lock = REQUEST_WEIGHT.lock().await;
-            weight_lock.set_weight_limit(config.api_weight_limit);
-        }
-
-        Ok(Self {
-            asset_builder: AssetBuilder::new(
-                market_api.clone(),
-                config.assets.clone(),
-                config.min_profit_qty,
-                config.max_order_qty,
-                config.min_ticker_qty_24h,
-            ),
-            ticker_builder: TickerBuilder::new(base_info_api),
-            chain_builder: Arc::new(ChainBuilder::new(
-                market_api.clone(),
-                config.skip_assets.clone(),
-            )),
-            order_builder: Arc::new(OrderBuilder::new(config.fee_percent)),
-        })
-    }
-}
-
 impl Exchange for ExchangeService {}
 
 #[async_trait]
@@ -135,5 +96,44 @@ impl ArbitrageService for ExchangeService {
         }
 
         Ok(())
+    }
+}
+
+impl ExchangeService {
+    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let api_config = kucoin_client::ClientConfig {
+            host: config.api_url.clone(),
+            api_key: config.api_token.clone(),
+            api_secret: config.api_secret_key.clone(),
+            api_passphrase: config.api_passphrase.clone(),
+            http_config: kucoin_client::HttpConfig::default(),
+        };
+
+        let market_api: Market =
+            Kucoin::new(api_config.clone()).context("Failed to init market Kucoin client")?;
+        let base_info_api: BaseInfo =
+            Kucoin::new(api_config).context("Failed to init base info Kucoin client")?;
+
+        // Configure global request weight limit for API rate limiting.
+        {
+            let mut weight_lock = REQUEST_WEIGHT.lock().await;
+            weight_lock.set_weight_limit(config.api_weight_limit);
+        }
+
+        Ok(Self {
+            asset_builder: AssetBuilder::new(
+                market_api.clone(),
+                config.assets.clone(),
+                config.min_profit_qty,
+                config.max_order_qty,
+                config.min_ticker_qty_24h,
+            ),
+            ticker_builder: TickerBuilder::new(base_info_api),
+            chain_builder: Arc::new(ChainBuilder::new(
+                market_api.clone(),
+                config.skip_assets.clone(),
+            )),
+            order_builder: Arc::new(OrderBuilder::new(config.fee_percent)),
+        })
     }
 }
