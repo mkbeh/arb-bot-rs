@@ -446,7 +446,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "binance"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -804,7 +804,7 @@ checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
 
 [[package]]
 name = "cli"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "binance",
@@ -1385,7 +1385,7 @@ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
 name = "engine"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2337,7 +2337,7 @@ dependencies = [
 
 [[package]]
 name = "kucoin"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4133,7 +4133,7 @@ dependencies = [
 
 [[package]]
 name = "solana"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "ahash 0.8.12",
  "anyhow",
@@ -6618,7 +6618,7 @@ dependencies = [
 
 [[package]]
 name = "tools"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6636,7 +6636,7 @@ dependencies = [
 
 [[package]]
 name = "tools-derive"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "proc-macro2",
  "quote",
