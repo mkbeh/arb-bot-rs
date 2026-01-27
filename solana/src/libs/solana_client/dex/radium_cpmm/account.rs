@@ -1,7 +1,9 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::{parser::DexEntity, radium_cpmm::constants::RADIUM_CPMM_ID};
+use crate::libs::solana_client::dex::{
+    radium_cpmm::constants::RADIUM_CPMM_ID, registry::DexEntity,
+};
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]

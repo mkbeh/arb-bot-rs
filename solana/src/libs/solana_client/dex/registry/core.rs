@@ -1,9 +1,9 @@
 use ahash::AHashMap;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::{
-    parser::DexEntity,
-    registry::traits::{DexParser, RegistryLookup, ToDexParser},
+use crate::libs::solana_client::dex::registry::{
+    DexEntity,
+    traits::{DexParser, RegistryLookup, ToDexParser},
 };
 
 /// Represents a single entry in the registry, combining a human-readable name

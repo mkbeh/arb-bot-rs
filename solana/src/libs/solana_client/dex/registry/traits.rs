@@ -1,9 +1,7 @@
+use bytemuck::Pod;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::{
-    models::{PoolState, TxEvent},
-    parser::DexEntity,
-};
+use crate::libs::solana_client::dex::models::{PoolState, TxEvent};
 
 /// Defines the criteria used to locate a specific parser in the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -50,4 +48,55 @@ pub trait ToDexParser<T: DexEntity>: Sized {
     fn wrap_parser<F>(f: F) -> DexParser
     where
         F: Fn(&[u8]) -> Option<Self> + Send + Sync + 'static;
+}
+
+/// A core trait that defines the interface for any DEX-related blockchain entity.
+///
+/// This trait provides constants for identification and unified methods for
+/// deserializing raw Solana data into structured types.
+pub trait DexEntity: Sized {
+    /// The unique public key of the Solana program that owns this entity.
+    const PROGRAM_ID: Pubkey;
+
+    /// The unique byte prefix (discriminator) used to identify the
+    /// specific type (common in Anchor-based programs).
+    const DISCRIMINATOR: &'static [u8];
+
+    /// The expected fixed size of the data in bytes.
+    const POOL_SIZE: usize;
+
+    /// Primary deserialization method to be implemented by each specific DEX type.
+    fn deserialize(data: &[u8]) -> Option<Self>;
+
+    /// This method validates the data length and checks for the correct discriminator
+    /// before reinterpreting the raw byte buffer as a struct in memory.
+    fn deserialize_bytemuck(data: &[u8]) -> Option<Self>
+    where
+        Self: Pod + Copy,
+    {
+        let disc_size = Self::DISCRIMINATOR.len();
+        let struct_size = disc_size + size_of::<Self>();
+
+        // Ensure buffer contains at least the required amount of bytes
+        if data.len() < struct_size {
+            return None;
+        }
+
+        // Validate the type discriminator prefix
+        if disc_size > 0 && !data.starts_with(Self::DISCRIMINATOR) {
+            return None;
+        }
+
+        // Access the payload slice after the discriminator and read it into the struct
+        let payload = data.get(disc_size..)?;
+        Some(bytemuck::pod_read_unaligned(payload))
+    }
+
+    /// Deserializes the data and maps the result into an output wrapper.
+    fn parse_into<Out, F>(data: &[u8], wrap: F) -> Option<Out>
+    where
+        F: FnOnce(Box<Self>) -> Out,
+    {
+        Self::deserialize(data).map(|val| wrap(Box::new(val)))
+    }
 }

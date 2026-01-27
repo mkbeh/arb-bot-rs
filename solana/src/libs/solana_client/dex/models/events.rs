@@ -2,10 +2,8 @@ use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::dex::{
-    meteora_dlmm,
-    parser::DexEntity,
-    radium_cpmm,
-    registry::{DexParser, RegistryLookup, ToDexParser},
+    meteora_dlmm, radium_cpmm,
+    registry::{DexEntity, DexParser, RegistryLookup, ToDexParser},
 };
 
 /// Defines the types of Solana blockchain data that
