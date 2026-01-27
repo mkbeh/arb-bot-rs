@@ -1,8 +1,9 @@
 pub mod lifinity_v2;
-mod meteora_damm_v2;
+pub mod meteora_damm_v2;
 pub mod meteora_dlmm;
-pub mod model;
+pub mod models;
 pub mod orca;
+pub mod parser;
 pub mod pump_fun;
 pub mod radium_amm;
 pub mod radium_clmm;
