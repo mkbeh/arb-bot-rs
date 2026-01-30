@@ -1,8 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::{
-    radium_cpmm::constants::RADIUM_CPMM_ID, registry::DexEntity,
+use crate::libs::solana_client::{
+    dex::radium_cpmm::constants::RADIUM_CPMM_ID, registry::DexEntity,
 };
 
 #[repr(C)]
@@ -17,6 +17,6 @@ impl DexEntity for Swap {
     const POOL_SIZE: usize = 0;
 
     fn deserialize(_data: &[u8]) -> Option<Self> {
-        Some(Swap {})
+        Some(Self {})
     }
 }

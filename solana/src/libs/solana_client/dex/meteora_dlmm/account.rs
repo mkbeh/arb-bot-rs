@@ -1,8 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::{
-    meteora_dlmm::constants::METEORA_DLMM_ID, registry::DexEntity,
+use crate::libs::solana_client::{
+    dex::meteora_dlmm::constants::METEORA_DLMM_ID, registry::DexEntity,
 };
 
 #[repr(C)]

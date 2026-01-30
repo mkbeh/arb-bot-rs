@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::libs::solana_client::dex::models::Event;
+use crate::libs::solana_client::models::Event;
 
 type BatchEventCallback = Box<dyn FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static>;
 

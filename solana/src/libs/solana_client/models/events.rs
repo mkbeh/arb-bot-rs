@@ -1,8 +1,8 @@
 use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::{
-    meteora_dlmm, radium_cpmm,
+use crate::libs::solana_client::{
+    dex::{meteora_dlmm, radium_cpmm},
     registry::{DexEntity, DexParser, RegistryLookup, ToDexParser},
 };
 
@@ -74,8 +74,8 @@ pub struct AccountEvent {
 /// across different DEX protocols.
 #[derive(Debug, Clone)]
 pub enum PoolState {
-    LbPairMeteoraDlmm(meteora_dlmm::LbPair),
-    PoolStateRadiumCpmm(radium_cpmm::PoolState),
+    LbPairMeteoraDlmm(Box<meteora_dlmm::LbPair>),
+    PoolStateRadiumCpmm(Box<radium_cpmm::PoolState>),
     /// Fallback for unknown or unsupported account data.
     Unknown(Vec<u8>),
 }

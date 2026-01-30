@@ -12,7 +12,6 @@ tools = { path = "../tools" }
 ahash = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-backon = { workspace = true }
 base64 = { workspace = true }
 futures-util = { workspace = true }
 rayon = { workspace = true }

@@ -1,7 +1,6 @@
-use crate::libs::solana_client::dex::{
-    meteora_dlmm,
+use crate::libs::solana_client::{
+    dex::{meteora_dlmm, radium_cpmm},
     models::{PoolState, TxEvent},
-    radium_cpmm,
     registry::core::DexRegistry,
 };
 
@@ -16,10 +15,10 @@ use crate::libs::solana_client::dex::{
 /// - **Raydium CPMM**: Pool state and Swap events.
 pub fn fill_registry(reg: &mut DexRegistry) {
     // Meteora DLMM Integration
-    reg.add::<meteora_dlmm::LbPair, _>(PoolState::LbPairMeteoraDlmm);
+    reg.add_boxed::<meteora_dlmm::LbPair, _>(PoolState::LbPairMeteoraDlmm);
     reg.add::<meteora_dlmm::Swap, _>(TxEvent::SwapMeteoraDlmm);
 
     // Raydium CPMM Integration
-    reg.add::<radium_cpmm::PoolState, _>(PoolState::PoolStateRadiumCpmm);
+    reg.add_boxed::<radium_cpmm::PoolState, _>(PoolState::PoolStateRadiumCpmm);
     reg.add::<radium_cpmm::Swap, _>(TxEvent::SwapRadiumCpmm);
 }

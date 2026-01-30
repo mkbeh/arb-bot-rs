@@ -1,13 +1,13 @@
 use std::{collections::HashMap, time::Duration};
 
-use ahash::{AHashMap, RandomState};
+use ahash::AHashMap;
 use anyhow::{Context, bail};
 use base64::{Engine, engine::general_purpose};
 use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use simd_json::OwnedValue;
@@ -26,12 +26,10 @@ use tracing::{debug, error, warn};
 
 use crate::libs::solana_client::{
     callback::BatchEventCallbackWrapper,
-    dex::{
-        models::{AccountEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
-        registry::{
-            DEX_REGISTRY, RegistryItem,
-            traits::{DexParser, RegistryLookup},
-        },
+    models::{AccountEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
+    registry::{
+        DEX_REGISTRY,
+        traits::{DexParser, RegistryLookup},
     },
 };
 
@@ -99,6 +97,10 @@ impl Stream {
 
     /// Starts the main subscription loop with an automatic retry mechanism.
     pub async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
+        if self.config.program_ids.is_empty() {
+            bail!("Program IDs cannot be empty");
+        }
+
         let mut delay = Duration::from_secs(1);
 
         while !token.is_cancelled() {
@@ -132,8 +134,11 @@ impl Stream {
         let conf = self.config.clone();
         let (mut write, mut read) = self.connect_ws().await?;
 
+        // Clear local state: server-side subscription IDs are invalid after reconnect
         self.pending_requests.clear();
         self.subscriptions.clear();
+
+        // Send all subscription requests defined in config
         self.send_subscribe_requests(&mut write).await?;
 
         tokio::spawn(Self::heartbeat(write, conf.ping_interval, token.clone()));
@@ -183,7 +188,7 @@ impl Stream {
         W: SinkExt<Message, Error = Error> + Unpin,
     {
         let requests =
-            Self::build_subscribe_requests(&self.config.program_ids, &self.config.targets);
+            Self::build_subscribe_requests(&self.config.program_ids, &self.config.targets)?;
         for (json_val, target_info) in requests {
             // Track the request ID to match it with the server's subscription ID later
             self.pending_requests
@@ -200,21 +205,16 @@ impl Stream {
     fn build_subscribe_requests(
         program_ids: &[String],
         targets: &[SubscribeTarget],
-    ) -> Vec<(Value, SubscriptionInfo)> {
+    ) -> anyhow::Result<Vec<(Value, SubscriptionInfo)>> {
         let mut requests = Vec::new();
         let mut id_gen = 1..;
-
-        let registry_entries: Vec<(&RegistryLookup, &RegistryItem)> = program_ids
-            .iter()
-            .filter_map(|id| id.parse::<Pubkey>().ok())
-            .flat_map(|pk| DEX_REGISTRY.get_all_by_program_id(&pk))
-            .collect();
+        let registry_entries = DEX_REGISTRY.get_all_from_strings(program_ids)?;
 
         for target in targets {
             match target {
                 SubscribeTarget::Slot => {
                     let id = id_gen.next().unwrap();
-                    requests.push(build_request(id, *target, None, json!([])));
+                    requests.push(build_request(id, *target, None, &json!([])));
                 }
 
                 SubscribeTarget::Account => {
@@ -224,7 +224,7 @@ impl Stream {
                     {
                         let id = id_gen.next().unwrap();
                         let params = build_params(lookup);
-                        requests.push(build_request(id, *target, Some(**lookup), params));
+                        requests.push(build_request(id, *target, Some(**lookup), &params));
                     }
                 }
 
@@ -235,13 +235,13 @@ impl Stream {
                     {
                         let id = id_gen.next().unwrap();
                         let params = build_params(lookup);
-                        requests.push(build_request(id, *target, Some(**lookup), params));
+                        requests.push(build_request(id, *target, Some(**lookup), &params));
                     }
                 }
             }
         }
 
-        requests
+        Ok(requests)
     }
 
     /// Handles an incoming WebSocket message and manages subscription state.
@@ -250,19 +250,18 @@ impl Stream {
         msg: Option<Result<Message, Error>>,
     ) -> anyhow::Result<Option<RawMessage>> {
         match msg {
-            Some(Ok(Message::Text(t))) => self.handle_text_message(t),
+            Some(Ok(Message::Text(t))) => self.handle_text_message(&t),
             Some(Ok(Message::Binary(b))) => {
                 warn!("Received unexpected binary message, length: {}", b.len());
                 Ok(None)
             }
-            Some(Ok(Message::Ping(_))) | Some(Ok(Message::Pong(_))) => Ok(None),
             Some(Ok(Message::Close(_))) => bail!("Websocket connection closed"),
             Some(Err(e)) => bail!("Websocket error: {e}"),
             _ => Ok(None),
         }
     }
 
-    fn handle_text_message(&mut self, text: Utf8Bytes) -> anyhow::Result<Option<RawMessage>> {
+    fn handle_text_message(&mut self, text: &Utf8Bytes) -> anyhow::Result<Option<RawMessage>> {
         let mut bytes = text.as_bytes().to_vec();
         let raw: RawMessage = simd_json::from_slice(&mut bytes)?;
         if let (Some(req_id), Some(sub_id)) = (raw.id, raw.result)
@@ -288,15 +287,18 @@ impl Stream {
             .filter_map(|msg| Self::parse_notification(msg, &self.subscriptions))
             .collect();
 
-        if let Some(ref mut cb) = self.callback {
-            cb.call(events).await?;
+        if !events.is_empty()
+            && let Some(ref mut cb) = self.callback
+        {
+            cb.call(events).await.context("callback failed")?;
         }
+
         Ok(())
     }
 
     fn parse_notification(
         msg: RawMessage,
-        subscriptions: &HashMap<u64, SubscriptionInfo, RandomState>,
+        subscriptions: &AHashMap<u64, SubscriptionInfo>,
     ) -> Option<Event> {
         if msg.id.is_some() {
             return None;
@@ -304,8 +306,8 @@ impl Stream {
 
         let method = msg.method?;
         let params = msg.params?;
-        let info = subscriptions.get(&params.subscription)?;
 
+        let info = subscriptions.get(&params.subscription)?;
         let sub_id = params.subscription;
 
         match method {
@@ -368,27 +370,24 @@ impl Stream {
             return None;
         };
 
-        let pool_state = match &item.parser {
-            DexParser::Account(parser_fn) => {
-                if let Some(state) = parser_fn(&payload) {
-                    state
-                } else {
-                    error!(
-                        "[{}] Failed to parse account: {}. Data size: {}",
-                        item.name,
-                        result.value.pubkey,
-                        payload.len()
-                    );
-                    return None;
-                }
-            }
-            _ => {
+        let pool_state = if let DexParser::Account(parser_fn) = &item.parser {
+            if let Some(state) = parser_fn(&payload) {
+                state
+            } else {
                 error!(
-                    "Registry integrity error: Expected Account parser for {}",
-                    program_id
+                    "[{}] Failed to parse account: {}. Data size: {}",
+                    item.name,
+                    result.value.pubkey,
+                    payload.len()
                 );
                 return None;
             }
+        } else {
+            error!(
+                "Registry integrity error: Expected Account parser for {}",
+                program_id
+            );
+            return None;
         };
 
         let event = AccountEvent {
@@ -426,30 +425,24 @@ impl Stream {
             .filter_map(|data_b64| {
                 let payload = general_purpose::STANDARD.decode(data_b64).ok()?;
 
-                if payload.len() < 8 { return None; }
+                if payload.len() < 8 {
+                    return None;
+                }
                 let discriminator = &payload[..8];
 
                 let item = DEX_REGISTRY.get_instruction_item(&program_id, discriminator)?;
 
-                match &item.parser {
-                    DexParser::Tx(parser_fn) => {
-                        if let Some(event) = parser_fn(&payload) {
-                            Some(event)
-                        } else {
-                            error!(
-                            "[{}] Failed to parse transaction event for program {}. Discriminator: {:?}",
-                            item.name, program_id, discriminator
-                        );
-                            return None;
-                        }
-                    }
-                    _ => {
-                        error!(
-                        "Registry integrity error: Expected Tx parser for {}",
-                        program_id
+                if let DexParser::Tx(parser_fn) = &item.parser {
+                    parser_fn(&payload).or_else(|| {
+                    error!(
+                        "[{}] Failed to parse transaction event for program {}. Discriminator: {:?}",
+                        item.name, program_id, discriminator
                     );
-                        return None;
-                    }
+                        None
+                    })
+                } else {
+                    error!("Registry integrity error: Expected Tx parser for {}", program_id);
+                    None
                 }
             })
             .collect();
@@ -461,6 +454,7 @@ impl Stream {
         Some(Event::Tx(events))
     }
 
+    /// Manages the WebSocket keep-alive mechanism (L7 Pings).
     async fn heartbeat(
         mut write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
         interval_dur: Duration,
@@ -473,8 +467,11 @@ impl Stream {
             tokio::select! {
                 _ = token.cancelled() => break,
                 _ = ticker.tick() => {
+                     // Send an empty Ping frame to the server
                     if let Err(e) = write.send(Message::Ping(vec![].into())).await {
                         error!("Ping heartbeat send error: {e}");
+                        // Exit the loop on write error as the connection is likely dead.
+                        // This allows the session task to terminate and trigger a reconnect.
                         break;
                     }
                 }
@@ -512,7 +509,7 @@ fn build_request(
     id: u64,
     target: SubscribeTarget,
     lookup: Option<RegistryLookup>,
-    params: Value,
+    params: &Value,
 ) -> (Value, SubscriptionInfo) {
     let value = json!({
         "jsonrpc": "2.0",
@@ -627,7 +624,7 @@ pub struct LogsResult {
 pub struct LogsValue {
     pub signature: String,
     pub err: Option<Value>,
-    pub logs: Vec<String>,
+    pub logs: Vec<String>,  
 }
 
 #[derive(Deserialize, Debug)]
@@ -636,7 +633,7 @@ pub struct RpcContext {
 }
 
 impl SubscribeTarget {
-    fn method(&self) -> SubscribeMethod {
+    fn method(self) -> SubscribeMethod {
         match self {
             Self::Slot => SubscribeMethod::Slot,
             Self::Account => SubscribeMethod::Program,

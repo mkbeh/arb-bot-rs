@@ -1,7 +1,7 @@
 use bytemuck::Pod;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::dex::models::{PoolState, TxEvent};
+use crate::libs::solana_client::models::{PoolState, TxEvent};
 
 /// Defines the criteria used to locate a specific parser in the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -18,10 +18,10 @@ pub enum RegistryLookup {
 
 impl RegistryLookup {
     /// Returns the Solana Program ID associated with this lookup entry.
+    #[must_use]
     pub fn program_id(&self) -> Pubkey {
         match self {
-            Self::Account { program_id, .. } => *program_id,
-            Self::Instruction { program_id, .. } => *program_id,
+            Self::Account { program_id, .. } | Self::Instruction { program_id, .. } => *program_id,
         }
     }
 }
@@ -70,6 +70,7 @@ pub trait DexEntity: Sized {
 
     /// This method validates the data length and checks for the correct discriminator
     /// before reinterpreting the raw byte buffer as a struct in memory.
+    #[must_use]
     fn deserialize_bytemuck(data: &[u8]) -> Option<Self>
     where
         Self: Pod + Copy,

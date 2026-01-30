@@ -1,6 +1,8 @@
 pub mod callback;
 pub mod dex;
 pub mod grpc;
+pub mod models;
+pub mod registry;
 pub mod rpc;
 pub mod ws_stream;
 

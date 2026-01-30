@@ -21,9 +21,8 @@ ahash = { version = "0.8.12" }
 anyhow = { version = "1.0.100" }
 async-trait = { version = "0.1.89" }
 axum = { version = "0.8.8" }
-backon = { version = "1.6.0", features = ["tokio"] }
 base64 = { version = "0.22.1" }
-clap = { version = "4.5.55", features = ["derive"] }
+clap = { version = "4.5.56", features = ["derive"] }
 comfy-table = { version = "7.2.2" }
 dashmap = { version = "6.1.0" }
 futures-util = { version = "0.3.31" }
@@ -66,7 +65,7 @@ type_complexity = "allow"
 
 await_holding_lock = "warn"
 dbg_macro = "warn"
-empty_enum = "warn"
+empty_enums = "warn"
 enum_glob_use = "warn"
 equatable_if_let = "warn"
 exit = "warn"
