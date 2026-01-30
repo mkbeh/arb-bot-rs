@@ -151,11 +151,6 @@ rpc_endpoint = "https://api.mainnet-beta.solana.com"
 # This is the URL for WebSocket connection to a Solana RPC provider.
 # ws_endpoint = ""
 
-# API credentials (replace placeholders).
-# This is the API key for authentication in the WebSocket connection.
-# Required for most providers (Helius, QuickNode, etc.) to avoid rate limits and access streaming.
-# ws_api_key = ""
-
 # [System] The maximum number of gRPC messages to accumulate in a single processing burst.
 # This parameter applies to both gRPC and WebSocket transports.
 stream_batch_size = 128
@@ -171,3 +166,6 @@ program_id = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo" # meteora dlmm
 
 [[solana.exchanges]]
 program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # radium amm
+
+[[solana.exchanges]]
+program_id = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C" # radium cpmm
