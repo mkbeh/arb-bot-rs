@@ -9,7 +9,7 @@ use strum_macros::{Display, EnumIter, EnumString};
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Parser)]
-#[command(name = "arb-bot")]
+#[command(name = ui::app_name())]
 #[command(about = ui::build_banner())]
 struct Cli {
     #[command(subcommand)]

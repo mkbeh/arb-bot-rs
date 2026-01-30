@@ -22,7 +22,7 @@ Get up and running in minutes! This bot is optimized for Linux but works on macO
 
 #### 🛠 Prerequisites
 
-* **Rust**: Version 1.92.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
+* **Rust**: Version 1.93.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
 
 

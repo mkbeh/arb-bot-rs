@@ -2,6 +2,10 @@ use owo_colors::OwoColorize;
 
 use crate::ui::print_feature_error;
 
+pub fn app_name() -> &'static str {
+    "arb-bot"
+}
+
 pub fn build_banner() -> String {
     let clear = "\x1B[2J\x1B[H";
     let indent = "      ";
