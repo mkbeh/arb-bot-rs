@@ -59,9 +59,6 @@ impl DexRegistry {
         Out: ToDexParser<T> + 'static,
     {
         let lookup = Out::create_lookup();
-
-        // Передаем wrap напрямую, так как он ожидает Box<T>,
-        // а parse_into как раз предоставляет Box<T>
         let parse_fn = move |data: &[u8]| -> Option<Out> { T::parse_into(data, wrap) };
 
         self.map.insert(
