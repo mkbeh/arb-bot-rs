@@ -624,7 +624,7 @@ pub struct LogsResult {
 pub struct LogsValue {
     pub signature: String,
     pub err: Option<Value>,
-    pub logs: Vec<String>,  
+    pub logs: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
