@@ -8,7 +8,7 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
 };
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use simd_json::OwnedValue;
 use solana_client::client_error::reqwest::Url;
@@ -311,16 +311,13 @@ impl Stream {
         let sub_id = params.subscription;
 
         match method {
-            NotificationMethod::Slot => {
-                let result: SlotResult = simd_json::serde::from_owned_value(params.result).ok()?;
+            NotificationMethod::Slot => deserialize_and_parse(params.result, |result| {
                 Self::parse_slot(&NotificationParams {
                     subscription: sub_id,
                     result,
                 })
-            }
-            NotificationMethod::Program => {
-                let result: ProgramResult =
-                    simd_json::serde::from_owned_value(params.result).ok()?;
+            }),
+            NotificationMethod::Program => deserialize_and_parse(params.result, |result| {
                 Self::parse_program(
                     NotificationParams {
                         subscription: sub_id,
@@ -328,9 +325,8 @@ impl Stream {
                     },
                     info,
                 )
-            }
-            NotificationMethod::Logs => {
-                let result: LogsResult = simd_json::serde::from_owned_value(params.result).ok()?;
+            }),
+            NotificationMethod::Logs => deserialize_and_parse(params.result, |result| {
                 Self::parse_logs(
                     &NotificationParams {
                         subscription: sub_id,
@@ -338,7 +334,7 @@ impl Stream {
                     },
                     info,
                 )
-            }
+            }),
         }
     }
 
@@ -424,24 +420,21 @@ impl Stream {
             .filter_map(|log| log.strip_prefix("Program data: "))
             .filter_map(|data_b64| {
                 let payload = general_purpose::STANDARD.decode(data_b64).ok()?;
-
-                if payload.len() < 8 {
-                    return None;
-                }
-                let discriminator = &payload[..8];
-
-                let item = DEX_REGISTRY.get_instruction_item(&program_id, discriminator)?;
+                let item = DEX_REGISTRY.get_instruction_item(&program_id, &payload)?;
 
                 if let DexParser::Tx(parser_fn) = &item.parser {
                     parser_fn(&payload).or_else(|| {
-                    error!(
-                        "[{}] Failed to parse transaction event for program {}. Discriminator: {:?}",
-                        item.name, program_id, discriminator
-                    );
+                        error!(
+                            "[{}] Failed to parse transaction event for program {}. Payload: {:?}",
+                            item.name, program_id, payload
+                        );
                         None
                     })
                 } else {
-                    error!("Registry integrity error: Expected Tx parser for {}", program_id);
+                    error!(
+                        "Registry integrity error: Expected Tx parser for {}",
+                        program_id
+                    );
                     None
                 }
             })
@@ -519,6 +512,15 @@ fn build_request(
     });
     let program_id = lookup.map(|l| l.program_id());
     (value, SubscriptionInfo::new(id, program_id))
+}
+
+fn deserialize_and_parse<T, F, R>(result_value: OwnedValue, f: F) -> Option<R>
+where
+    T: DeserializeOwned,
+    F: FnOnce(T) -> Option<R>,
+{
+    let result: T = simd_json::serde::from_owned_value(result_value).ok()?;
+    f(result)
 }
 
 #[derive(Serialize, Clone, Copy, Debug)]

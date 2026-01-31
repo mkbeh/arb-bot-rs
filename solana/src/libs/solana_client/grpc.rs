@@ -449,19 +449,13 @@ impl GrpcClient {
                 let program_id = extract_program_id(inst.program_id_index as usize, message, meta)?;
                 let data = &inst.data;
 
-                if data.len() < 8 {
-                    return None;
-                }
-
-                let discriminator = &data[..8];
-
-                DEX_REGISTRY.get_instruction_item(&program_id, discriminator)
+                DEX_REGISTRY.get_instruction_item(&program_id, data)
                     .and_then(|item| {
                         if let DexParser::Tx(parser_fn) = &item.parser {
                             parser_fn(data).or_else(|| {
                                 error!(
                                     "[{}] Failed to parse transaction for program {}. Discriminator: {:?}",
-                                    item.name, program_id, discriminator
+                                    item.name, program_id, data
                                 );
                                 None
                             })
