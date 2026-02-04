@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::radium_amm::constants::RAYDIUM_AMM, registry::DexEntity};
+use crate::libs::solana_client::{dex::radium_amm::constants::RAYDIUM_AMM_ID, registry::DexEntity};
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -79,7 +79,7 @@ pub struct AmmInfo {
 }
 
 impl DexEntity for AmmInfo {
-    const PROGRAM_ID: Pubkey = RAYDIUM_AMM;
+    const PROGRAM_ID: Pubkey = RAYDIUM_AMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[];
     const POOL_SIZE: usize = 752;
 

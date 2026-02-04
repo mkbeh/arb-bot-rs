@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::radium_clmm::constants::RAYDIUM_CLMM, registry::DexEntity};
+use crate::libs::solana_client::{dex::radium_clmm::constants::RAYDIUM_CLMM_ID, registry::DexEntity};
 
 // Number of rewards Token
 pub const REWARD_NUM: usize = 3;
@@ -95,7 +95,7 @@ pub struct PoolState {
 }
 
 impl DexEntity for PoolState {
-    const PROGRAM_ID: Pubkey = RAYDIUM_CLMM;
+    const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[247, 237, 227, 245, 215, 195, 222, 70];
     const POOL_SIZE: usize = 1544;
 
