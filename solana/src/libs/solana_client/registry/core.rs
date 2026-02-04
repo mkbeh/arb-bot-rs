@@ -70,14 +70,38 @@ impl DexRegistry {
         );
     }
 
-    /// Retrieves a registry item based on the program ID and account data size.
+    /// Retrieves the registry item associated with a specific program account.
     #[must_use]
-    pub fn get_account_item(&self, program_id: &Pubkey, size: usize) -> Option<&RegistryItem> {
-        let lookup = RegistryLookup::Account {
-            program_id: *program_id,
-            size,
-        };
-        self.map.get(&lookup)
+    pub fn get_account_item(
+        &self,
+        program_id: &Pubkey,
+        size: usize,
+        payload: &[u8],
+    ) -> Option<&RegistryItem> {
+        self.map.iter().find_map(|(lookup, item)| {
+            if let RegistryLookup::Account {
+                program_id: reg_id,
+                size: reg_size,
+                discriminator,
+            } = lookup
+            {
+                // Check if both program_id and data size match the registry entry
+                if reg_id == program_id && *reg_size == size {
+                    // If the registered discriminator is empty,
+                    // we treat the size match as sufficient.
+                    if discriminator.is_empty() {
+                        return Some(item);
+                    }
+
+                    // If a discriminator is defined, verify that the payload starts with it.
+                    // This supports any length
+                    if payload.starts_with(discriminator) {
+                        return Some(item);
+                    }
+                }
+            }
+            None
+        })
     }
 
     /// Finds the best matching registry item for a given instruction payload.

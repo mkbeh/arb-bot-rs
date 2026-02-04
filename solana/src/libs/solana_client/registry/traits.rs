@@ -7,7 +7,11 @@ use crate::libs::solana_client::models::{PoolState, TxEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RegistryLookup {
     /// Lookup for account data based on the owning program and expected data size.
-    Account { program_id: Pubkey, size: usize },
+    Account {
+        program_id: Pubkey,
+        size: usize,
+        discriminator: &'static [u8],
+    },
     /// Lookup for transaction instructions based on the program and a unique byte discriminator.
     Instruction {
         program_id: Pubkey,

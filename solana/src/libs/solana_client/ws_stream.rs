@@ -355,13 +355,14 @@ impl Stream {
         let account = result.value.account;
 
         let payload = general_purpose::STANDARD.decode(&account.data[0]).ok()?;
-        let registry_item = DEX_REGISTRY.get_account_item(&program_id, payload.len());
+        let registry_item = DEX_REGISTRY.get_account_item(&program_id, payload.len(), &payload);
 
         let Some(item) = registry_item else {
             warn!(
-                "No registered parser found for program {} with data size {}",
+                "No registered parser found for program {} with data size {}. Payload: {:?}",
                 program_id,
-                payload.len()
+                payload.len(),
+                payload,
             );
             return None;
         };
@@ -371,10 +372,11 @@ impl Stream {
                 state
             } else {
                 error!(
-                    "[{}] Failed to parse account: {}. Data size: {}",
+                    "[{}] Failed to parse account: {}. Data size: {}. Payload: {:?}",
                     item.name,
                     result.value.pubkey,
-                    payload.len()
+                    payload.len(),
+                    payload
                 );
                 return None;
             }
@@ -478,14 +480,28 @@ impl Stream {
 
 fn build_params(lookup: &RegistryLookup) -> Value {
     match lookup {
-        RegistryLookup::Account { program_id, size } => {
+        RegistryLookup::Account {
+            program_id,
+            size,
+            discriminator,
+            ..
+        } => {
+            let mut filters = vec![json!({ "dataSize": size })];
+
+            if !discriminator.is_empty() {
+                filters.push(json!({
+                    "memcmp": {
+                        "offset": 0,
+                        "bytes": bs58::encode(discriminator).into_string()
+                    }
+                }));
+            }
+
             json!([
                 program_id.to_string(),
                 {
                     "encoding": "base64",
-                    "filters": [
-                        { "dataSize": size }
-                    ]
+                    "filters": filters
                 }
             ])
         }

@@ -2,7 +2,7 @@ use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::{meteora_dlmm, radium_cpmm},
+    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, radium_amm, radium_clmm, radium_cpmm},
     registry::{DexEntity, DexParser, RegistryLookup, ToDexParser},
 };
 
@@ -75,7 +75,12 @@ pub struct AccountEvent {
 #[derive(Debug, Clone)]
 pub enum PoolState {
     LbPairMeteoraDlmm(Box<meteora_dlmm::LbPair>),
+    PoolMeteoraDammV2(Box<meteora_damm_v2::Pool>),
     PoolStateRadiumCpmm(Box<radium_cpmm::PoolState>),
+    AmmInfoRadiumAmm(Box<radium_amm::AmmInfo>),
+    PoolStateRadiumClmm(Box<radium_clmm::PoolState>),
+    WhirlpoolOrca(Box<orca::Whirlpool>),
+    BondingCurvePumpFun(Box<pump_fun::BondingCurve>),
     /// Fallback for unknown or unsupported account data.
     Unknown(Vec<u8>),
 }
@@ -85,7 +90,12 @@ pub enum PoolState {
 #[derive(Debug, Clone)]
 pub enum TxEvent {
     SwapMeteoraDlmm(meteora_dlmm::Swap),
+    SwapMeteoraDammV2(meteora_damm_v2::Swap),
     SwapRadiumCpmm(radium_cpmm::Swap),
+    SwapRadiumAmm(radium_amm::Swap),
+    SwapRadiumClmm(radium_clmm::Swap),
+    SwapOrca(orca::Swap),
+    SwapPumpFun(pump_fun::Swap),
     /// Fallback for unknown or unsupported transaction instructions.
     Unknown(Vec<u8>),
 }
@@ -97,6 +107,7 @@ impl<T: DexEntity + 'static> ToDexParser<T> for PoolState {
         RegistryLookup::Account {
             program_id: T::PROGRAM_ID,
             size: T::POOL_SIZE,
+            discriminator: T::DISCRIMINATOR,
         }
     }
 

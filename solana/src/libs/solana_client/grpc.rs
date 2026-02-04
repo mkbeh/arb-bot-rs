@@ -144,7 +144,7 @@ impl GrpcClient {
         let config = self.config.clone();
         let options = self.config.options.clone().unwrap_or_default();
 
-        let mut client = timeout(options.connect_timeout, Self::connect(config.clone()))
+        let mut client = timeout(options.connect_timeout, Self::connect(config))
             .await
             .context("Connect timeout")?
             .context("Failed to connect to gRPC")?;
@@ -154,24 +154,13 @@ impl GrpcClient {
             .context("Subscribe timeout")?
             .context("Failed to subscribe")?;
 
-        let request =
-            Self::build_subscribe_request(&config.targets, &config.program_ids, &options)?;
-
+        let request = self.build_subscribe_request(&options)?;
         subscribe_tx
             .send(request)
             .await
             .context("Failed to send subscribe request")?;
 
-        Self::handle_events(
-            stream,
-            token,
-            self.callback.clone(),
-            config.batch_size,
-            config.batch_fill_timeout,
-        )
-        .await?;
-
-        Ok(())
+        self.handle_events(stream, token).await
     }
 
     async fn connect(
@@ -197,10 +186,11 @@ impl GrpcClient {
 
     /// Builds the initial SubscribeRequest based on program IDs and options.
     fn build_subscribe_request(
-        targets: &[SubscribeTarget],
-        program_ids: &[String],
+        &self,
         options: &SubscribeOptions,
     ) -> anyhow::Result<SubscribeRequest> {
+        let program_ids = &self.config.program_ids;
+        let targets = &self.config.targets;
         let registry_entries = DEX_REGISTRY.get_all_from_strings(program_ids)?;
 
         let request = SubscribeRequest {
@@ -251,19 +241,42 @@ impl GrpcClient {
             .iter()
             .enumerate()
             .filter_map(|(idx, (lookup, _item))| {
-                let RegistryLookup::Account { program_id, size } = lookup else {
+                let RegistryLookup::Account {
+                    program_id,
+                    size,
+                    discriminator,
+                } = lookup
+                else {
                     return None;
                 };
 
                 let filter_id = format!("acc_sub_{idx}");
-                let filter = SubscribeRequestFilterAccounts {
-                    owner: vec![program_id.to_string()],
-                    nonempty_txn_signature: Some(true),
-                    filters: vec![SubscribeRequestFilterAccountsFilter {
-                        filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
-                            *size as u64,
+
+                let mut filters = vec![SubscribeRequestFilterAccountsFilter {
+                    filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
+                        *size as u64,
+                    )),
+                }];
+
+                if !discriminator.is_empty() {
+                    filters.push(SubscribeRequestFilterAccountsFilter {
+                        filter: Some(subscribe_request_filter_accounts_filter::Filter::Memcmp(
+                            SubscribeRequestFilterAccountsFilterMemcmp {
+                                offset: 0,
+                                data: Some(
+                                    subscribe_request_filter_accounts_filter_memcmp::Data::Bytes(
+                                        discriminator.to_vec(),
+                                    ),
+                                ),
+                            },
                         )),
-                    }],
+                    });
+                }
+
+                let filter = SubscribeRequestFilterAccounts {
+                    account: vec![],
+                    owner: vec![program_id.to_string()],
+                    filters,
                     ..Default::default()
                 };
 
@@ -293,18 +306,12 @@ impl GrpcClient {
 
     /// Processes the gRPC stream in an optimized event loop with batching and parallel parsing
     /// support.
-    async fn handle_events<S>(
-        mut stream: S,
-        token: &CancellationToken,
-        callback: Option<BatchEventCallbackWrapper>,
-        batch_size: usize,
-        batch_fill_timeout: Duration,
-    ) -> anyhow::Result<()>
+    async fn handle_events<S>(&self, mut stream: S, token: &CancellationToken) -> anyhow::Result<()>
     where
         S: Stream<Item = Result<SubscribeUpdate, Status>> + Unpin + Send + 'static,
     {
         while !token.is_cancelled() {
-            let mut batch = Vec::with_capacity(batch_size);
+            let mut batch = Vec::with_capacity(self.config.batch_size);
 
             // Wait for the first message or cancellation signal
             let msg = tokio::select! {
@@ -317,10 +324,10 @@ impl GrpcClient {
             batch.push(msg);
 
             // Fill the batch with already buffered messages
-            while batch.len() < batch_size {
+            while batch.len() < self.config.batch_size {
                 // Micro-timeout ensures we don't wait for non-existent data
                 // while holding up the current burst processing
-                match timeout(batch_fill_timeout, stream.next()).await {
+                match timeout(self.config.batch_fill_timeout, stream.next()).await {
                     Ok(Some(msg)) => batch.push(msg),
                     _ => break, // Buffer empty or timeout reached
                 }
@@ -334,7 +341,7 @@ impl GrpcClient {
                 .collect();
 
             if !events.is_empty()
-                && let Some(cb) = &callback
+                && let Some(cb) = &self.callback
                 && let Err(e) = cb.call(events).await
             {
                 error!(error = %e, "Batch processing error");
@@ -384,7 +391,7 @@ impl GrpcClient {
         let payload = &info.data;
 
         let item = DEX_REGISTRY
-            .get_account_item(&owner, payload.len())
+            .get_account_item(&owner, payload.len(), payload)
             .or_else(|| {
                 warn!(
                     "No registered parser found for program {} with data size {}",
