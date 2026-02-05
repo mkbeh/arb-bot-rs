@@ -20,7 +20,6 @@ pub struct Config {
     pub grpc_endpoint: Option<String>,
     pub x_token: Option<String>,
     pub ws_endpoint: Option<String>,
-    pub ws_api_key: Option<String>,
     pub stream_batch_size: usize,
     #[serde_as(as = "DurationMicroSeconds<u64>")]
     pub stream_wait_timeout_us: Duration,

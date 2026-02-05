@@ -1,4 +1,10 @@
-use solana_sdk::{pubkey, pubkey::Pubkey};
+mod account;
+mod swap;
 
-pub const RAYDIUM_AMM: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
-pub const RADIUM_AMM_POOL_SIZE: u64 = 752;
+pub mod constants {
+    use solana_sdk::{pubkey, pubkey::Pubkey};
+
+    pub const RAYDIUM_AMM_ID: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
+}
+
+pub use super::radium_amm::{account::AmmInfo, constants::*, swap::Swap};

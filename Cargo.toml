@@ -22,7 +22,8 @@ anyhow = { version = "1.0.100" }
 async-trait = { version = "0.1.89" }
 axum = { version = "0.8.8" }
 base64 = { version = "0.22.1" }
-clap = { version = "4.5.56", features = ["derive"] }
+bs58 = { version = "0.5.1" }
+clap = { version = "4.5.57", features = ["derive"] }
 comfy-table = { version = "7.2.2" }
 dashmap = { version = "6.1.0" }
 futures-util = { version = "0.3.31" }
@@ -42,7 +43,7 @@ serde_urlencoded = { version = "0.7.1" }
 serde_with = { version = "3.16.1", features = ["macros"] }
 sha2 = { version = "0.10.9" }
 simd-json = { version = "0.17.0", features = ["serde", "known-key"] }
-strum = { version = "0.27.2" }
+strum = { version = "0.27.2", features = ["derive"] }
 strum_macros = { version = "0.27.2" }
 thiserror = { version = "2.0.18" }
 tokio = { version = "1.49.0", default-features = false, features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
@@ -53,9 +54,9 @@ url = { version = "2.5.8" }
 uuid = { version = "1.20.0", features = ["v4"] }
 
 # dev dependencies
-criterion = { version = "0.8.1" }
+criterion = { version = "0.8.2" }
 http = { version = "1.4.0" }
-mockito = { version = "1.7.1" }
+mockito = { version = "1.7.2" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
