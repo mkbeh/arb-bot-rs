@@ -484,7 +484,7 @@ impl GrpcClient {
                 STREAM_METRICS.observe_bytes(Transport::Grpc, EventType::Tx, item.name, data.len());
 
                 if let DexParser::Tx(parser_fn) = &item.parser {
-                    let parsed = parser_fn(&data);
+                    let parsed = parser_fn(data);
 
                     if let Some(event) = parsed {
                         STREAM_METRICS.inc_events(Transport::Grpc, EventType::Tx, item.name);
