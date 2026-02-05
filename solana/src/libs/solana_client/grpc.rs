@@ -479,22 +479,32 @@ impl GrpcClient {
             .filter_map(|inst| {
                 let program_id = extract_program_id(inst.program_id_index as usize, message, meta)?;
                 let data = &inst.data;
+                let item = DEX_REGISTRY.get_instruction_item(&program_id, data)?;
 
-                DEX_REGISTRY.get_instruction_item(&program_id, data)
-                    .and_then(|item| {
-                        if let DexParser::Tx(parser_fn) = &item.parser {
-                            parser_fn(data).or_else(|| {
-                                error!(
-                                    "[{}] Failed to parse transaction for program {}. Discriminator: {:?}",
-                                    item.name, program_id, data
-                                );
-                                None
-                            })
-                        } else {
-                            error!("Registry integrity error: Expected Tx parser for {}", program_id);
-                            None
-                        }
-                    })
+                STREAM_METRICS.observe_bytes(Transport::Grpc, EventType::Tx, item.name, data.len());
+
+                if let DexParser::Tx(parser_fn) = &item.parser {
+                    let parsed = parser_fn(&data);
+
+                    if let Some(event) = parsed {
+                        STREAM_METRICS.inc_events(Transport::Grpc, EventType::Tx, item.name);
+                        Some(event)
+                    } else {
+                        STREAM_METRICS.inc_parse_error(Transport::Grpc, item.name);
+                        error!(
+                            "[{}] Failed to parse transaction event for program {}. Payload: {:?}",
+                            item.name, program_id, data
+                        );
+                        None
+                    }
+                } else {
+                    STREAM_METRICS.inc_parse_error(Transport::Grpc, "wrong_parser_type");
+                    error!(
+                        "Registry integrity error: Expected Tx parser for {}",
+                        program_id
+                    );
+                    None
+                }
             })
             .collect();
 
