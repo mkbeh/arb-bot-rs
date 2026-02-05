@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use anyhow::{Context, bail};
 use futures_util::SinkExt;
@@ -19,8 +22,10 @@ use yellowstone_grpc_proto::{
 
 use crate::libs::solana_client::{
     callback::BatchEventCallbackWrapper,
+    metrics::{EventType, STREAM_METRICS, Transport},
     models::{AccountEvent, BlockMetaEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
     registry::{DEX_REGISTRY, DexParser, RegistryItem, RegistryLookup},
+    utils,
 };
 
 /// Configuration for the Solana RPC client.
@@ -116,7 +121,7 @@ impl GrpcClient {
 
         while !token.is_cancelled() {
             let session_token = token.child_token();
-            let start = std::time::Instant::now();
+            let start = Instant::now();
 
             let result = self.subscribe_session(&session_token).await;
             session_token.cancel();
@@ -333,6 +338,8 @@ impl GrpcClient {
                 }
             }
 
+            let start_time = Instant::now();
+
             // Parallel parsing of the batch
             let events: Vec<Event> = batch
                 .into_par_iter()
@@ -340,11 +347,14 @@ impl GrpcClient {
                 .filter_map(|update| Self::parse_update(update.update_oneof.as_ref()?))
                 .collect();
 
+            STREAM_METRICS.observe_duration(Transport::Grpc, start_time);
+
             if !events.is_empty()
                 && let Some(cb) = &self.callback
-                && let Err(e) = cb.call(events).await
             {
-                error!(error = %e, "Batch processing error");
+                let cb_start = Instant::now();
+                cb.call(events).await.context("callback failed")?;
+                STREAM_METRICS.observe_handler_duration(cb_start);
             }
         }
 
@@ -376,10 +386,12 @@ impl GrpcClient {
 
     /// Parses a slot update to a `TxEvent`.
     fn parse_slot(slot: &SubscribeUpdateSlot) -> Option<Event> {
+        STREAM_METRICS.inc_events(Transport::Grpc, EventType::Slot, "system");
         Some(Event::Slot(SlotEvent {
             slot: slot.slot,
             parent: slot.parent,
             status: slot.status,
+            received_at: utils::get_timestamp_ms(),
         }))
     }
 
@@ -393,6 +405,7 @@ impl GrpcClient {
         let item = DEX_REGISTRY
             .get_account_item(&owner, payload.len(), payload)
             .or_else(|| {
+                STREAM_METRICS.inc_parse_error(Transport::Grpc, "unregistered_account");
                 warn!(
                     "No registered parser found for program {} with data size {}",
                     owner,
@@ -401,8 +414,16 @@ impl GrpcClient {
                 None
             })?;
 
+        STREAM_METRICS.observe_bytes(
+            Transport::Grpc,
+            EventType::Account,
+            item.name,
+            payload.len(),
+        );
+
         let pool_state = if let DexParser::Account(parser_fn) = &item.parser {
             parser_fn(payload).or_else(|| {
+                STREAM_METRICS.inc_parse_error(Transport::Grpc, item.name);
                 error!(
                     "[{}] Failed to parse account: {}. Data size: {}",
                     item.name,
@@ -412,6 +433,7 @@ impl GrpcClient {
                 None
             })?
         } else {
+            STREAM_METRICS.inc_parse_error(Transport::Grpc, "wrong_parser_type");
             error!(
                 "Registry integrity error: Expected Account parser for {}",
                 owner
@@ -434,6 +456,8 @@ impl GrpcClient {
                 .and_then(|s| Signature::try_from(s.as_slice()).ok()),
             pool_state,
         };
+
+        STREAM_METRICS.inc_events(Transport::Grpc, EventType::Account, item.name);
 
         Some(Event::Account(Box::new(event)))
     }

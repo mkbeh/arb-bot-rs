@@ -48,6 +48,7 @@ pub struct SlotEvent {
     pub slot: u64,
     pub parent: Option<u64>,
     pub status: i32,
+    pub received_at: u64,
 }
 
 /// Describes an update to a specific Solana account,

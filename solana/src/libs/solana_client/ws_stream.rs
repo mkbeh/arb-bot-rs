@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use ahash::AHashMap;
 use anyhow::{Context, bail};
@@ -26,11 +29,13 @@ use tracing::{debug, error, warn};
 
 use crate::libs::solana_client::{
     callback::BatchEventCallbackWrapper,
+    metrics::{EventType, STREAM_METRICS, Transport},
     models::{AccountEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
     registry::{
         DEX_REGISTRY,
         traits::{DexParser, RegistryLookup},
     },
+    utils,
 };
 
 type StreamWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
@@ -105,7 +110,7 @@ impl Stream {
 
         while !token.is_cancelled() {
             let session_token = token.child_token();
-            let start = std::time::Instant::now();
+            let start = Instant::now();
 
             let result = self.subscribe_session(&session_token).await;
             session_token.cancel();
@@ -282,15 +287,20 @@ impl Stream {
             return Ok(());
         }
 
+        let start_time = Instant::now();
         let events: Vec<Event> = batch
             .into_par_iter()
             .filter_map(|msg| Self::parse_notification(msg, &self.subscriptions))
             .collect();
 
+        STREAM_METRICS.observe_duration(Transport::Ws, start_time);
+
         if !events.is_empty()
             && let Some(ref mut cb) = self.callback
         {
+            let cb_start = Instant::now();
             cb.call(events).await.context("callback failed")?;
+            STREAM_METRICS.observe_handler_duration(cb_start);
         }
 
         Ok(())
@@ -339,10 +349,12 @@ impl Stream {
     }
 
     fn parse_slot(update: &NotificationParams<SlotResult>) -> Option<Event> {
+        STREAM_METRICS.inc_events(Transport::Ws, EventType::Slot, "system");
         Some(Event::Slot(SlotEvent {
             slot: update.result.slot,
             parent: Some(update.result.parent),
             status: 0,
+            received_at: utils::get_timestamp_ms(),
         }))
     }
 
@@ -358,6 +370,7 @@ impl Stream {
         let registry_item = DEX_REGISTRY.get_account_item(&program_id, payload.len(), &payload);
 
         let Some(item) = registry_item else {
+            STREAM_METRICS.inc_parse_error(Transport::Ws, "unregistered_account");
             warn!(
                 "No registered parser found for program {} with data size {}. Payload: {:?}",
                 program_id,
@@ -367,10 +380,13 @@ impl Stream {
             return None;
         };
 
+        STREAM_METRICS.observe_bytes(Transport::Ws, EventType::Account, item.name, payload.len());
+
         let pool_state = if let DexParser::Account(parser_fn) = &item.parser {
             if let Some(state) = parser_fn(&payload) {
                 state
             } else {
+                STREAM_METRICS.inc_parse_error(Transport::Ws, item.name);
                 error!(
                     "[{}] Failed to parse account: {}. Data size: {}. Payload: {:?}",
                     item.name,
@@ -381,6 +397,7 @@ impl Stream {
                 return None;
             }
         } else {
+            STREAM_METRICS.inc_parse_error(Transport::Ws, "wrong_parser_type");
             error!(
                 "Registry integrity error: Expected Account parser for {}",
                 program_id
@@ -400,6 +417,8 @@ impl Stream {
             txn_signature: None,
             pool_state,
         };
+
+        STREAM_METRICS.inc_events(Transport::Ws, EventType::Account, item.name);
 
         Some(Event::Account(Box::new(event)))
     }
@@ -424,15 +443,29 @@ impl Stream {
                 let payload = general_purpose::STANDARD.decode(data_b64).ok()?;
                 let item = DEX_REGISTRY.get_instruction_item(&program_id, &payload)?;
 
+                STREAM_METRICS.observe_bytes(
+                    Transport::Ws,
+                    EventType::Tx,
+                    item.name,
+                    payload.len(),
+                );
+
                 if let DexParser::Tx(parser_fn) = &item.parser {
-                    parser_fn(&payload).or_else(|| {
+                    let parsed = parser_fn(&payload);
+
+                    if let Some(event) = parsed {
+                        STREAM_METRICS.inc_events(Transport::Ws, EventType::Tx, item.name);
+                        Some(event)
+                    } else {
+                        STREAM_METRICS.inc_parse_error(Transport::Ws, item.name);
                         error!(
                             "[{}] Failed to parse transaction event for program {}. Payload: {:?}",
                             item.name, program_id, payload
                         );
                         None
-                    })
+                    }
                 } else {
+                    STREAM_METRICS.inc_parse_error(Transport::Ws, "wrong_parser_type");
                     error!(
                         "Registry integrity error: Expected Tx parser for {}",
                         program_id
