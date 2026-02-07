@@ -2,11 +2,9 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::radium_clmm::constants::RAYDIUM_CLMM_ID, registry::DexEntity,
+    dex::radium_clmm::constants::{RAYDIUM_CLMM_ID, REWARD_NUM, TICK_ARRAY_SIZE_USIZE},
+    registry::DexEntity,
 };
-
-// Number of rewards Token
-pub const REWARD_NUM: usize = 3;
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -99,7 +97,7 @@ pub struct PoolState {
 impl DexEntity for PoolState {
     const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[247, 237, 227, 245, 215, 195, 222, 70];
-    const POOL_SIZE: usize = 1544;
+    const DATA_SIZE: usize = 1544;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
@@ -132,4 +130,57 @@ pub struct RewardInfo {
     /// Q64.64 number that tracks the total tokens earned per unit of liquidity since the reward
     /// emissions were turned on.
     pub reward_growth_global_x64: [u64; 2],
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct TickArrayState {
+    pub pool_id: [u8; 32],
+    pub start_tick_index: i32,
+    pub ticks_1: [TickState; 32],
+    pub ticks_2: [TickState; 28],
+    pub initialized_tick_count: u8,
+    pub recent_epoch: u64,
+    pub padding_1: [u8; 64],
+    pub padding_2: [u8; 32],
+    pub padding_3: [u8; 11],
+}
+
+impl DexEntity for TickArrayState {
+    const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
+    const DISCRIMINATOR: &'static [u8] = &[192, 155, 85, 205, 49, 249, 129, 42];
+    const DATA_SIZE: usize = 10240;
+
+    fn deserialize(data: &[u8]) -> Option<Self> {
+        Self::deserialize_bytemuck(data)
+    }
+}
+
+impl TickArrayState {
+    #[must_use]
+    pub fn get_tick(&self, idx: usize) -> Option<&TickState> {
+        if idx >= TICK_ARRAY_SIZE_USIZE {
+            return None;
+        }
+
+        if idx < 32 {
+            Some(&self.ticks_1[idx])
+        } else if idx < TICK_ARRAY_SIZE_USIZE {
+            Some(&self.ticks_2[idx - 32])
+        } else {
+            None
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct TickState {
+    pub tick: i32,
+    pub liquidity_net: [u64; 2],
+    pub liquidity_gross: [u64; 2],
+    pub fee_growth_outside_0_x64: [u64; 2],
+    pub fee_growth_outside_1_x64: [u64; 2],
+    pub reward_growths_outside_x64: [[u64; 2]; REWARD_NUM],
+    pub padding: [u32; 13],
 }

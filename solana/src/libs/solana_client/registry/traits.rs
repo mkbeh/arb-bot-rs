@@ -66,8 +66,8 @@ pub trait DexEntity: Sized {
     /// specific type (common in Anchor-based programs).
     const DISCRIMINATOR: &'static [u8];
 
-    /// The expected fixed size of the data in bytes.
-    const POOL_SIZE: usize;
+    /// The expected fixed size of the data in bytes (0 to disable RPC dataSize filter).
+    const DATA_SIZE: usize;
 
     /// Primary deserialization method to be implemented by each specific DEX type.
     fn deserialize(data: &[u8]) -> Option<Self>;

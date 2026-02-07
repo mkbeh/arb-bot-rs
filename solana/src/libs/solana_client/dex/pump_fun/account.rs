@@ -19,7 +19,7 @@ pub struct BondingCurve {
 impl DexEntity for BondingCurve {
     const PROGRAM_ID: Pubkey = PUMP_FUN_ID;
     const DISCRIMINATOR: &'static [u8] = &[23, 183, 248, 55, 96, 216, 172, 96];
-    const POOL_SIZE: usize = 82;
+    const DATA_SIZE: usize = 82;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)

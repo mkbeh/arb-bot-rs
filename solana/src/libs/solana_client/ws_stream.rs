@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use ahash::AHashMap;
 use anyhow::{Context, bail};
@@ -68,7 +65,7 @@ pub struct Stream {
     /// Wrapper for a thread-safe callback executed on every batch
     callback: Option<BatchEventCallbackWrapper>,
     /// Tracks active requests pending server confirmation: `request_id -> TargetInfo`
-    pending_requests: HashMap<u64, SubscriptionInfo>,
+    pending_requests: AHashMap<u64, SubscriptionInfo>,
     /// Maps server-side subscription IDs to targets: `subscription_id -> TargetInfo`.
     subscriptions: AHashMap<u64, SubscriptionInfo>,
 }
@@ -83,7 +80,7 @@ impl Stream {
         Self {
             config,
             callback: None,
-            pending_requests: HashMap::new(),
+            pending_requests: AHashMap::new(),
             subscriptions: AHashMap::new(),
         }
     }
@@ -519,7 +516,11 @@ fn build_params(lookup: &RegistryLookup) -> Value {
             discriminator,
             ..
         } => {
-            let mut filters = vec![json!({ "dataSize": size })];
+            let mut filters = Vec::new();
+
+            if *size > 0 {
+                filters.push(json!({ "dataSize": size }));
+            }
 
             if !discriminator.is_empty() {
                 filters.push(json!({

@@ -1,7 +1,9 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::meteora_damm_v2::METEORA_DAMM_V2_ID, registry::DexEntity};
+use crate::libs::solana_client::{
+    dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID, registry::DexEntity,
+};
 
 // Number of rewards supported by pool
 pub const NUM_REWARDS: usize = 2;
@@ -78,7 +80,7 @@ pub struct Pool {
 impl DexEntity for Pool {
     const PROGRAM_ID: Pubkey = METEORA_DAMM_V2_ID;
     const DISCRIMINATOR: &'static [u8] = &[241, 154, 109, 4, 17, 177, 109, 188];
-    const POOL_SIZE: usize = 1112;
+    const DATA_SIZE: usize = 1112;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)

@@ -11,7 +11,8 @@ impl Sender for SenderService {}
 
 #[async_trait]
 impl ArbitrageService for SenderService {
-    async fn start(&self, _token: CancellationToken) -> anyhow::Result<()> {
+    async fn start(&self, token: CancellationToken) -> anyhow::Result<()> {
+        token.cancelled().await;
         Ok(())
     }
 }

@@ -257,11 +257,15 @@ impl GrpcClient {
 
                 let filter_id = format!("acc_sub_{idx}");
 
-                let mut filters = vec![SubscribeRequestFilterAccountsFilter {
-                    filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
-                        *size as u64,
-                    )),
-                }];
+                let mut filters = Vec::new();
+
+                if *size > 0 {
+                    filters.push(SubscribeRequestFilterAccountsFilter {
+                        filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
+                            *size as u64,
+                        )),
+                    })
+                }
 
                 if !discriminator.is_empty() {
                     filters.push(SubscribeRequestFilterAccountsFilter {

@@ -39,7 +39,7 @@ pub struct PoolState {
 impl DexEntity for PoolState {
     const PROGRAM_ID: Pubkey = RADIUM_CPMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[247, 237, 227, 245, 215, 195, 222, 70];
-    const POOL_SIZE: usize = 637;
+    const DATA_SIZE: usize = 637;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
