@@ -18,7 +18,7 @@ license = "MIT"
 
 [workspace.dependencies]
 ahash = { version = "0.8.12" }
-anyhow = { version = "1.0.100" }
+anyhow = { version = "1.0.101" }
 async-trait = { version = "0.1.89" }
 axum = { version = "0.8.8" }
 base64 = { version = "0.22.1" }
@@ -35,7 +35,7 @@ mimalloc = { version = "0.1", features = ["v3"] }
 owo-colors = { version = "4" }
 percent-encoding = { version = "2.3.2" }
 rayon = { version = "1.11.0" }
-reqwest = { version = "0.13.1", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls"] }
 rust_decimal = { version = "1.40.0", features = ["serde-with-float"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.149" }
