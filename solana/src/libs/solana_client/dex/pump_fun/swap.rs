@@ -12,7 +12,7 @@ pub struct Swap {
 impl DexEntity for Swap {
     const PROGRAM_ID: Pubkey = PUMP_FUN_ID;
     const DISCRIMINATOR: &'static [u8] = &[];
-    const POOL_SIZE: usize = 0;
+    const DATA_SIZE: usize = 0;
 
     fn deserialize(_data: &[u8]) -> Option<Self> {
         Some(Self {})

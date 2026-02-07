@@ -76,11 +76,15 @@ pub struct AccountEvent {
 #[derive(Debug, Clone)]
 pub enum PoolState {
     LbPairMeteoraDlmm(Box<meteora_dlmm::LbPair>),
+    BinArrayMeteoraDlmm(Box<meteora_dlmm::BinArray>),
     PoolMeteoraDammV2(Box<meteora_damm_v2::Pool>),
     PoolStateRadiumCpmm(Box<radium_cpmm::PoolState>),
     AmmInfoRadiumAmm(Box<radium_amm::AmmInfo>),
     PoolStateRadiumClmm(Box<radium_clmm::PoolState>),
+    TickArrayStateRadiumClmm(Box<radium_clmm::TickArrayState>),
     WhirlpoolOrca(Box<orca::Whirlpool>),
+    FixedTickArrayOrca(Box<orca::FixedTickArray>),
+    DynamicTickArrayOrca(Box<orca::DynamicTickArray>),
     BondingCurvePumpFun(Box<pump_fun::BondingCurve>),
     /// Fallback for unknown or unsupported account data.
     Unknown(Vec<u8>),
@@ -107,7 +111,7 @@ impl<T: DexEntity + 'static> ToDexParser<T> for PoolState {
     fn create_lookup() -> RegistryLookup {
         RegistryLookup::Account {
             program_id: T::PROGRAM_ID,
-            size: T::POOL_SIZE,
+            size: T::DATA_SIZE,
             discriminator: T::DISCRIMINATOR,
         }
     }

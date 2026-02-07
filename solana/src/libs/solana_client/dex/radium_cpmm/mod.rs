@@ -7,4 +7,4 @@ pub mod constants {
     pub const RADIUM_CPMM_ID: Pubkey = pubkey!("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C");
 }
 
-pub use super::radium_cpmm::{account::PoolState, swap::Swap};
+pub use super::radium_cpmm::{account::PoolState, constants::*, swap::Swap};

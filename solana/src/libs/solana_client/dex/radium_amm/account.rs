@@ -81,7 +81,7 @@ pub struct AmmInfo {
 impl DexEntity for AmmInfo {
     const PROGRAM_ID: Pubkey = RAYDIUM_AMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[];
-    const POOL_SIZE: usize = 752;
+    const DATA_SIZE: usize = 752;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)

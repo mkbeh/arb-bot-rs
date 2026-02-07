@@ -2,7 +2,8 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_dlmm::constants::METEORA_DLMM_ID, registry::DexEntity,
+    dex::meteora_dlmm::constants::{MAX_BINS_PER_ARRAY, METEORA_DLMM_ID},
+    registry::DexEntity,
 };
 
 #[repr(C)]
@@ -46,7 +47,7 @@ pub struct LbPair {
 impl DexEntity for LbPair {
     const PROGRAM_ID: Pubkey = METEORA_DLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[33, 11, 49, 98, 181, 101, 177, 13];
-    const POOL_SIZE: usize = 904;
+    const DATA_SIZE: usize = 904;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
@@ -96,4 +97,55 @@ pub struct RewardInfo {
     pub reward_index: u128,
     pub last_update_timestamp: i64,
     pub padding: [u8; 8],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct BinArray {
+    pub index: i64,
+    pub version: u8,
+    pub _padding: [u8; 7],
+    pub lb_pair: [u8; 32],
+    pub bins_1: [Bin; 32],
+    pub bins_2: [Bin; 32],
+    pub bins_3: [Bin; 6],
+}
+
+impl DexEntity for BinArray {
+    const PROGRAM_ID: Pubkey = METEORA_DLMM_ID;
+    const DISCRIMINATOR: &'static [u8] = &[92, 142, 92, 220, 5, 148, 70, 181];
+    const DATA_SIZE: usize = 10136;
+
+    fn deserialize(data: &[u8]) -> Option<Self> {
+        Self::deserialize_bytemuck(data)
+    }
+}
+
+impl BinArray {
+    #[must_use]
+    pub fn get_bin(&self, idx: usize) -> Option<&Bin> {
+        if idx >= MAX_BINS_PER_ARRAY {
+            return None;
+        }
+        match idx {
+            0..=31 => Some(&self.bins_1[idx]),
+            32..=63 => Some(&self.bins_2[idx - 32]),
+            64..=69 => Some(&self.bins_3[idx - 64]),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct Bin {
+    pub amount_x: u64,
+    pub amount_y: u64,
+    pub price: [u64; 2],
+    pub liquidity_supply: [u64; 2],
+    pub reward_per_token_stored: [[u64; 2]; 2],
+    pub fee_amount_x_per_token_stored: [u64; 2],
+    pub fee_amount_y_per_token_stored: [u64; 2],
+    pub amount_x_in: [u64; 2],
+    pub amount_y_in: [u64; 2],
 }

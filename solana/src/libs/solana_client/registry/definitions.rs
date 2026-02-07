@@ -21,6 +21,7 @@ use crate::libs::solana_client::{
 pub fn fill_registry(reg: &mut DexRegistry) {
     // Meteora DLMM Integration
     reg.add_boxed::<meteora_dlmm::LbPair, _>(PoolState::LbPairMeteoraDlmm);
+    reg.add_boxed::<meteora_dlmm::BinArray, _>(PoolState::BinArrayMeteoraDlmm);
     reg.add::<meteora_dlmm::Swap, _>(TxEvent::SwapMeteoraDlmm);
 
     // Meteora DAMM V2 Integration
@@ -37,10 +38,13 @@ pub fn fill_registry(reg: &mut DexRegistry) {
 
     // Radium CLMM Integration
     reg.add_boxed::<radium_clmm::PoolState, _>(PoolState::PoolStateRadiumClmm);
+    reg.add_boxed::<radium_clmm::TickArrayState, _>(PoolState::TickArrayStateRadiumClmm);
     reg.add::<radium_clmm::Swap, _>(TxEvent::SwapRadiumClmm);
 
     // Orca Integration
     reg.add_boxed::<orca::Whirlpool, _>(PoolState::WhirlpoolOrca);
+    reg.add_boxed::<orca::FixedTickArray, _>(PoolState::FixedTickArrayOrca);
+    reg.add_boxed::<orca::DynamicTickArray, _>(PoolState::DynamicTickArrayOrca);
     reg.add::<orca::Swap, _>(TxEvent::SwapOrca);
 
     // PumpFun Integration
