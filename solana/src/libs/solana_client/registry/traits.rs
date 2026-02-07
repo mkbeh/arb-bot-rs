@@ -1,5 +1,6 @@
 use bytemuck::Pod;
 use solana_sdk::pubkey::Pubkey;
+use tracing::error;
 
 use crate::libs::solana_client::models::{PoolState, TxEvent};
 
@@ -79,16 +80,26 @@ pub trait DexEntity: Sized {
     where
         Self: Pod + Copy,
     {
+        let type_name = std::any::type_name::<Self>();
         let disc_size = Self::DISCRIMINATOR.len();
-        let struct_size = disc_size + size_of::<Self>();
+        let expected_size = disc_size + size_of::<Self>();
 
         // Ensure buffer contains at least the required amount of bytes
-        if data.len() < struct_size {
+        if data.len() != expected_size {
+            error!(
+                "[{type_name}] Size mismatch: expected exactly {expected_size}, got {}",
+                data.len()
+            );
             return None;
         }
 
         // Validate the type discriminator prefix
         if disc_size > 0 && !data.starts_with(Self::DISCRIMINATOR) {
+            error!(
+                "[{type_name}] Discriminator mismatch. Expected prefix {:?}, got {:?}",
+                Self::DISCRIMINATOR,
+                &data[..disc_size.min(data.len())]
+            );
             return None;
         }
 
