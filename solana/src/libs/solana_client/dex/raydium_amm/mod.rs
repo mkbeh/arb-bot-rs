@@ -7,4 +7,4 @@ pub mod constants {
     pub const RAYDIUM_AMM_ID: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 }
 
-pub use super::radium_amm::{account::AmmInfo, constants::*, swap::Swap};
+pub use super::raydium_amm::{account::AmmInfo, constants::*, swap::Swap};

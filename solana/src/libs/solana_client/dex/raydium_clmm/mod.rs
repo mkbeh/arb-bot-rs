@@ -11,10 +11,12 @@ pub mod constants {
 
     // Maximum number of ticks array able to contains.
     pub const TICK_ARRAY_SIZE_USIZE: usize = 60;
+
+    pub const EXTENSION_TICKARRAY_BITMAP_SIZE: usize = 14;
 }
 
-pub use super::radium_clmm::{
-    account::{PoolState, TickArrayState},
+pub use super::raydium_clmm::{
+    account::{PoolState, TickArrayBitmapExtension, TickArrayState},
     constants::*,
     swap::Swap,
 };

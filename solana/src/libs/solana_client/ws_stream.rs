@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 use ahash::AHashMap;
 use anyhow::{Context, bail};
+use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose};
 use futures_util::{
     SinkExt, StreamExt,
@@ -25,6 +26,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 use crate::libs::solana_client::{
+    SolanaStream,
     callback::BatchEventCallbackWrapper,
     metrics::{EventType, STREAM_METRICS, Transport},
     models::{AccountEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
@@ -59,7 +61,8 @@ pub struct StreamConfig {
 }
 
 /// `Stream` manages the lifecycle of a WebSocket connection to a Solana RPC node.
-pub struct Stream {
+#[derive(Clone)]
+pub struct StreamClient {
     /// Configuration for the stream
     config: StreamConfig,
     /// Wrapper for a thread-safe callback executed on every batch
@@ -70,35 +73,13 @@ pub struct Stream {
     subscriptions: AHashMap<u64, SubscriptionInfo>,
 }
 
-impl Stream {
-    /// Creates a new `Stream` instance with the provided configuration.
-    ///
-    /// # Arguments
-    /// * `config` - Settings for connection behavior and data processing.
-    #[must_use]
-    pub fn from_config(config: StreamConfig) -> Self {
-        Self {
-            config,
-            callback: None,
-            pending_requests: AHashMap::new(),
-            subscriptions: AHashMap::new(),
-        }
+#[async_trait]
+impl SolanaStream for StreamClient {
+    fn set_callback(&mut self, callback: BatchEventCallbackWrapper) {
+        self.callback = Some(callback);
     }
 
-    /// Attaches a callback function that is triggered whenever a batch of events is ready.
-    /// # Arguments
-    /// * `callback` - A closure or function that processes a vector of events.
-    #[must_use]
-    pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
-    where
-        Callback: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static,
-    {
-        self.callback = Some(BatchEventCallbackWrapper::new(callback));
-        self
-    }
-
-    /// Starts the main subscription loop with an automatic retry mechanism.
-    pub async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
+    async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         if self.config.program_ids.is_empty() {
             bail!("Program IDs cannot be empty");
         }
@@ -129,6 +110,22 @@ impl Stream {
             }
         }
         Ok(())
+    }
+}
+
+impl StreamClient {
+    /// Creates a new `Stream` instance with the provided configuration.
+    ///
+    /// # Arguments
+    /// * `config` - Settings for connection behavior and data processing.
+    #[must_use]
+    pub fn from_config(config: StreamConfig) -> Self {
+        Self {
+            config,
+            callback: None,
+            pending_requests: AHashMap::new(),
+            subscriptions: AHashMap::new(),
+        }
     }
 
     /// Handles a single WebSocket session.

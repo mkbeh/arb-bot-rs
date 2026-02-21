@@ -1,7 +1,15 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::radium_amm::constants::RAYDIUM_AMM_ID, registry::DexEntity};
+use crate::libs::solana_client::{
+    dex::raydium_amm::constants::RAYDIUM_AMM_ID,
+    metrics::{DEX_RAYDIUM_AMM, DexMetrics},
+    pool::{
+        DexPool,
+        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+    },
+    registry::DexEntity,
+};
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -85,6 +93,31 @@ impl DexEntity for AmmInfo {
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl DexPool for AmmInfo {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.coin_vault_mint)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.pc_vault_mint)
+    }
+
+    fn quote_out(
+        &self,
+        amount_in: u64,
+        ctx: &QuoteContext,
+        data: &LiquidityMap,
+    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        todo!()
+    }
+}
+
+impl DexMetrics for AmmInfo {
+    fn dex_name(&self) -> &'static str {
+        DEX_RAYDIUM_AMM
     }
 }
 

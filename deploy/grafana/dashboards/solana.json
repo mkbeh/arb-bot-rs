@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -28,6 +28,323 @@
         "w": 24,
         "x": 0,
         "y": 0
+      },
+      "id": 11,
+      "panels": [],
+      "title": "Cache & Liquidity Analytics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 14,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto",
+        "text": {}
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "expr": "(sum(cache_size_liquidity_total) / sum(cache_size_pool_total)) * 100",
+          "legendFormat": "Total Coverage",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "(cache_size_liquidity_total / on(dex) cache_size_pool_total) * 100",
+          "hide": false,
+          "legendFormat": "{{dex}}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Cache Coverage Efficiency (Liquidity / Pools)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 13,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Oranges",
+          "steps": 64
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rows": {
+          "layout": "none"
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": true
+        },
+        "yAxis": {
+          "axisLabel": "Arrays per Pool",
+          "axisPlacement": "left",
+          "decimals": 0,
+          "max": 10,
+          "min": 1,
+          "reverse": false,
+          "unit": "none"
+        }
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(cache_size_liquidity_arrays_per_pool_bucket{dex=\"$dex\"}[1m])) by (le)",
+          "format": "heatmap",
+          "legendFormat": "{{le}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Liquidity Density: Arrays per Pool Distribution",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Pool:/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Idx:/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    0,
+                    10
+                  ],
+                  "dot": [
+                    2,
+                    4
+                  ],
+                  "fill": "dot"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "expr": "cache_size_liquidity_total",
+          "legendFormat": "💧 Liq: {{dex}}",
+          "refId": "A"
+        },
+        {
+          "expr": "max by (dex) (cache_size_pool_total)",
+          "legendFormat": "📦 Pool: {{dex}}",
+          "refId": "B"
+        },
+        {
+          "expr": "max by (dex) (cache_size_index_total)",
+          "legendFormat": "📍 Idx: {{dex}}",
+          "refId": "C"
+        }
+      ],
+      "title": "Market Engine: Indices, Pools & Liquidity",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
       },
       "id": 1,
       "panels": [],
@@ -99,7 +416,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 1
+        "y": 15
       },
       "id": 2,
       "options": {
@@ -190,7 +507,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 1
+        "y": 15
       },
       "id": 3,
       "options": {
@@ -232,7 +549,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 22
       },
       "id": 4,
       "panels": [],
@@ -304,7 +621,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 23
       },
       "id": 5,
       "options": {
@@ -400,7 +717,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 23
       },
       "id": 10,
       "options": {
@@ -500,7 +817,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 30
       },
       "id": 6,
       "options": {
@@ -538,7 +855,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 37
       },
       "id": 7,
       "panels": [],
@@ -614,7 +931,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 38
       },
       "id": 8,
       "options": {
@@ -714,7 +1031,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 38
       },
       "id": 9,
       "options": {
@@ -787,6 +1104,23 @@
         ],
         "query": "50,95,99",
         "type": "custom"
+      },
+      {
+        "current": {
+          "text": "meteora_dlmm",
+          "value": "meteora_dlmm"
+        },
+        "definition": "label_values(cache_size_liquidity_total, dex)",
+        "name": "dex",
+        "options": [],
+        "query": {
+          "qryType": 4,
+          "query": "label_values(cache_size_liquidity_total, dex)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
       }
     ]
   },
@@ -798,5 +1132,5 @@
   "timezone": "",
   "title": "Solana Arbitrage Bot Monitoring",
   "uid": "solana",
-  "version": 9
+  "version": 1
 }

@@ -158,7 +158,12 @@ stream_batch_size = 128
 # This is a low-level tuning parameter for gRPC/WebSocket streams. After receiving
 # the first message, the engine will wait this many microseconds to "drain"
 # already arrived packets from the network stack.
-stream_wait_timeout_us = 5
+stream_wait_timeout_us = 500
+
+# The radius of the liquidity sliding window (number of adjacent arrays to cache).
+## A value of 1 means the bot will store the active array plus 1 array
+## on each side of the current price (Total: 3 arrays per pool).
+liquidity_depth = 1
 
 [[solana.exchanges]]
 # The Public Key of the DEX smart contract (Program ID).
@@ -174,7 +179,7 @@ program_id = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" # radium amm
 program_id = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C" # radium cpmm
 
 [[solana.exchanges]]
-program_id = "CAML6ZztuG8WfBccZKRansMsiZnc6977V7NWhY8AAN9" # radium clmm
+program_id = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK" # radium clmm
 
 [[solana.exchanges]]
 program_id = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" # orca

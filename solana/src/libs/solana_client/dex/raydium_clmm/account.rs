@@ -2,7 +2,14 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::radium_clmm::constants::{RAYDIUM_CLMM_ID, REWARD_NUM, TICK_ARRAY_SIZE_USIZE},
+    dex::raydium_clmm::constants::{
+        EXTENSION_TICKARRAY_BITMAP_SIZE, RAYDIUM_CLMM_ID, REWARD_NUM, TICK_ARRAY_SIZE_USIZE,
+    },
+    metrics::{DEX_RAYDIUM_CLMM, DexMetrics},
+    pool::{
+        DexPool,
+        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+    },
     registry::DexEntity,
 };
 
@@ -40,8 +47,8 @@ pub struct PoolState {
     /// The current tick of the pool, i.e. according to the last tick transition that was run.
     pub tick_current: i32,
 
-    pub padding3: u16,
-    pub padding4: u16,
+    pub _padding3: u16,
+    pub _padding4: u16,
 
     /// The fee growth as a Q64.64 number, i.e. fees of token_0 and token_1 collected per
     /// unit of liquidity for the entire life of the pool.
@@ -66,7 +73,7 @@ pub struct PoolState {
     /// bit4, 1: disable swap, 0: normal
     pub status: u8,
     /// Leave blank for future use
-    pub padding: [u8; 7],
+    pub _padding: [u8; 7],
 
     pub reward_infos: [RewardInfo; REWARD_NUM],
 
@@ -90,8 +97,8 @@ pub struct PoolState {
     pub recent_epoch: u64,
 
     // Unused bytes for future upgrades.
-    pub padding1: [u64; 24],
-    pub padding2: [u64; 32],
+    pub _padding1: [u64; 24],
+    pub _padding2: [u64; 32],
 }
 
 impl DexEntity for PoolState {
@@ -101,6 +108,31 @@ impl DexEntity for PoolState {
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl DexPool for PoolState {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.token_mint_0)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.token_mint_1)
+    }
+
+    fn quote_out(
+        &self,
+        amount_in: u64,
+        ctx: &QuoteContext,
+        data: &LiquidityMap,
+    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        todo!()
+    }
+}
+
+impl DexMetrics for PoolState {
+    fn dex_name(&self) -> &'static str {
+        DEX_RAYDIUM_CLMM
     }
 }
 
@@ -134,6 +166,54 @@ pub struct RewardInfo {
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct TickArrayBitmapExtension {
+    pub pool_id: Pubkey,
+    /// Packed initialized tick array state for start_tick_index is positive
+    pub positive_tick_array_bitmap: [[u64; 8]; EXTENSION_TICKARRAY_BITMAP_SIZE],
+    /// Packed initialized tick array state for start_tick_index is negitive
+    pub negative_tick_array_bitmap: [[u64; 8]; EXTENSION_TICKARRAY_BITMAP_SIZE],
+}
+
+impl DexEntity for TickArrayBitmapExtension {
+    const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
+    const DISCRIMINATOR: &'static [u8] = &[60, 150, 36, 219, 97, 128, 139, 153];
+    const DATA_SIZE: usize = 8 + 32 + 64 * EXTENSION_TICKARRAY_BITMAP_SIZE * 2; // 1832
+
+    fn deserialize(data: &[u8]) -> Option<Self> {
+        Self::deserialize_bytemuck(data)
+    }
+}
+
+impl TickArrayBitmapExtension {
+    #[must_use]
+    pub fn is_initialized(&self, array_index: i64) -> bool {
+        let bit_index = if array_index >= 0 {
+            array_index as usize
+        } else {
+            (!array_index) as usize
+        };
+
+        if bit_index >= EXTENSION_TICKARRAY_BITMAP_SIZE * 8 * 64 {
+            return false;
+        }
+
+        let global_word_idx = bit_index / 64;
+        let row = global_word_idx / 8;
+        let col = global_word_idx % 8;
+        let bit_in_word = bit_index % 64;
+
+        let word = if array_index >= 0 {
+            self.positive_tick_array_bitmap[row][col]
+        } else {
+            self.negative_tick_array_bitmap[row][col]
+        };
+
+        (word & (1u64 << bit_in_word)) != 0
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct TickArrayState {
     pub pool_id: [u8; 32],
     pub start_tick_index: i32,
@@ -141,9 +221,9 @@ pub struct TickArrayState {
     pub ticks_2: [TickState; 28],
     pub initialized_tick_count: u8,
     pub recent_epoch: u64,
-    pub padding_1: [u8; 64],
-    pub padding_2: [u8; 32],
-    pub padding_3: [u8; 11],
+    pub _padding_1: [u8; 64],
+    pub _padding_2: [u8; 32],
+    pub _padding_3: [u8; 11],
 }
 
 impl DexEntity for TickArrayState {
@@ -157,6 +237,11 @@ impl DexEntity for TickArrayState {
 }
 
 impl TickArrayState {
+    #[must_use]
+    pub fn pubkey(&self) -> Pubkey {
+        Pubkey::from(self.pool_id)
+    }
+
     #[must_use]
     pub fn get_tick(&self, idx: usize) -> Option<&TickState> {
         if idx >= TICK_ARRAY_SIZE_USIZE {
@@ -182,5 +267,5 @@ pub struct TickState {
     pub fee_growth_outside_0_x64: [u64; 2],
     pub fee_growth_outside_1_x64: [u64; 2],
     pub reward_growths_outside_x64: [[u64; 2]; REWARD_NUM],
-    pub padding: [u32; 13],
+    pub _padding: [u32; 13],
 }

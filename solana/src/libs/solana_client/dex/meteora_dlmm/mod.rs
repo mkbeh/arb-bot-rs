@@ -8,10 +8,13 @@ pub mod constants {
 
     /// Maximum number of bins array able to contains.
     pub const MAX_BINS_PER_ARRAY: usize = 70;
+
+    pub const BIN_ARRAY_BITMAP_ROW_COUNT: usize = 12;
+    pub const BIN_ARRAY_BITMAP_COL_COUNT: usize = 8;
 }
 
 pub use super::meteora_dlmm::{
-    account::{BinArray, LbPair},
+    account::{BinArray, BinArrayBitmapExtension, LbPair},
     constants::*,
     swap::Swap,
 };

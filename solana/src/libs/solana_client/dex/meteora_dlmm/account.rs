@@ -2,7 +2,14 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_dlmm::constants::{MAX_BINS_PER_ARRAY, METEORA_DLMM_ID},
+    dex::meteora_dlmm::constants::{
+        BIN_ARRAY_BITMAP_COL_COUNT, BIN_ARRAY_BITMAP_ROW_COUNT, MAX_BINS_PER_ARRAY, METEORA_DLMM_ID,
+    },
+    metrics::{DEX_METEORA_DLMM, DexMetrics},
+    pool::{
+        DexPool,
+        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+    },
     registry::DexEntity,
 };
 
@@ -54,6 +61,35 @@ impl DexEntity for LbPair {
     }
 }
 
+impl DexPool for LbPair {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.token_x_mint)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.token_y_mint)
+    }
+
+    fn quote_out(
+        &self,
+        amount_in: u64,
+        ctx: &QuoteContext,
+        data: &LiquidityMap,
+    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        let LiquidityMap::MeteoraDlmm(bin_arrays) = data else {
+            return Err(QuoteError::InvalidPoolState);
+        };
+
+        todo!()
+    }
+}
+
+impl DexMetrics for LbPair {
+    fn dex_name(&self) -> &'static str {
+        DEX_METEORA_DLMM
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct StaticParameters {
@@ -66,7 +102,7 @@ pub struct StaticParameters {
     pub min_bin_id: i32,
     pub max_bin_id: i32,
     pub protocol_share: u16,
-    pub padding: [u8; 6],
+    pub _padding: [u8; 6],
 }
 
 #[repr(C)]
@@ -75,9 +111,9 @@ pub struct VariableParameters {
     pub volatility_accumulator: u32,
     pub volatility_reference: u32,
     pub index_reference: i32,
-    pub padding: [u8; 4],
+    pub _padding: [u8; 4],
     pub last_update_timestamp: i64,
-    pub padding1: [u8; 8],
+    pub _padding1: [u8; 8],
 }
 
 #[repr(C)]
@@ -96,7 +132,61 @@ pub struct RewardInfo {
     pub reward_per_second: u128,
     pub reward_index: u128,
     pub last_update_timestamp: i64,
-    pub padding: [u8; 8],
+    pub _padding: [u8; 8],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct BinArrayBitmapExtension {
+    pub lb_pair: [u8; 32],
+    /// Packed initialized bin array state for start_bin_index is positive
+    pub positive_bin_array_bitmap: [[u64; BIN_ARRAY_BITMAP_COL_COUNT]; BIN_ARRAY_BITMAP_ROW_COUNT],
+    /// Packed initialized bin array state for start_bin_index is negative
+    pub negative_bin_array_bitmap: [[u64; BIN_ARRAY_BITMAP_COL_COUNT]; BIN_ARRAY_BITMAP_ROW_COUNT],
+}
+
+impl DexEntity for BinArrayBitmapExtension {
+    const PROGRAM_ID: Pubkey = METEORA_DLMM_ID;
+    const DISCRIMINATOR: &'static [u8] = &[80, 111, 124, 113, 55, 237, 18, 5];
+    const DATA_SIZE: usize = 1576;
+
+    fn deserialize(data: &[u8]) -> Option<Self> {
+        Self::deserialize_bytemuck(data)
+    }
+}
+
+impl BinArrayBitmapExtension {
+    #[must_use]
+    pub fn is_initialized(&self, index: i64) -> bool {
+        // Select the appropriate bitmap and calculate the normalized bit index
+        let (bitmap, bit_index) = if index >= 0 {
+            (&self.positive_bin_array_bitmap, index as usize)
+        } else {
+            // Mapping: -1 -> 0, -2 -> 1, etc.
+            (&self.negative_bin_array_bitmap, (!index) as usize)
+        };
+
+        // 1. Determine which u64 contains the bit (global word index)
+        let word_idx = bit_index / 64;
+
+        // 2. Find the row (block) index
+        let row = word_idx / BIN_ARRAY_BITMAP_COL_COUNT;
+
+        // 3. Find the column (word within the block) index
+        let col = word_idx % BIN_ARRAY_BITMAP_COL_COUNT;
+
+        // Guard against index out of bounds (exceeding the 12-row allocated memory)
+        if row >= BIN_ARRAY_BITMAP_ROW_COUNT {
+            return false;
+        }
+
+        // Extract the specific 64-bit word
+        let word = bitmap[row][col];
+
+        // Check the specific bit within the word
+        let bit_in_word = bit_index % 64;
+        (word & (1u64 << bit_in_word)) != 0
+    }
 }
 
 #[repr(C)]
@@ -122,6 +212,11 @@ impl DexEntity for BinArray {
 }
 
 impl BinArray {
+    #[must_use]
+    pub fn pubkey(&self) -> Pubkey {
+        Pubkey::from(self.lb_pair)
+    }
+
     #[must_use]
     pub fn get_bin(&self, idx: usize) -> Option<&Bin> {
         if idx >= MAX_BINS_PER_ARRAY {

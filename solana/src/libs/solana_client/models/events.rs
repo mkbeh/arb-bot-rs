@@ -2,7 +2,7 @@ use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, radium_amm, radium_clmm, radium_cpmm},
+    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, raydium_amm, raydium_clmm, raydium_cpmm},
     registry::{DexEntity, DexParser, RegistryLookup, ToDexParser},
 };
 
@@ -76,12 +76,14 @@ pub struct AccountEvent {
 #[derive(Debug, Clone)]
 pub enum PoolState {
     LbPairMeteoraDlmm(Box<meteora_dlmm::LbPair>),
+    BinArrayBitmapExtensionMeteoraDlmm(Box<meteora_dlmm::BinArrayBitmapExtension>),
     BinArrayMeteoraDlmm(Box<meteora_dlmm::BinArray>),
     PoolMeteoraDammV2(Box<meteora_damm_v2::Pool>),
-    PoolStateRadiumCpmm(Box<radium_cpmm::PoolState>),
-    AmmInfoRadiumAmm(Box<radium_amm::AmmInfo>),
-    PoolStateRadiumClmm(Box<radium_clmm::PoolState>),
-    TickArrayStateRadiumClmm(Box<radium_clmm::TickArrayState>),
+    PoolStateRaydiumCpmm(Box<raydium_cpmm::PoolState>),
+    AmmInfoRaydiumAmm(Box<raydium_amm::AmmInfo>),
+    PoolStateRaydiumClmm(Box<raydium_clmm::PoolState>),
+    TickArrayBitmapExtensionRadiumClmm(Box<raydium_clmm::TickArrayBitmapExtension>),
+    TickArrayStateRaydiumClmm(Box<raydium_clmm::TickArrayState>),
     WhirlpoolOrca(Box<orca::Whirlpool>),
     FixedTickArrayOrca(Box<orca::FixedTickArray>),
     DynamicTickArrayOrca(Box<orca::DynamicTickArray>),
@@ -96,9 +98,9 @@ pub enum PoolState {
 pub enum TxEvent {
     SwapMeteoraDlmm(meteora_dlmm::Swap),
     SwapMeteoraDammV2(meteora_damm_v2::Swap),
-    SwapRadiumCpmm(radium_cpmm::Swap),
-    SwapRadiumAmm(radium_amm::Swap),
-    SwapRadiumClmm(radium_clmm::Swap),
+    SwapRaydiumCpmm(raydium_cpmm::Swap),
+    SwapRaydiumAmm(raydium_amm::Swap),
+    SwapRaydiumClmm(raydium_clmm::Swap),
     SwapOrca(orca::Swap),
     SwapPumpFun(pump_fun::Swap),
     /// Fallback for unknown or unsupported transaction instructions.

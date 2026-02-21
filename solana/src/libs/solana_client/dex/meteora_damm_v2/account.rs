@@ -2,7 +2,13 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID, registry::DexEntity,
+    dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID,
+    metrics::{DEX_METEORA_DAMM_V2, DexMetrics},
+    pool::{
+        DexPool,
+        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+    },
+    registry::DexEntity,
 };
 
 // Number of rewards supported by pool
@@ -87,6 +93,31 @@ impl DexEntity for Pool {
     }
 }
 
+impl DexPool for Pool {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.token_a_mint)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.token_b_mint)
+    }
+
+    fn quote_out(
+        &self,
+        amount_in: u64,
+        ctx: &QuoteContext,
+        data: &LiquidityMap,
+    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        todo!()
+    }
+}
+
+impl DexMetrics for Pool {
+    fn dex_name(&self) -> &'static str {
+        DEX_METEORA_DAMM_V2
+    }
+}
+
 /// Information regarding fee charges
 /// trading_fee = amount * trade_fee_numerator / denominator
 /// protocol_fee = trading_fee * protocol_fee_percentage / 100
@@ -110,7 +141,7 @@ pub struct PoolFeesStruct {
     /// referral fee
     pub referral_fee_percent: u8,
     /// padding
-    pub padding_0: [u8; 5],
+    pub _padding_0: [u8; 5],
 
     /// dynamic fee
     pub dynamic_fee: DynamicFeeStruct,
@@ -122,7 +153,7 @@ pub struct PoolFeesStruct {
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct BaseFeeStruct {
     pub base_fee_info: BaseFeeInfo,
-    pub padding_1: u64,
+    pub _padding_1: u64,
 }
 
 #[repr(C)]
@@ -135,7 +166,7 @@ pub struct BaseFeeInfo {
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct DynamicFeeStruct {
     pub initialized: u8, // 0, ignore for dynamic fee
-    pub padding: [u8; 7],
+    pub _padding: [u8; 7],
     pub max_volatility_accumulator: u32,
     pub variable_fee_control: u32,
     pub bin_step: u16,
@@ -159,7 +190,7 @@ pub struct PoolMetrics {
     pub total_partner_a_fee: u64,
     pub total_partner_b_fee: u64,
     pub total_position: u64,
-    pub padding: u64,
+    pub _padding: u64,
 }
 
 #[repr(C)]
