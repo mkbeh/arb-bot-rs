@@ -7,7 +7,7 @@ use crate::libs::solana_client::{
     metrics::{DEX_ORCA, DexMetrics},
     pool::{
         DexPool,
-        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+        traits::{LiquidityMap, QuoteResult, QuoteContext, QuoteError},
     },
     registry::DexEntity,
 };
@@ -77,12 +77,11 @@ impl DexPool for Whirlpool {
         Pubkey::from(self.token_mint_b)
     }
 
-    fn quote_out(
+    fn quote(
         &self,
-        amount_in: u64,
         ctx: &QuoteContext,
-        data: &LiquidityMap,
-    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult, QuoteError> {
         todo!()
     }
 }

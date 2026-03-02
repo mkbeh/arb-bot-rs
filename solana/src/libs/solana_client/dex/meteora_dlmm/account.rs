@@ -2,13 +2,11 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_dlmm::constants::{
-        BIN_ARRAY_BITMAP_COL_COUNT, BIN_ARRAY_BITMAP_ROW_COUNT, MAX_BINS_PER_ARRAY, METEORA_DLMM_ID,
-    },
-    metrics::{DEX_METEORA_DLMM, DexMetrics},
+    dex::meteora_dlmm::{constants::*, extensions::*, math::*, quote::*, token_2022::*, types::*},
+    metrics::*,
     pool::{
         DexPool,
-        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+        traits::{LiquidityMap, QuoteContext, QuoteError, QuoteResult, QuoteType, SwapResult},
     },
     registry::DexEntity,
 };
@@ -70,17 +68,19 @@ impl DexPool for LbPair {
         Pubkey::from(self.token_y_mint)
     }
 
-    fn quote_out(
+    fn quote(
         &self,
-        amount_in: u64,
         ctx: &QuoteContext,
-        data: &LiquidityMap,
-    ) -> anyhow::Result<MultiQuote, QuoteError> {
-        let LiquidityMap::MeteoraDlmm(bin_arrays) = data else {
+        data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult, QuoteError> {
+        let Some(LiquidityMap::MeteoraDlmm(bin_arrays)) = data else {
             return Err(QuoteError::InvalidPoolState);
         };
 
-        todo!()
+        match ctx.quote_type {
+            QuoteType::ExactIn(amount) => todo!(),
+            QuoteType::ExactOut(amount) => todo!(),
+        }
     }
 }
 
@@ -219,7 +219,7 @@ impl BinArray {
 
     #[must_use]
     pub fn get_bin(&self, idx: usize) -> Option<&Bin> {
-        if idx >= MAX_BINS_PER_ARRAY {
+        if idx >= MAX_BIN_PER_ARRAY {
             return None;
         }
         match idx {

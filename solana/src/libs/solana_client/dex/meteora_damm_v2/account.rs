@@ -6,7 +6,7 @@ use crate::libs::solana_client::{
     metrics::{DEX_METEORA_DAMM_V2, DexMetrics},
     pool::{
         DexPool,
-        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+        traits::{LiquidityMap, QuoteResult, QuoteContext, QuoteError},
     },
     registry::DexEntity,
 };
@@ -102,12 +102,11 @@ impl DexPool for Pool {
         Pubkey::from(self.token_b_mint)
     }
 
-    fn quote_out(
+    fn quote(
         &self,
-        amount_in: u64,
         ctx: &QuoteContext,
-        data: &LiquidityMap,
-    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult, QuoteError> {
         todo!()
     }
 }

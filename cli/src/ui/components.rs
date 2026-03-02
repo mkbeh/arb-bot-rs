@@ -80,13 +80,13 @@ pub fn print_version() {
 pub fn print_exchanges() {
     let items = [
         (
-            "Binance",
+            "binance",
             "spot market arbitrage",
             cfg!(feature = "binance"),
         ),
-        ("KuCoin", "spot market arbitrage", cfg!(feature = "kucoin")),
+        ("kucoin", "spot market arbitrage", cfg!(feature = "kucoin")),
         (
-            "Solana",
+            "solana",
             "DEX arbitrage (Jupiter, Raydium, etc)",
             cfg!(feature = "solana"),
         ),

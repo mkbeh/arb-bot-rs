@@ -6,7 +6,7 @@ use crate::libs::solana_client::{
     metrics::{DEX_RAYDIUM_AMM, DexMetrics},
     pool::{
         DexPool,
-        traits::{LiquidityMap, MultiQuote, QuoteContext, QuoteError},
+        traits::{LiquidityMap, QuoteResult, QuoteContext, QuoteError},
     },
     registry::DexEntity,
 };
@@ -105,12 +105,11 @@ impl DexPool for AmmInfo {
         Pubkey::from(self.pc_vault_mint)
     }
 
-    fn quote_out(
+    fn quote(
         &self,
-        amount_in: u64,
         ctx: &QuoteContext,
-        data: &LiquidityMap,
-    ) -> anyhow::Result<MultiQuote, QuoteError> {
+        data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult, QuoteError> {
         todo!()
     }
 }

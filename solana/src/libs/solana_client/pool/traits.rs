@@ -16,27 +16,24 @@ pub trait DexPool: DexMetrics + Send + Sync {
         (self.get_mint_a(), self.get_mint_b())
     }
 
-    fn quote_out(
+    fn quote(
         &self,
-        amount_in: u64,
         ctx: &QuoteContext,
-        data: &LiquidityMap,
-    ) -> anyhow::Result<MultiQuote, QuoteError>;
+        data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult, QuoteError>;
 }
 
-pub struct MultiQuote {
-    pub steps: Vec<SwapStep>,
+pub struct QuoteResult {
+    pub steps: Vec<SwapResult>,
     pub total_amount_out: u64,
+    pub compute_units: i32,
 }
 
-pub struct SwapStep {
-    pub bin_id: i32,
+pub struct SwapResult {
+    pub pool_state_id: i32,
     pub amount_in: u64,
     pub amount_out: u64,
-    pub lp_fee: u64,
-    pub protocol_fee: u64,
-    pub token_tax_out: u64,
-    pub next_price: f64,
+    pub price: u64,
 }
 
 pub struct TokenConfig {
@@ -44,7 +41,13 @@ pub struct TokenConfig {
     pub max_transfer_fee: u64,
 }
 
+pub enum QuoteType {
+    ExactIn(u64),
+    ExactOut(u64),
+}
+
 pub struct QuoteContext {
+    pub quote_type: QuoteType,
     pub a_to_b: bool,
     pub token_in_config: TokenConfig,
     pub token_out_config: TokenConfig,
@@ -70,7 +73,6 @@ pub enum LiquidityMap<'a> {
     RaydiumClmm(&'a BTreeMap<i32, raydium_clmm::TickArrayState>),
     OrcaFixed(&'a BTreeMap<i32, orca::FixedTickArray>),
     OrcaDynamic(&'a BTreeMap<i32, orca::DynamicTickArray>),
-    None, // For standard AMM
 }
 
 pub trait IntoLiquidityMap<'a>: Sized {

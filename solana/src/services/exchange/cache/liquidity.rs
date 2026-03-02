@@ -107,14 +107,11 @@ where
 
     /// Retrieves all cached liquidity for a specific pool.
     #[must_use]
-    pub fn get_liquidity<'a>(&'a self, pool_id: &Pubkey) -> LiquidityMap<'a>
+    pub fn get_liquidity<'a>(&'a self, pool_id: &Pubkey) -> Option<LiquidityMap<'a>>
     where
         T: IntoLiquidityMap<'a, Key = K>,
     {
-        self.data
-            .get(pool_id)
-            .map(|m| T::wrap_to_map(m))
-            .unwrap_or(LiquidityMap::None)
+        self.data.get(pool_id).map(|m| T::wrap_to_map(m))
     }
 
     /// Removes BTreeMap entries that fall outside the [current_page - depth, current_page + depth]
@@ -147,7 +144,7 @@ impl LiquidityUpdate for meteora_dlmm::BinArray {
         if let LiquidityIndex::MeteoraDlmm { active_id } = index {
             // Calculate the current price page.
             let current_page =
-                (*active_id as i64).div_euclid(meteora_dlmm::MAX_BINS_PER_ARRAY as i64);
+                (*active_id as i64).div_euclid(meteora_dlmm::MAX_BIN_PER_ARRAY as i64);
             // Meteora arrays use sequential indexing, so scale is 1.
             Some((self.index, current_page, 1))
         } else {
