@@ -6,7 +6,7 @@ use crate::libs::solana_client::{
     metrics::{DEX_METEORA_DAMM_V2, DexMetrics},
     pool::{
         DexPool,
-        traits::{LiquidityMap, QuoteResult, QuoteContext, QuoteError},
+        traits::{LiquidityMap, QuoteContext, QuoteResult},
     },
     registry::DexEntity,
 };
@@ -106,7 +106,7 @@ impl DexPool for Pool {
         &self,
         ctx: &QuoteContext,
         data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult, QuoteError> {
+    ) -> anyhow::Result<QuoteResult> {
         todo!()
     }
 }

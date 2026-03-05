@@ -17,6 +17,7 @@ const MAX_EXPONENTIAL: u32 = 0x80000; // 1048576
 // 1.0000... representation of 64x64
 pub const ONE: u128 = 1u128 << SCALE_OFFSET;
 
+#[must_use]
 pub fn pow(base: u128, exp: i32) -> Option<u128> {
     // If exponent is negative. We will invert the result later by 1 / base^exp.abs()
     let mut invert = exp.is_negative();
@@ -27,7 +28,11 @@ pub fn pow(base: u128, exp: i32) -> Option<u128> {
     }
 
     // Make the exponential positive. Which will compute the result later by 1 / base^exp
-    let exp: u32 = if invert { exp.abs() as u32 } else { exp as u32 };
+    let exp: u32 = if invert {
+        exp.unsigned_abs()
+    } else {
+        exp as u32
+    };
 
     // No point to continue the calculation as it will overflow the maximum value Q64.64 can support
     if exp >= MAX_EXPONENTIAL {

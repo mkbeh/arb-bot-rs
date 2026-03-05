@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use num_traits::FromPrimitive;
 
-use crate::libs::solana_client::dex::meteora_dlmm::{math::*, types::*};
+use crate::libs::solana_client::dex::meteora_dlmm::{math::*, typedefs::*};
 
 #[inline]
 pub fn safe_mul_shr_cast<T: FromPrimitive>(

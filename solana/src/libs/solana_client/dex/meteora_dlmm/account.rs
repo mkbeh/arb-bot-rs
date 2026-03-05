@@ -2,11 +2,14 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_dlmm::{constants::*, extensions::*, math::*, quote::*, token_2022::*, types::*},
+    dex::meteora_dlmm::{
+        constants::*,
+        quote::{quote_exact_in, quote_exact_out},
+    },
     metrics::*,
     pool::{
         DexPool,
-        traits::{LiquidityMap, QuoteContext, QuoteError, QuoteResult, QuoteType, SwapResult},
+        traits::{LiquidityBitmap, LiquidityMap, QuoteContext, QuoteResult, QuoteType},
     },
     registry::DexEntity,
 };
@@ -72,14 +75,37 @@ impl DexPool for LbPair {
         &self,
         ctx: &QuoteContext,
         data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult, QuoteError> {
+    ) -> anyhow::Result<QuoteResult> {
         let Some(LiquidityMap::MeteoraDlmm(bin_arrays)) = data else {
-            return Err(QuoteError::InvalidPoolState);
+            anyhow::bail!("Invalid data type for MeteoraDlmm");
+        };
+
+        let bitmap_extension = match ctx.bitmap {
+            Some(LiquidityBitmap::MeteoraDlmm(ext)) => ext,
+            _ => None,
         };
 
         match ctx.quote_type {
-            QuoteType::ExactIn(amount) => todo!(),
-            QuoteType::ExactOut(amount) => todo!(),
+            QuoteType::ExactIn(amount) => quote_exact_in(
+                self,
+                amount,
+                ctx.a_to_b,
+                bin_arrays,
+                bitmap_extension,
+                ctx.clock,
+                ctx.mint_in,
+                ctx.mint_out,
+            ),
+            QuoteType::ExactOut(amount) => quote_exact_out(
+                self,
+                amount,
+                ctx.a_to_b,
+                bin_arrays,
+                bitmap_extension,
+                ctx.clock,
+                ctx.mint_in,
+                ctx.mint_out,
+            ),
         }
     }
 }
@@ -102,7 +128,8 @@ pub struct StaticParameters {
     pub min_bin_id: i32,
     pub max_bin_id: i32,
     pub protocol_share: u16,
-    pub _padding: [u8; 6],
+    pub base_fee_power_factor: u8,
+    pub _padding: [u8; 5],
 }
 
 #[repr(C)]
@@ -216,19 +243,6 @@ impl BinArray {
     pub fn pubkey(&self) -> Pubkey {
         Pubkey::from(self.lb_pair)
     }
-
-    #[must_use]
-    pub fn get_bin(&self, idx: usize) -> Option<&Bin> {
-        if idx >= MAX_BIN_PER_ARRAY {
-            return None;
-        }
-        match idx {
-            0..=31 => Some(&self.bins_1[idx]),
-            32..=63 => Some(&self.bins_2[idx - 32]),
-            64..=69 => Some(&self.bins_3[idx - 64]),
-            _ => unreachable!(),
-        }
-    }
 }
 
 #[repr(C)]
@@ -243,4 +257,17 @@ pub struct Bin {
     pub fee_amount_y_per_token_stored: [u64; 2],
     pub amount_x_in: [u64; 2],
     pub amount_y_in: [u64; 2],
+}
+
+impl Bin {
+    #[must_use]
+    pub fn price(&self) -> u128 {
+        let bytes: &[u8] = bytemuck::bytes_of(&self.price);
+        u128::from_le_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn set_price(&mut self, price: u128) {
+        let bytes = price.to_le_bytes();
+        self.price = *bytemuck::from_bytes(&bytes);
+    }
 }

@@ -5,6 +5,6 @@ pub mod math;
 pub mod quote;
 pub mod swap;
 pub mod token_2022;
-pub mod types;
+pub mod typedefs;
 
 pub use super::meteora_dlmm::{account::*, constants::*, swap::*};

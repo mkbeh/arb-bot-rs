@@ -1,8 +1,9 @@
 use ruint::aliases::U256;
 
-use crate::libs::solana_client::dex::meteora_dlmm::types::*;
+use crate::libs::solana_client::dex::meteora_dlmm::typedefs::*;
 
 /// (x * y) / denominator
+#[must_use]
 pub fn mul_div(x: u128, y: u128, denominator: u128, rounding: Rounding) -> Option<u128> {
     if denominator == 0 {
         return None;
@@ -24,6 +25,7 @@ pub fn mul_div(x: u128, y: u128, denominator: u128, rounding: Rounding) -> Optio
 }
 
 /// (x * y) >> offset
+#[must_use]
 #[inline]
 pub fn mul_shr(x: u128, y: u128, offset: u8, rounding: Rounding) -> Option<u128> {
     let denominator = 1u128.checked_shl(offset.into())?;
@@ -31,6 +33,7 @@ pub fn mul_shr(x: u128, y: u128, offset: u8, rounding: Rounding) -> Option<u128>
 }
 
 /// (x << offset) / y
+#[must_use]
 #[inline]
 pub fn shl_div(x: u128, y: u128, offset: u8, rounding: Rounding) -> Option<u128> {
     let scale = 1u128.checked_shl(offset.into())?;

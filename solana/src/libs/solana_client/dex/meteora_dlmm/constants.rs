@@ -18,5 +18,9 @@ pub const MAX_FEE_RATE: u64 = 100_000_000;
 
 pub const FEE_PRECISION: u64 = 1_000_000_000;
 
+pub const EXTENSION_BINARRAY_BITMAP_SIZE: usize = 12;
+
+pub const BIN_ARRAY_BITMAP_SIZE: i32 = 512;
+
 pub const BIN_ARRAY_BITMAP_ROW_COUNT: usize = 12;
 pub const BIN_ARRAY_BITMAP_COL_COUNT: usize = 8;

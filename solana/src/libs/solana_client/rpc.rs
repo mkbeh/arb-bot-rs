@@ -2,7 +2,7 @@ use anyhow::Context;
 use solana_client::{
     nonblocking::rpc_client::RpcClient as SolanaRpcClient, rpc_config::CommitmentConfig,
 };
-use solana_sdk::hash::Hash;
+use solana_sdk::{account::Account, hash::Hash, pubkey::Pubkey};
 
 /// Configuration for the Solana RPC client.
 #[derive(Default)]
@@ -33,5 +33,18 @@ impl RpcClient {
             .await
             .context("Failed to get recent blockhash from RPC")?;
         Ok((blockhash, last_valid_height))
+    }
+
+    /// Returns the account information for a list of pubkeys.
+    pub async fn get_multiple_accounts(
+        &self,
+        pubkeys: &[Pubkey],
+    ) -> anyhow::Result<Vec<Option<Account>>> {
+        let accounts = self
+            .client
+            .get_multiple_accounts_with_commitment(pubkeys, CommitmentConfig::processed())
+            .await
+            .context("Failed to get multiple accounts from RPC")?;
+        Ok(accounts.value)
     }
 }

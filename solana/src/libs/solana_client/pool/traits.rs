@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{account::Account, clock::Clock, pubkey::Pubkey};
 
 use crate::libs::solana_client::{
     dex::{meteora_dlmm, orca, raydium_clmm},
@@ -16,29 +16,38 @@ pub trait DexPool: DexMetrics + Send + Sync {
         (self.get_mint_a(), self.get_mint_b())
     }
 
-    fn quote(
-        &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult, QuoteError>;
+    fn quote(&self, ctx: &QuoteContext, data: Option<&LiquidityMap>)
+    -> anyhow::Result<QuoteResult>;
 }
 
+/// Result of a swap simulation (quote) for arbitrage calculations.
 pub struct QuoteResult {
-    pub steps: Vec<SwapResult>,
+    /// Detailed step-by-step breakdown of each bin crossed during the swap.
+    pub steps: Vec<QuoteSwapResult>,
+
+    /// The actual gross amount to be deducted from the wallet.
+    pub total_amount_in_gross: u64,
+
+    /// The net amount that effectively entered the pool's bin arrays after network fees.
+    pub total_amount_in_net: u64,
+
+    /// The final amount received in the destination wallet.
     pub total_amount_out: u64,
-    pub compute_units: i32,
+
+    /// Total swap fees paid to liquidity providers and the protocol (LP fee + Protocol fee).
+    /// These fees are already deducted from the `total_amount_out` during simulation.
+    pub total_fee: u64,
+
+    /// Estimated Solana Compute Units (CU) required for the swap transaction.
+    pub compute_units: u32,
 }
 
-pub struct SwapResult {
+pub struct QuoteSwapResult {
     pub pool_state_id: i32,
     pub amount_in: u64,
     pub amount_out: u64,
-    pub price: u64,
-}
-
-pub struct TokenConfig {
-    pub transfer_fee_bps: u16,
-    pub max_transfer_fee: u64,
+    pub fee: u64,
+    pub price: u128,
 }
 
 pub enum QuoteType {
@@ -46,19 +55,18 @@ pub enum QuoteType {
     ExactOut(u64),
 }
 
-pub struct QuoteContext {
+pub struct QuoteContext<'a> {
     pub quote_type: QuoteType,
     pub a_to_b: bool,
-    pub token_in_config: TokenConfig,
-    pub token_out_config: TokenConfig,
+    pub clock: &'a Clock,
+    pub mint_in: &'a Account,
+    pub mint_out: &'a Account,
+    pub bitmap: Option<LiquidityBitmap<'a>>,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum QuoteError {
-    InsufficientLiquidity,
-    InvalidPoolState,
-    Overflow,
-    BaseTokenTaxTooHigh,
+pub enum LiquidityBitmap<'a> {
+    MeteoraDlmm(Option<&'a meteora_dlmm::BinArrayBitmapExtension>),
+    RaydiumClmm(Option<&'a raydium_clmm::TickArrayBitmapExtension>),
 }
 
 pub enum LiquidityArray {
