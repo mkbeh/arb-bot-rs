@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 /// Order direction for symbols in a trading chain (ascending/descending).
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Default, EnumIter)]
