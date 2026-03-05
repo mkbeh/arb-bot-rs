@@ -17,10 +17,14 @@ pub static POOL_CACHE_METRICS: LazyLock<PoolCacheMetrics> = LazyLock::new(PoolCa
 pub static LIQUIDITY_CACHE_METRICS: LazyLock<LiquidityCacheMetrics> =
     LazyLock::new(LiquidityCacheMetrics::new);
 
+/// Global metrics provider for the Mint Cache.
+pub static MINT_CACHE_METRICS: LazyLock<MintCacheMetrics> = LazyLock::new(MintCacheMetrics::new);
+
 pub fn init_metrics() {
     let _ = &*INDEX_CACHE_METRICS;
     let _ = &*POOL_CACHE_METRICS;
     let _ = &*LIQUIDITY_CACHE_METRICS;
+    let _ = &*MINT_CACHE_METRICS;
 }
 
 /// Metrics manager for tracking price and tick indices.
@@ -121,5 +125,32 @@ impl LiquidityCacheMetrics {
     pub fn record_liquidity_density(&self, dex: &'static str, count: usize) {
         let labels = &[(LBL_DEX, dex)];
         histogram!(Self::METRIC_LIQUIDITY_DENSITY, labels).record(count as f64);
+    }
+}
+
+/// Metrics manager for tracking cached mint accounts.
+pub struct MintCacheMetrics;
+
+impl MintCacheMetrics {
+    const METRIC_MINT_CACHE_SIZE: &str = "mint_cache_size_total";
+
+    /// Initializes and registers descriptions for mint cache metrics.
+    #[must_use]
+    pub fn new() -> Self {
+        describe_gauge!(
+            Self::METRIC_MINT_CACHE_SIZE,
+            Unit::Count,
+            "The current total number of mint accounts tracked in the cache"
+        );
+
+        Self
+    }
+
+    /// Sets the current total count of elements in the cache.
+    ///
+    /// This should be called after batch updates to reflect the current state.
+    #[inline]
+    pub fn set_cache_size(&self, size: usize) {
+        gauge!(Self::METRIC_MINT_CACHE_SIZE).set(size as f64);
     }
 }

@@ -40,9 +40,9 @@ impl MarketService {
                 let Some(target_pk) = market.update_state(acc.pubkey, acc.pool_state) else {
                     continue;
                 };
-
-                // todo: arbitrage logic
             }
+
+            // todo: arbitrage logic
 
             Ok(())
         }
