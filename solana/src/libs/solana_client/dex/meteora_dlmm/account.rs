@@ -182,40 +182,6 @@ impl DexEntity for BinArrayBitmapExtension {
     }
 }
 
-impl BinArrayBitmapExtension {
-    #[must_use]
-    pub fn is_initialized(&self, index: i64) -> bool {
-        // Select the appropriate bitmap and calculate the normalized bit index
-        let (bitmap, bit_index) = if index >= 0 {
-            (&self.positive_bin_array_bitmap, index as usize)
-        } else {
-            // Mapping: -1 -> 0, -2 -> 1, etc.
-            (&self.negative_bin_array_bitmap, (!index) as usize)
-        };
-
-        // 1. Determine which u64 contains the bit (global word index)
-        let word_idx = bit_index / 64;
-
-        // 2. Find the row (block) index
-        let row = word_idx / BIN_ARRAY_BITMAP_COL_COUNT;
-
-        // 3. Find the column (word within the block) index
-        let col = word_idx % BIN_ARRAY_BITMAP_COL_COUNT;
-
-        // Guard against index out of bounds (exceeding the 12-row allocated memory)
-        if row >= BIN_ARRAY_BITMAP_ROW_COUNT {
-            return false;
-        }
-
-        // Extract the specific 64-bit word
-        let word = bitmap[row][col];
-
-        // Check the specific bit within the word
-        let bit_in_word = bit_index % 64;
-        (word & (1u64 << bit_in_word)) != 0
-    }
-}
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct BinArray {

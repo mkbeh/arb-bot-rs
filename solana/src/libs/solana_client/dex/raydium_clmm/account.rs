@@ -183,34 +183,6 @@ impl DexEntity for TickArrayBitmapExtension {
     }
 }
 
-impl TickArrayBitmapExtension {
-    #[must_use]
-    pub fn is_initialized(&self, array_index: i64) -> bool {
-        let bit_index = if array_index >= 0 {
-            array_index as usize
-        } else {
-            (!array_index) as usize
-        };
-
-        if bit_index >= EXTENSION_TICKARRAY_BITMAP_SIZE * 8 * 64 {
-            return false;
-        }
-
-        let global_word_idx = bit_index / 64;
-        let row = global_word_idx / 8;
-        let col = global_word_idx % 8;
-        let bit_in_word = bit_index % 64;
-
-        let word = if array_index >= 0 {
-            self.positive_tick_array_bitmap[row][col]
-        } else {
-            self.negative_tick_array_bitmap[row][col]
-        };
-
-        (word & (1u64 << bit_in_word)) != 0
-    }
-}
-
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct TickArrayState {
