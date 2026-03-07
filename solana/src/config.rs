@@ -5,7 +5,7 @@ use engine::Validatable;
 use serde::Deserialize;
 use serde_with::{DurationMicroSeconds, serde_as};
 
-use crate::libs::solana_client::{GrpcConfig, StreamConfig};
+use crate::libs::solana_client::{GrpcConfig, RpcConfig, StreamConfig};
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -56,6 +56,16 @@ pub struct Dex {
 // ==========================================
 // CONVERSION TRAITS (Data Mapping)
 // ==========================================
+
+impl TryFrom<&Config> for RpcConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(cfg: &Config) -> Result<Self, Self::Error> {
+        Ok(Self {
+            url: cfg.rpc_endpoint.clone(),
+        })
+    }
+}
 
 impl TryFrom<&Config> for StreamConfig {
     type Error = anyhow::Error;

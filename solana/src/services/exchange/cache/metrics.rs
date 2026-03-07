@@ -131,8 +131,14 @@ impl LiquidityCacheMetrics {
 /// Metrics manager for tracking cached mint accounts.
 pub struct MintCacheMetrics;
 
+impl Default for MintCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MintCacheMetrics {
-    const METRIC_MINT_CACHE_SIZE: &str = "mint_cache_size_total";
+    const METRIC_MINT_CACHE_SIZE: &str = "cache_size_mint_total";
 
     /// Initializes and registers descriptions for mint cache metrics.
     #[must_use]

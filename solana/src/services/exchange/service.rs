@@ -10,13 +10,15 @@ use crate::{
     Config,
     config::Transport,
     libs::solana_client::{
-        GrpcClient, GrpcConfig, SolanaStream, StreamClient, StreamConfig, models::SubscribeTarget,
+        GrpcClient, GrpcConfig, RpcClient, SolanaStream, StreamClient, StreamConfig,
+        models::SubscribeTarget,
     },
-    services::exchange::{cache, market::MarketService},
+    services::exchange::{cache, market::MarketService, mint::MintService},
 };
 
 pub struct ExchangeService {
     market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
+    mint_service: Arc<MintService>,
 }
 
 impl Exchange for ExchangeService {}
@@ -25,6 +27,13 @@ impl Exchange for ExchangeService {}
 impl ArbitrageService for ExchangeService {
     async fn start(&self, token: CancellationToken) -> anyhow::Result<()> {
         let mut tasks_set = JoinSet::new();
+
+        tasks_set.spawn({
+            let token = token.clone();
+            let mint_service = self.mint_service.clone();
+
+            async move { mint_service.start(token).await }
+        });
 
         tasks_set.spawn({
             let token = token.clone();
@@ -50,15 +59,20 @@ impl ArbitrageService for ExchangeService {
 
 impl ExchangeService {
     pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        let mut market_stream = create_stream(config, vec![SubscribeTarget::Account])?;
-
-        let market = MarketService::new(config.liquidity_depth);
-        market.bind_to(&mut market_stream);
-
+        cache::init_market_state(config.liquidity_depth)?;
         cache::init_metrics();
 
+        let rpc_client = Arc::new(RpcClient::from_config(config.try_into()?));
+
+        let market_stream = {
+            let mut stream = create_stream(config, vec![SubscribeTarget::Account])?;
+            MarketService::new().bind_to(&mut stream);
+            Arc::new(Mutex::new(stream))
+        };
+
         Ok(Self {
-            market_stream: Arc::new(Mutex::new(market_stream)),
+            market_stream,
+            mint_service: Arc::new(MintService::new(rpc_client)),
         })
     }
 }

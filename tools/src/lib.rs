@@ -1,13 +1,9 @@
 pub mod http;
 pub mod misc;
-pub mod observability;
-pub mod toml;
+pub mod telemetry;
 
-use rustls::crypto::ring;
 #[cfg(feature = "derive")]
 pub use tools_derive::main;
-
-use crate::observability::setup_opentelemetry;
 
 /// Initializes the application with essential setup routines.
 ///
@@ -38,7 +34,7 @@ pub fn setup_application(name: &'static str) -> anyhow::Result<()> {
     // Setup custom panic hook to handle runtime panics gracefully.
     setup_panic_hook();
     // Setup logs/tracing with OpenTelemetry integration.
-    setup_opentelemetry(name);
+    telemetry::setup_opentelemetry(name);
     // Install rustls crypto provider (ring backend) to fix TLS init panic.
     setup_tls_provider()
 }
@@ -97,7 +93,7 @@ pub fn setup_panic_hook() {
 /// setup_tls_provider();
 /// ```
 pub fn setup_tls_provider() -> anyhow::Result<()> {
-    ring::default_provider()
+    rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|e| anyhow::anyhow!("Failed to install rustls crypto provider: {e:?}"))
 }

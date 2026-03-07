@@ -1,3 +1,6 @@
+use std::sync::OnceLock;
+
+use parking_lot::RwLock;
 use solana_sdk::pubkey::Pubkey;
 use tracing::warn;
 
@@ -9,6 +12,20 @@ use crate::{
     },
     services::exchange::cache::{LiquidityCache, LiquidityIndex, LiquidityIndexCache, PoolCache},
 };
+
+/// Global root state container.
+static MARKET_STATE: OnceLock<RwLock<MarketState>> = OnceLock::new();
+
+pub fn init_market_state(depth: i64) -> anyhow::Result<()> {
+    let state = RwLock::new(MarketState::new(depth));
+    MARKET_STATE
+        .set(state)
+        .map_err(|_| anyhow::anyhow!("MarketState already initialized"))
+}
+
+pub fn get_market_state() -> &'static RwLock<MarketState> {
+    MARKET_STATE.get().expect("MarketState not initialized")
+}
 
 /// Root state container for all DEX-related data in the market.
 pub struct MarketState {
@@ -83,8 +100,9 @@ impl MarketState {
         // This prevents caching irrelevant data for pools we aren't tracking indices for.
         if let Some(index) = self.indices.get(&pool_id).copied() {
             self.liquidity.update(pool_id, array, &index);
+            return Some(pool_id);
         }
-        Some(pool_id)
+        None
     }
 
     /// Stores a new pool logic provider (DexPool) into the pool cache.

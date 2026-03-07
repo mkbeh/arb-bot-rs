@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use serde::Deserialize;
-use tools::toml;
+use tools::misc::toml;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {

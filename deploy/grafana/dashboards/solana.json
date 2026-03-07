@@ -197,6 +197,119 @@
       },
       "fieldConfig": {
         "defaults": {
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 0,
+        "y": 7
+      },
+      "id": 15,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(sum(cache_size_mint_total) / sum(cache_size_pool_total)) * 100",
+          "legendFormat": "Global Mint Coverage",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Unique Mints to Total Pools Ratio",
+      "type": "gauge"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 4,
+        "y": 7
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": true,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "expr": "sum(cache_size_mint_total)",
+          "legendFormat": "Current Size",
+          "refId": "A"
+        }
+      ],
+      "title": "Mint Cache Activity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
           "color": {
             "mode": "palette-classic"
           },
@@ -299,7 +412,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 13
       },
       "id": 12,
       "options": {
@@ -344,7 +457,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 20
       },
       "id": 1,
       "panels": [],
@@ -416,7 +529,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 21
       },
       "id": 2,
       "options": {
@@ -507,7 +620,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 21
       },
       "id": 3,
       "options": {
@@ -549,7 +662,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 28
       },
       "id": 4,
       "panels": [],
@@ -621,7 +734,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 29
       },
       "id": 5,
       "options": {
@@ -717,7 +830,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 29
       },
       "id": 10,
       "options": {
@@ -817,7 +930,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 30
+        "y": 36
       },
       "id": 6,
       "options": {
@@ -855,7 +968,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 43
       },
       "id": 7,
       "panels": [],
@@ -931,7 +1044,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 44
       },
       "id": 8,
       "options": {
@@ -1031,7 +1144,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 44
       },
       "id": 9,
       "options": {

@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use parking_lot::RwLock;
+use ahash::AHashSet;
 
 use crate::{
     libs::solana_client::{
@@ -8,41 +6,48 @@ use crate::{
         callback::{BatchEventCallbackWrapper, BatchEventHandler},
         models::Event,
     },
-    services::exchange::cache::MarketState,
+    services::exchange::cache::get_market_state,
 };
 
-pub struct MarketService {
-    state: Arc<RwLock<MarketState>>,
+pub struct MarketService;
+
+impl Default for MarketService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MarketService {
     #[must_use]
-    pub fn new(liquidity_depth: i64) -> Self {
-        Self {
-            state: Arc::new(RwLock::new(MarketState::new(liquidity_depth))),
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn bind_to(&self, stream: &mut Box<dyn SolanaStream>) {
-        let wrapper = BatchEventCallbackWrapper::new(self.handle_events(self.state.clone()));
+        let wrapper = BatchEventCallbackWrapper::new(Self::handle_events());
         stream.set_callback(wrapper)
     }
 
-    fn handle_events(&self, state: Arc<RwLock<MarketState>>) -> impl BatchEventHandler {
+    fn handle_events() -> impl BatchEventHandler {
         move |events: Vec<Event>| {
-            let mut market = state.write();
+            let mut changed_pools = AHashSet::with_capacity(events.len());
 
-            for event in events {
-                let Event::Account(acc) = event else {
-                    continue;
-                };
+            {
+                let mut market = get_market_state().write();
+                for event in events {
+                    let Event::Account(acc) = event else {
+                        continue;
+                    };
 
-                let Some(target_pk) = market.update_state(acc.pubkey, acc.pool_state) else {
-                    continue;
-                };
+                    let Some(pool_id) = market.update_state(acc.pubkey, acc.pool_state) else {
+                        continue;
+                    };
+
+                    changed_pools.insert(pool_id);
+                }
             }
 
-            // todo: arbitrage logic
+            // todo: other logic
 
             Ok(())
         }

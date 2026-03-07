@@ -35,10 +35,10 @@ impl TokenPair {
 /// swap simulations for various protocols.
 pub struct PoolCache {
     /// Internal map linking pool Pubkeys to their respective logic providers.
-    pub data: AHashMap<Pubkey, Box<dyn DexPool>>,
+    data: AHashMap<Pubkey, Box<dyn DexPool>>,
 
     /// Index mapping a TokenPair to all available pool addresses for that pair.
-    pub pair_index: AHashMap<TokenPair, Vec<Pubkey>>,
+    pair_index: AHashMap<TokenPair, Vec<Pubkey>>,
 }
 
 impl Default for PoolCache {
@@ -84,5 +84,23 @@ impl PoolCache {
             .into_iter()
             .flat_map(|ids| ids.iter())
             .filter_map(|id| self.data.get(id).map(|p| p.as_ref()))
+    }
+
+    /// Returns an iterator over all tracked pools in the cache.
+    pub fn values(&self) -> impl Iterator<Item = &dyn DexPool> {
+        self.data.values().map(|p| p.as_ref())
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// Returns the total number of pools currently stored in the cache.
+    #[must_use]
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.data.len()
     }
 }
