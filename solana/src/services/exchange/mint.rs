@@ -83,7 +83,7 @@ impl MintService {
             let accounts = self.rpc.get_multiple_accounts(chunk).await?;
             let mut mint_cache = MINT_CACHE.write().await;
 
-            for (pubkey, account_opt) in chunk.iter().zip(accounts.into_iter()) {
+            for (pubkey, account_opt) in chunk.iter().zip(accounts) {
                 if let Some(account) = account_opt {
                     mint_cache.update(*pubkey, account);
                 } else {
