@@ -25,7 +25,7 @@ use toml;
 /// ```
 /// use anyhow::Result;
 /// use serde::Deserialize;
-/// use tools::toml::parse_file;
+/// use tools::misc::toml::parse_file;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {

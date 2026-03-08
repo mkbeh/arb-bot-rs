@@ -3,10 +3,11 @@ use std::{fmt::Display, future::ready, net::SocketAddr, sync::Arc, time::Duratio
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use axum::{Router, routing::get};
-use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tokio::{signal, task::JoinHandle, time::timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+
+use crate::http::metrics;
 
 /// Asynchronous trait for server processes that can be pre-run and run concurrently with the
 /// server.
@@ -349,19 +350,6 @@ fn get_default_router() -> Router {
 
 /// Returns an Axum router for metrics with Prometheus rendering.
 fn get_metrics_router() -> Router {
-    let recorder_handle = setup_metrics_recorder();
+    let recorder_handle = metrics::setup_metrics_recorder();
     get_default_router().route("/metrics", get(move || ready(recorder_handle.render())))
-}
-
-/// Installs and returns a Prometheus metrics recorder handle.
-///
-/// Panics if installation fails (e.g., duplicate recorder).
-fn setup_metrics_recorder() -> PrometheusHandle {
-    PrometheusBuilder::new()
-        .set_buckets(&[
-            0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0,
-        ])
-        .expect("Failed to set buckets")
-        .install_recorder()
-        .expect("Failed to install Prometheus recorder")
 }

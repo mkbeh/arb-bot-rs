@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, bail};
+use async_trait::async_trait;
 use futures_util::SinkExt;
 use rayon::{iter::ParallelIterator, prelude::*};
 use solana_client::rpc_response::transaction::Signature;
@@ -21,6 +22,7 @@ use yellowstone_grpc_proto::{
 };
 
 use crate::libs::solana_client::{
+    SolanaStream,
     callback::BatchEventCallbackWrapper,
     metrics::{EventType, STREAM_METRICS, Transport},
     models::{AccountEvent, BlockMetaEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
@@ -86,33 +88,19 @@ impl Default for SubscribeOptions {
 }
 
 /// Wrapper for Solana RPC gRPC client using Yellowstone Geyser protocol.
+#[derive(Clone)]
 pub struct GrpcClient {
     config: GrpcConfig,
     callback: Option<BatchEventCallbackWrapper>,
 }
 
-impl GrpcClient {
-    /// Creates a new `GrpcClient` from the provided configuration.
-    #[must_use]
-    pub fn new(config: GrpcConfig) -> Self {
-        Self {
-            config,
-            callback: None,
-        }
+#[async_trait]
+impl SolanaStream for GrpcClient {
+    fn set_callback(&mut self, callback: BatchEventCallbackWrapper) {
+        self.callback = Some(callback);
     }
 
-    /// Sets a callback for handling parsed events from the stream.
-    #[must_use]
-    pub fn with_callback<Callback>(mut self, callback: Callback) -> Self
-    where
-        Callback: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static,
-    {
-        self.callback = Some(BatchEventCallbackWrapper::new(callback));
-        self
-    }
-
-    /// Subscribes to transaction updates from the specified program IDs.
-    pub async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
+    async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
         if self.config.program_ids.is_empty() {
             bail!("Program IDs cannot be empty");
         }
@@ -143,6 +131,17 @@ impl GrpcClient {
             }
         }
         Ok(())
+    }
+}
+
+impl GrpcClient {
+    /// Creates a new `GrpcClient` from the provided configuration.
+    #[must_use]
+    pub fn from_config(config: GrpcConfig) -> Self {
+        Self {
+            config,
+            callback: None,
+        }
     }
 
     async fn subscribe_session(&self, token: &CancellationToken) -> anyhow::Result<()> {

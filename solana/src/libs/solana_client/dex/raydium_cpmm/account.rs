@@ -2,7 +2,10 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::radium_cpmm::constants::RADIUM_CPMM_ID, registry::DexEntity,
+    dex::raydium_cpmm::constants::RAYDIUM_CPMM_ID,
+    metrics::{DEX_RAYDIUM_CPMM, DexMetrics},
+    pool::*,
+    registry::DexEntity,
 };
 
 #[repr(C, packed)]
@@ -37,11 +40,36 @@ pub struct PoolState {
 }
 
 impl DexEntity for PoolState {
-    const PROGRAM_ID: Pubkey = RADIUM_CPMM_ID;
+    const PROGRAM_ID: Pubkey = RAYDIUM_CPMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[247, 237, 227, 245, 215, 195, 222, 70];
     const DATA_SIZE: usize = 637;
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl DexPool for PoolState {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.token_0_mint)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.token_1_mint)
+    }
+
+    #[allow(clippy::todo)]
+    fn quote(
+        &self,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult> {
+        todo!()
+    }
+}
+
+impl DexMetrics for PoolState {
+    fn dex_name(&self) -> &'static str {
+        DEX_RAYDIUM_CPMM
     }
 }

@@ -4,6 +4,8 @@ use tracing::error;
 
 use crate::libs::solana_client::{
     dex::orca::constants::{ORCA_ID, TICK_ARRAY_SIZE},
+    metrics::{DEX_ORCA, DexMetrics},
+    pool::*,
     registry::DexEntity,
 };
 
@@ -63,6 +65,31 @@ impl DexEntity for Whirlpool {
     }
 }
 
+impl DexPool for Whirlpool {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.token_mint_a)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.token_mint_b)
+    }
+
+    #[allow(clippy::todo)]
+    fn quote(
+        &self,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
+    ) -> anyhow::Result<QuoteResult> {
+        todo!()
+    }
+}
+
+impl DexMetrics for Whirlpool {
+    fn dex_name(&self) -> &'static str {
+        DEX_ORCA
+    }
+}
+
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct WhirlpoolRewardInfo {
@@ -86,6 +113,11 @@ pub struct WhirlpoolRewardInfo {
     pub growth_global_x64: [u64; 2],
 }
 
+pub enum OrcaTickArray {
+    Fixed(Box<FixedTickArray>),
+    Dynamic(DynamicTickArray),
+}
+
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct FixedTickArray {
@@ -102,6 +134,13 @@ impl DexEntity for FixedTickArray {
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl FixedTickArray {
+    #[must_use]
+    pub fn pubkey(&self) -> Pubkey {
+        Pubkey::from(self.whirlpool)
     }
 }
 
@@ -128,11 +167,6 @@ pub struct DynamicTickArray {
     pub whirlpool: Pubkey,
     pub tick_bitmap: u128,
     pub ticks: Vec<DynamicTickData>,
-}
-
-impl DynamicTickArray {
-    pub const MIN_LEN: usize = 148;
-    pub const MAX_LEN: usize = 10004;
 }
 
 impl DexEntity for DynamicTickArray {
@@ -222,6 +256,16 @@ impl DexEntity for DynamicTickArray {
             tick_bitmap,
             ticks,
         })
+    }
+}
+
+impl DynamicTickArray {
+    pub const MIN_LEN: usize = 148;
+    pub const MAX_LEN: usize = 10004;
+
+    #[must_use]
+    pub fn pubkey(&self) -> Pubkey {
+        self.whirlpool
     }
 }
 

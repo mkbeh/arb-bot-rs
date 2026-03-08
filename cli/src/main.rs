@@ -3,7 +3,7 @@ mod launcher;
 mod ui;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use strum_macros::{Display, EnumIter, EnumString};
+use strum::{Display, EnumIter, EnumString};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

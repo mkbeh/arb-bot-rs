@@ -1,13 +1,5 @@
 [workspace]
-members = [
-    "binance",
-    "cli",
-    "engine",
-    "kucoin",
-    "solana",
-    "tools",
-    "tools-derive",
-]
+members = ["binance", "cli", "engine", "kucoin", "solana", "tools", "tools-derive"]
 resolver = "3"
 
 [workspace.package]
@@ -18,40 +10,57 @@ license = "MIT"
 
 [workspace.dependencies]
 ahash = { version = "0.8.12" }
-anyhow = { version = "1.0.101" }
+anyhow = { version = "1.0.102" }
 async-trait = { version = "0.1.89" }
 axum = { version = "0.8.8" }
 base64 = { version = "0.22.1" }
 bs58 = { version = "0.5.1" }
-clap = { version = "4.5.57", features = ["derive"] }
+clap = { version = "4.5.60" }
 comfy-table = { version = "7.2.2" }
 dashmap = { version = "6.1.0" }
-futures-util = { version = "0.3.31" }
+futures-util = { version = "0.3.32" }
 hex = { version = "0.4.3" }
 hmac = { version = "0.12.1" }
 itertools = { version = "0.14.0" }
 metrics = { version = "0.24.3" }
-mimalloc = { version = "0.1", features = ["v3"] }
+metrics-exporter-prometheus = { version = "0.18.1" }
+mimalloc = { version = "0.1" }
 owo-colors = { version = "4" }
+parking_lot = { version = "0.12.5" }
 percent-encoding = { version = "2.3.2" }
 rayon = { version = "1.11.0" }
-reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls"] }
-rust_decimal = { version = "1.40.0", features = ["serde-with-float"] }
-serde = { version = "1.0.228", default-features = false, features = ["derive"] }
+reqwest = { version = "0.13.2", default-features = false }
+rust_decimal = { version = "1.40.0" }
+rustls = { version = "0.23" }
+serde = { version = "1.0.228", default-features = false }
 serde_json = { version = "1.0.149" }
 serde_urlencoded = { version = "0.7.1" }
-serde_with = { version = "3.16.1", features = ["macros"] }
+serde_with = { version = "3.17.0" }
 sha2 = { version = "0.10.9" }
-simd-json = { version = "0.17.0", features = ["serde", "known-key"] }
-strum = { version = "0.27.2", features = ["derive"] }
-strum_macros = { version = "0.27.2" }
+simd-json = { version = "0.17.0" }
+strum = { version = "0.28.0" }
 thiserror = { version = "2.0.18" }
-tokio = { version = "1.49.0", default-features = false, features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
-tokio-tungstenite = { version = "0.28.0", features = ["rustls"] }
+tokio = { version = "1.50.0", default-features = false }
+tokio-tungstenite = { version = "0.28.0" }
 tokio-util = { version = "0.7.18" }
+toml = { version = "1.0.6" }
 tracing = { version = "0.1.44", default-features = false }
+tracing-subscriber = { version = "0.3.22" }
 url = { version = "2.5.8" }
-uuid = { version = "1.20.0", features = ["v4"] }
+uuid = { version = "1.22.0" }
+
+# solana
+bytemuck = { version = "1.25.0" }
+num-integer = { version = "0.1.46" }
+num-traits = { version = "0.2.19" }
+num_enum = { version = "0.7.5" }
+ruint = { version = "1.17.2" }
+solana-client = { version = "3.1.9" }
+solana-sdk = { version = "3.0.0" }
+spl-token = { version = "9.0.0" }
+spl-token-2022 = { version = "10.0.0" }
+yellowstone-grpc-client = { version = "12.1.0" }
+yellowstone-grpc-proto = { version = "12.1.0" }
 
 # dev dependencies
 criterion = { version = "0.8.2" }

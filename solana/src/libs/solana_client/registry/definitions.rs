@@ -1,5 +1,5 @@
 use crate::libs::solana_client::{
-    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, radium_amm, radium_clmm, radium_cpmm},
+    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, raydium_amm, raydium_clmm, raydium_cpmm},
     models::{PoolState, TxEvent},
     registry::core::DexRegistry,
 };
@@ -21,6 +21,9 @@ use crate::libs::solana_client::{
 pub fn fill_registry(reg: &mut DexRegistry) {
     // Meteora DLMM Integration
     reg.add_boxed::<meteora_dlmm::LbPair, _>(PoolState::LbPairMeteoraDlmm);
+    reg.add_boxed::<meteora_dlmm::BinArrayBitmapExtension, _>(
+        PoolState::BinArrayBitmapExtensionMeteoraDlmm,
+    );
     reg.add_boxed::<meteora_dlmm::BinArray, _>(PoolState::BinArrayMeteoraDlmm);
     reg.add::<meteora_dlmm::Swap, _>(TxEvent::SwapMeteoraDlmm);
 
@@ -29,17 +32,20 @@ pub fn fill_registry(reg: &mut DexRegistry) {
     reg.add::<meteora_damm_v2::Swap, _>(TxEvent::SwapMeteoraDammV2);
 
     // Raydium CPMM Integration
-    reg.add_boxed::<radium_cpmm::PoolState, _>(PoolState::PoolStateRadiumCpmm);
-    reg.add::<radium_cpmm::Swap, _>(TxEvent::SwapRadiumCpmm);
+    reg.add_boxed::<raydium_cpmm::PoolState, _>(PoolState::PoolStateRaydiumCpmm);
+    reg.add::<raydium_cpmm::Swap, _>(TxEvent::SwapRaydiumCpmm);
 
     // Radium AMM Integration
-    reg.add_boxed::<radium_amm::AmmInfo, _>(PoolState::AmmInfoRadiumAmm);
-    reg.add::<radium_amm::Swap, _>(TxEvent::SwapRadiumAmm);
+    reg.add_boxed::<raydium_amm::AmmInfo, _>(PoolState::AmmInfoRaydiumAmm);
+    reg.add::<raydium_amm::Swap, _>(TxEvent::SwapRaydiumAmm);
 
     // Radium CLMM Integration
-    reg.add_boxed::<radium_clmm::PoolState, _>(PoolState::PoolStateRadiumClmm);
-    reg.add_boxed::<radium_clmm::TickArrayState, _>(PoolState::TickArrayStateRadiumClmm);
-    reg.add::<radium_clmm::Swap, _>(TxEvent::SwapRadiumClmm);
+    reg.add_boxed::<raydium_clmm::PoolState, _>(PoolState::PoolStateRaydiumClmm);
+    reg.add_boxed::<raydium_clmm::TickArrayBitmapExtension, _>(
+        PoolState::TickArrayBitmapExtensionRadiumClmm,
+    );
+    reg.add_boxed::<raydium_clmm::TickArrayState, _>(PoolState::TickArrayStateRaydiumClmm);
+    reg.add::<raydium_clmm::Swap, _>(TxEvent::SwapRaydiumClmm);
 
     // Orca Integration
     reg.add_boxed::<orca::Whirlpool, _>(PoolState::WhirlpoolOrca);

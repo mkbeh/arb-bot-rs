@@ -16,21 +16,36 @@ base64 = { workspace = true }
 bs58 = { workspace = true }
 futures-util = { workspace = true }
 metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+parking_lot = { workspace = true }
 rayon = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
-simd-json = { workspace = true }
-tokio = { workspace = true }
-tokio-tungstenite = { workspace = true }
+serde_with = { workspace = true, features = ["macros"] }
+simd-json = { workspace = true, features = ["serde", "known-key"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-tungstenite = { workspace = true, features = ["rustls"] }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 
-bytemuck = { version = "1.25.0" }
-solana-client = { version = "3.1.8" }
-solana-sdk = { version = "3.0.0" }
-yellowstone-grpc-client = { version = "11.0.0" }
-yellowstone-grpc-proto = { version = "11.0.0" }
+bytemuck = { workspace = true }
+num-integer = { workspace = true }
+num-traits = { workspace = true }
+num_enum = { workspace = true }
+ruint = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+spl-token = { workspace = true }
+spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
+yellowstone-grpc-client = { workspace = true }
+yellowstone-grpc-proto = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "benches"
+harness = false

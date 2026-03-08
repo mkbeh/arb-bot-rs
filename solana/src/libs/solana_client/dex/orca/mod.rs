@@ -11,7 +11,7 @@ pub mod constants {
 }
 
 pub use super::orca::{
-    account::{DynamicTickArray, FixedTickArray, Whirlpool},
+    account::{DynamicTickArray, FixedTickArray, OrcaTickArray, Whirlpool},
     constants::*,
     swap::Swap,
 };
