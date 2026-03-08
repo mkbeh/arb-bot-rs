@@ -24,8 +24,6 @@ Get up and running in minutes! This bot is optimized for Linux but works on macO
 
 * **Rust**: Version 1.93.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
-
-
 #### 🏗 Build from Source
 
 Clone and build the CLI binary:
@@ -119,6 +117,7 @@ accept donations in BTC, ETH, and USDT – simple, swift, and borderless.
 | **Bitcoin (BTC)**  | `bc1qw0sz039alzpmk2qcg549pwv3vd0e6casj5dstp`          | <img src="https://github.com/user-attachments/assets/55b48540-bd38-4567-a409-775dd9400052" width="150"> |
 | **Ethereum (ETH)** | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1`          | <img src="https://github.com/user-attachments/assets/6e8b9ce8-86f1-4d94-ba17-0c9bca16718f" width="150"> |
 | **Tether (USDT)**  | `0x00875cdA702B0e6fba3AdeaA6bEB585Db3a7f0f1` (ERC-20) | <img src="https://github.com/user-attachments/assets/6e8b9ce8-86f1-4d94-ba17-0c9bca16718f" width="150"> |
+| **Solana (SOL)**   | `CP9nNp1jMZS6QK4aoQuRGXKRwHdQ72Rr6ZK3kZcANAz9`        | <img src="https://github.com/user-attachments/assets/6d0ed392-1383-4295-a678-552e7ae0e68b" width="150"> |
 
 Every satoshi, every ether – it's a step toward something greater. Thank you for believing in openness! 🌍✨
 
