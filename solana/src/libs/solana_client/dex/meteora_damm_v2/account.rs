@@ -4,10 +4,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::libs::solana_client::{
     dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID,
     metrics::{DEX_METEORA_DAMM_V2, DexMetrics},
-    pool::{
-        DexPool,
-        traits::{LiquidityMap, QuoteContext, QuoteResult},
-    },
+    pool::*,
     registry::DexEntity,
 };
 
@@ -102,10 +99,11 @@ impl DexPool for Pool {
         Pubkey::from(self.token_b_mint)
     }
 
+    #[allow(clippy::todo)]
     fn quote(
         &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
     ) -> anyhow::Result<QuoteResult> {
         todo!()
     }

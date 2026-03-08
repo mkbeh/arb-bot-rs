@@ -5,7 +5,7 @@ use solana_sdk::{account::Account, clock::Clock};
 
 use crate::libs::solana_client::{
     dex::meteora_dlmm::{account::*, extensions::*, token_2022::*, typedefs::*},
-    pool::traits::{QuoteResult, QuoteSwapResult},
+    pool::*,
 };
 
 const CU_BASE: u32 = 50_500;

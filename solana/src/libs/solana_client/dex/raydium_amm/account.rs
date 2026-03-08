@@ -4,10 +4,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::libs::solana_client::{
     dex::raydium_amm::constants::RAYDIUM_AMM_ID,
     metrics::{DEX_RAYDIUM_AMM, DexMetrics},
-    pool::{
-        DexPool,
-        traits::{LiquidityMap, QuoteContext, QuoteResult},
-    },
+    pool::*,
     registry::DexEntity,
 };
 
@@ -105,10 +102,11 @@ impl DexPool for AmmInfo {
         Pubkey::from(self.pc_vault_mint)
     }
 
+    #[allow(clippy::todo)]
     fn quote(
         &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
     ) -> anyhow::Result<QuoteResult> {
         todo!()
     }

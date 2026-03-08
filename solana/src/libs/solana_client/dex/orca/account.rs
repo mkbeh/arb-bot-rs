@@ -5,10 +5,7 @@ use tracing::error;
 use crate::libs::solana_client::{
     dex::orca::constants::{ORCA_ID, TICK_ARRAY_SIZE},
     metrics::{DEX_ORCA, DexMetrics},
-    pool::{
-        DexPool,
-        traits::{LiquidityMap, QuoteContext, QuoteResult},
-    },
+    pool::*,
     registry::DexEntity,
 };
 
@@ -77,10 +74,11 @@ impl DexPool for Whirlpool {
         Pubkey::from(self.token_mint_b)
     }
 
+    #[allow(clippy::todo)]
     fn quote(
         &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
     ) -> anyhow::Result<QuoteResult> {
         todo!()
     }

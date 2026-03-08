@@ -28,6 +28,7 @@ impl ArbitrageService for ExchangeService {
     async fn start(&self, token: CancellationToken) -> anyhow::Result<()> {
         let mut tasks_set = JoinSet::new();
 
+        // Background job: periodically refreshes mint accounts cache via RPC
         tasks_set.spawn({
             let token = token.clone();
             let mint_service = self.mint_service.clone();
@@ -35,6 +36,7 @@ impl ArbitrageService for ExchangeService {
             async move { mint_service.start(token).await }
         });
 
+        // Main market stream: subscribes to on-chain account updates via websocket/gRPC
         tasks_set.spawn({
             let token = token.clone();
             let stream = self.market_stream.clone();
@@ -45,6 +47,8 @@ impl ArbitrageService for ExchangeService {
             }
         });
 
+        // If any task finishes (either completes or errors),
+        // cancel all others and propagate result
         if let Some(result) = tasks_set.join_next().await {
             token.cancel();
 

@@ -6,10 +6,7 @@ use crate::libs::solana_client::{
         EXTENSION_TICKARRAY_BITMAP_SIZE, RAYDIUM_CLMM_ID, REWARD_NUM, TICK_ARRAY_SIZE_USIZE,
     },
     metrics::{DEX_RAYDIUM_CLMM, DexMetrics},
-    pool::{
-        DexPool,
-        traits::{LiquidityMap, QuoteContext, QuoteResult},
-    },
+    pool::*,
     registry::DexEntity,
 };
 
@@ -120,10 +117,11 @@ impl DexPool for PoolState {
         Pubkey::from(self.token_mint_1)
     }
 
+    #[allow(clippy::todo)]
     fn quote(
         &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
     ) -> anyhow::Result<QuoteResult> {
         todo!()
     }

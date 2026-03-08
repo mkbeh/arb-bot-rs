@@ -4,10 +4,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::libs::solana_client::{
     dex::raydium_cpmm::constants::RAYDIUM_CPMM_ID,
     metrics::{DEX_RAYDIUM_CPMM, DexMetrics},
-    pool::{
-        DexPool,
-        traits::{LiquidityMap, QuoteContext, QuoteResult},
-    },
+    pool::*,
     registry::DexEntity,
 };
 
@@ -61,10 +58,11 @@ impl DexPool for PoolState {
         Pubkey::from(self.token_1_mint)
     }
 
+    #[allow(clippy::todo)]
     fn quote(
         &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
+        _ctx: &QuoteContext,
+        _data: Option<&LiquidityMap>,
     ) -> anyhow::Result<QuoteResult> {
         todo!()
     }
