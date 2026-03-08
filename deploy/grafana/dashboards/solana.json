@@ -128,7 +128,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 13,
+        "h": 12,
         "w": 12,
         "x": 12,
         "y": 1
@@ -1245,5 +1245,5 @@
   "timezone": "",
   "title": "Solana Arbitrage Bot Monitoring",
   "uid": "solana",
-  "version": 1
+  "version": 2
 }
