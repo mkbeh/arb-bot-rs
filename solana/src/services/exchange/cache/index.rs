@@ -38,7 +38,7 @@ pub enum LiquidityIndex {
 /// This storage provides the "center" coordinate needed by LiquidityStorage to manage its sliding
 /// window.
 pub struct LiquidityIndexCache {
-    pub data: AHashMap<Pubkey, LiquidityIndex>,
+    data: AHashMap<Pubkey, LiquidityIndex>,
 }
 
 impl Default for LiquidityIndexCache {

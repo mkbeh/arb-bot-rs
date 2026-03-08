@@ -63,9 +63,9 @@ impl LiquidityCache {
 /// Specialized cache for a specific protocol's liquidity arrays.
 pub struct SubCache<K, T> {
     /// Maps Pool address to a sorted map of its liquidity arrays.
-    pub data: AHashMap<Pubkey, BTreeMap<K, T>>,
+    data: AHashMap<Pubkey, BTreeMap<K, T>>,
     /// Max distance (in pages) from the current price page to keep in memory.
-    pub depth: i64,
+    depth: i64,
 }
 
 impl<K, T> SubCache<K, T>

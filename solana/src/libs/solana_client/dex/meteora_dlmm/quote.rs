@@ -13,18 +13,6 @@ const CU_PER_BIN: u32 = 150;
 const CU_PER_ARRAY: u32 = 450;
 const CU_PER_SWAP: u32 = 5_250;
 
-#[derive(Debug)]
-pub struct SwapExactInQuote {
-    pub amount_out: u64,
-    pub fee: u64,
-}
-
-#[derive(Debug)]
-pub struct SwapExactOutQuote {
-    pub amount_in: u64,
-    pub fee: u64,
-}
-
 pub fn validate_swap_activation(
     lb_pair: &LbPair,
     current_timestamp: u64,

@@ -88,7 +88,7 @@ impl MintService {
                     mint_cache.update(*pubkey, account);
                 } else {
                     warn!("Mint account not found for {}, removing from cache", pubkey);
-                    mint_cache.data.remove(pubkey);
+                    mint_cache.remove(pubkey);
                 }
             }
         }

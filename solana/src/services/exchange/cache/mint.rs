@@ -22,7 +22,7 @@ pub struct CachedAccount {
 /// Cache for Mint accounts.
 pub struct MintCache {
     /// Internal storage mapping account addresses to their cached state.
-    pub data: AHashMap<Pubkey, CachedAccount>,
+    data: AHashMap<Pubkey, CachedAccount>,
 }
 
 impl Default for MintCache {
@@ -65,5 +65,10 @@ impl MintCache {
     #[must_use]
     pub fn get(&self, key: &Pubkey) -> Option<&Account> {
         self.data.get(key).map(|cached| &cached.account)
+    }
+
+    /// Removes an account from the cache by its public key.
+    pub fn remove(&mut self, key: &Pubkey) {
+        self.data.remove(key);
     }
 }
