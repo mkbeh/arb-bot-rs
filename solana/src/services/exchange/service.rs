@@ -17,8 +17,8 @@ use crate::{
 };
 
 pub struct ExchangeService {
-    market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
     mint_service: Arc<MintService>,
+    market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
 }
 
 impl Exchange for ExchangeService {}
@@ -63,8 +63,7 @@ impl ArbitrageService for ExchangeService {
 
 impl ExchangeService {
     pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        cache::init_market_state(config.liquidity_depth)?;
-        cache::init_metrics();
+        cache::init(config.liquidity_depth)?;
 
         let rpc_client = Arc::new(RpcClient::from_config(config.try_into()?));
 
