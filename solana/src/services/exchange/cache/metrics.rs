@@ -20,11 +20,16 @@ pub static LIQUIDITY_CACHE_METRICS: LazyLock<LiquidityCacheMetrics> =
 /// Global metrics provider for the Mint Cache.
 pub static MINT_CACHE_METRICS: LazyLock<MintCacheMetrics> = LazyLock::new(MintCacheMetrics::new);
 
+/// Global metrics provider for the Amm Config Cache.
+pub static AMM_CONFIG_CACHE_METRICS: LazyLock<AmmConfigCacheMetrics> =
+    LazyLock::new(AmmConfigCacheMetrics::new);
+
 pub fn init_metrics() {
     let _ = &*INDEX_CACHE_METRICS;
     let _ = &*POOL_CACHE_METRICS;
     let _ = &*LIQUIDITY_CACHE_METRICS;
     let _ = &*MINT_CACHE_METRICS;
+    let _ = &*AMM_CONFIG_CACHE_METRICS;
 }
 
 /// Metrics manager for tracking price and tick indices.
@@ -158,5 +163,37 @@ impl MintCacheMetrics {
     #[inline]
     pub fn set_cache_size(&self, size: usize) {
         gauge!(Self::METRIC_MINT_CACHE_SIZE).set(size as f64);
+    }
+}
+
+/// Metrics for tracking the state and activity of the AMM configuration cache.
+pub struct AmmConfigCacheMetrics;
+
+impl Default for AmmConfigCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AmmConfigCacheMetrics {
+    const METRIC_AMM_CONFIG_CACHE_SIZE: &str = "cache_size_amm_config_total";
+
+    /// Initializes and registers descriptions for cache metrics.
+    #[must_use]
+    pub fn new() -> Self {
+        describe_counter!(
+            Self::METRIC_AMM_CONFIG_CACHE_SIZE,
+            Unit::Count,
+            "The total number of AMM configs inserted into the cache, by protocol"
+        );
+
+        Self
+    }
+
+    /// Increments the AMM configuration cache counter for a specific DEX.
+    #[inline]
+    pub fn inc(&self, dex: &'static str) {
+        let labels = &[(LBL_DEX, dex)];
+        counter!(Self::METRIC_AMM_CONFIG_CACHE_SIZE, labels).increment(1);
     }
 }

@@ -3,10 +3,7 @@ use solana_sdk::pubkey::Pubkey;
 use tracing::error;
 
 use crate::libs::solana_client::{
-    dex::orca::constants::{ORCA_ID, TICK_ARRAY_SIZE},
-    metrics::{DEX_ORCA, DexMetrics},
-    pool::*,
-    registry::DexEntity,
+    dex::orca::constants::*, metrics::*, pool::*, registry::DexEntity,
 };
 
 pub const NUM_REWARDS: usize = 3;
@@ -75,11 +72,7 @@ impl DexPool for Whirlpool {
     }
 
     #[allow(clippy::todo)]
-    fn quote(
-        &self,
-        _ctx: &QuoteContext,
-        _data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult> {
+    fn quote(&self, _ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         todo!()
     }
 }

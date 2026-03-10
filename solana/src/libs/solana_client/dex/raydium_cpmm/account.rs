@@ -2,11 +2,46 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::raydium_cpmm::constants::RAYDIUM_CPMM_ID,
-    metrics::{DEX_RAYDIUM_CPMM, DexMetrics},
-    pool::*,
-    registry::DexEntity,
+    dex::raydium_cpmm::constants::*, metrics::*, pool::*, registry::DexEntity,
 };
+
+/// Holds the current owner of the factory
+#[repr(C, packed)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct AmmConfig {
+    /// Bump to identify PDA
+    pub bump: u8,
+    /// Status to control if new pool can be create
+    pub disable_create_pool: u8,
+    /// Config index
+    pub index: u16,
+    /// The trade fee, denominated in hundredths of a bip (10^-6)
+    pub trade_fee_rate: u64,
+    /// The protocol fee
+    pub protocol_fee_rate: u64,
+    /// The fund fee, denominated in hundredths of a bip (10^-6)
+    pub fund_fee_rate: u64,
+    /// Fee for create a new pool
+    pub create_pool_fee: u64,
+    /// Address of the protocol fee owner
+    pub protocol_owner: [u8; 32],
+    /// Address of the fund fee owner
+    pub fund_owner: [u8; 32],
+    /// The pool creator fee, denominated in hundredths of a bip (10^-6)
+    pub creator_fee_rate: u64,
+    /// padding
+    pub padding: [u64; 15],
+}
+
+impl DexEntity for AmmConfig {
+    const PROGRAM_ID: Pubkey = RAYDIUM_CPMM_ID;
+    const DISCRIMINATOR: &'static [u8] = &[218, 244, 33, 104, 203, 203, 43, 111];
+    const DATA_SIZE: usize = 8 + 1 + 1 + 2 + 4 * 8 + 32 * 2 + 8 + 8 * 15; // 236
+
+    fn deserialize(data: &[u8]) -> Option<Self> {
+        Self::deserialize_bytemuck(data)
+    }
+}
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -59,11 +94,7 @@ impl DexPool for PoolState {
     }
 
     #[allow(clippy::todo)]
-    fn quote(
-        &self,
-        _ctx: &QuoteContext,
-        _data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult> {
+    fn quote(&self, _ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         todo!()
     }
 }

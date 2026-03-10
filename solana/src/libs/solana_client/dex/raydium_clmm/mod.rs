@@ -16,7 +16,7 @@ pub mod constants {
 }
 
 pub use super::raydium_clmm::{
-    account::{PoolState, TickArrayBitmapExtension, TickArrayState},
+    account::{AmmConfig, PoolState, TickArrayBitmapExtension, TickArrayState},
     constants::*,
     swap::Swap,
 };

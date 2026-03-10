@@ -1,6 +1,8 @@
 use anyhow::Context;
 use solana_client::{
-    nonblocking::rpc_client::RpcClient as SolanaRpcClient, rpc_config::CommitmentConfig,
+    nonblocking::rpc_client::RpcClient as SolanaRpcClient,
+    rpc_config::{CommitmentConfig, RpcProgramAccountsConfig},
+    rpc_response::UiAccount,
 };
 use solana_sdk::{account::Account, hash::Hash, pubkey::Pubkey};
 
@@ -42,9 +44,21 @@ impl RpcClient {
     ) -> anyhow::Result<Vec<Option<Account>>> {
         let accounts = self
             .client
-            .get_multiple_accounts_with_commitment(pubkeys, CommitmentConfig::processed())
+            .get_multiple_accounts_with_commitment(pubkeys, CommitmentConfig::confirmed())
             .await
             .context("Failed to get multiple accounts from RPC")?;
         Ok(accounts.value)
+    }
+
+    /// Returns all accounts owned by the provided program pubkey.
+    pub async fn get_program_accounts_with_config(
+        &self,
+        pubkey: &Pubkey,
+        config: RpcProgramAccountsConfig,
+    ) -> anyhow::Result<Vec<(Pubkey, UiAccount)>> {
+        self.client
+            .get_program_ui_accounts_with_config(pubkey, config)
+            .await
+            .context("Failed to get program ui accounts")
     }
 }

@@ -114,81 +114,146 @@
       },
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 1,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Pool:/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Idx:/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    0,
+                    10
+                  ],
+                  "dot": [
+                    2,
+                    4
+                  ],
+                  "fill": "dot"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 6,
         "w": 12,
         "x": 12,
         "y": 1
       },
-      "id": 13,
+      "id": 12,
       "options": {
-        "calculate": false,
-        "cellGap": 1,
-        "color": {
-          "exponent": 0.5,
-          "fill": "dark-orange",
-          "mode": "scheme",
-          "reverse": false,
-          "scale": "exponential",
-          "scheme": "Oranges",
-          "steps": 64
-        },
-        "exemplars": {
-          "color": "rgba(255,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1e-9
-        },
         "legend": {
-          "show": true
-        },
-        "rows": {
-          "layout": "none"
-        },
-        "rowsFrame": {
-          "layout": "auto"
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "showColorScale": false,
-          "yHistogram": true
-        },
-        "yAxis": {
-          "axisLabel": "Arrays per Pool",
-          "axisPlacement": "left",
-          "decimals": 0,
-          "max": 10,
-          "min": 1,
-          "reverse": false,
-          "unit": "none"
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "12.1.1",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(increase(cache_size_liquidity_arrays_per_pool_bucket{dex=\"$dex\"}[1m])) by (le)",
-          "format": "heatmap",
-          "legendFormat": "{{le}}",
-          "range": true,
+          "expr": "cache_size_liquidity_total",
+          "legendFormat": "💧 Liq: {{dex}}",
           "refId": "A"
+        },
+        {
+          "expr": "max by (dex) (cache_size_pool_total)",
+          "legendFormat": "📦 Pool: {{dex}}",
+          "refId": "B"
+        },
+        {
+          "expr": "max by (dex) (cache_size_index_total)",
+          "legendFormat": "📍 Idx: {{dex}}",
+          "refId": "C"
         }
       ],
-      "title": "Liquidity Density: Arrays per Pool Distribution",
-      "type": "heatmap"
+      "title": "Market Engine: Indices, Pools & Liquidity",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -313,43 +378,6 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 8,
-            "gradientMode": "opacity",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "smooth",
-            "lineStyle": {
-              "fill": "solid"
-            },
-            "lineWidth": 2,
-            "pointSize": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -357,99 +385,132 @@
               {
                 "color": "green",
                 "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/Pool:/"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "dash": [
-                    10,
-                    10
-                  ],
-                  "fill": "dash"
-                }
               }
             ]
           },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/Idx:/"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "dash": [
-                    0,
-                    10
-                  ],
-                  "dot": [
-                    2,
-                    4
-                  ],
-                  "fill": "dot"
-                }
-              }
-            ]
-          }
-        ]
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 0,
-        "y": 13
+        "h": 6,
+        "w": 5,
+        "x": 7,
+        "y": 7
       },
-      "id": 12,
+      "id": 17,
       "options": {
-        "legend": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
           "calcs": [
-            "last"
+            "lastNotNull"
           ],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "cache_size_amm_config_total",
+          "legendFormat": "{{dex}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "AMM Config Cache",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "id": 13,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Oranges",
+          "steps": 64
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rows": {
+          "layout": "none"
+        },
+        "rowsFrame": {
+          "layout": "auto"
         },
         "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": true
+        },
+        "yAxis": {
+          "axisLabel": "Arrays per Pool",
+          "axisPlacement": "left",
+          "decimals": 0,
+          "max": 10,
+          "min": 1,
+          "reverse": false,
+          "unit": "none"
         }
       },
       "pluginVersion": "12.1.1",
       "targets": [
         {
-          "expr": "cache_size_liquidity_total",
-          "legendFormat": "💧 Liq: {{dex}}",
+          "editorMode": "code",
+          "expr": "sum(increase(cache_size_liquidity_arrays_per_pool_bucket{dex=\"$dex\"}[1m])) by (le)",
+          "format": "heatmap",
+          "legendFormat": "{{le}}",
+          "range": true,
           "refId": "A"
-        },
-        {
-          "expr": "max by (dex) (cache_size_pool_total)",
-          "legendFormat": "📦 Pool: {{dex}}",
-          "refId": "B"
-        },
-        {
-          "expr": "max by (dex) (cache_size_index_total)",
-          "legendFormat": "📍 Idx: {{dex}}",
-          "refId": "C"
         }
       ],
-      "title": "Market Engine: Indices, Pools & Liquidity",
-      "type": "timeseries"
+      "title": "Liquidity Density: Arrays per Pool Distribution",
+      "type": "heatmap"
     },
     {
       "collapsed": false,
@@ -457,7 +518,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 19
       },
       "id": 1,
       "panels": [],
@@ -529,7 +590,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 20
       },
       "id": 2,
       "options": {
@@ -620,7 +681,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 20
       },
       "id": 3,
       "options": {
@@ -662,7 +723,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 27
       },
       "id": 4,
       "panels": [],
@@ -734,7 +795,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 28
       },
       "id": 5,
       "options": {
@@ -830,7 +891,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 28
       },
       "id": 10,
       "options": {
@@ -930,7 +991,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 35
       },
       "id": 6,
       "options": {
@@ -968,7 +1029,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 42
       },
       "id": 7,
       "panels": [],
@@ -1044,7 +1105,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 43
       },
       "id": 8,
       "options": {
@@ -1144,7 +1205,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 43
       },
       "id": 9,
       "options": {
@@ -1245,5 +1306,5 @@
   "timezone": "",
   "title": "Solana Arbitrage Bot Monitoring",
   "uid": "solana",
-  "version": 2
+  "version": 5
 }

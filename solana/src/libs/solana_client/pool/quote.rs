@@ -1,6 +1,6 @@
 use solana_sdk::{account::Account, clock::Clock};
 
-use super::liquidity::LiquidityBitmap;
+use crate::libs::solana_client::pool::{AmmConfigType, LiquidityBitmap, LiquidityMap};
 
 /// Specifies the type of swap simulation to perform.
 pub enum QuoteType {
@@ -30,8 +30,14 @@ pub struct QuoteContext<'a> {
     /// Mint account of the output token (used for Token-2022 transfer fee calculation).
     pub mint_out: &'a Account,
 
+    /// Protocol-specific liquidity arrays from cache.
+    pub liquidity: Option<LiquidityMap<'a>>,
+
     /// Optional protocol-specific bitmap extension for locating liquidity arrays.
     pub bitmap: Option<LiquidityBitmap<'a>>,
+
+    /// AMM config for the pool being quoted (contains fee rates and tick spacing).
+    pub amm_config: Option<AmmConfigType>,
 }
 
 /// Result of a swap simulation.

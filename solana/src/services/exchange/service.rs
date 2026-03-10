@@ -9,15 +9,16 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     Config,
     config::Transport,
-    libs::solana_client::{
-        GrpcClient, GrpcConfig, RpcClient, SolanaStream, StreamClient, StreamConfig,
-        models::SubscribeTarget,
+    libs::solana_client::*,
+    services::exchange::{
+        background::{AmmConfigService, BackgroundService, MintService},
+        cache,
+        market::MarketService,
     },
-    services::exchange::{cache, market::MarketService, mint::MintService},
 };
 
 pub struct ExchangeService {
-    mint_service: Arc<MintService>,
+    background_services: Vec<Arc<dyn BackgroundService + Send + Sync>>,
     market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
 }
 
@@ -28,13 +29,14 @@ impl ArbitrageService for ExchangeService {
     async fn start(&self, token: CancellationToken) -> anyhow::Result<()> {
         let mut tasks_set = JoinSet::new();
 
-        // Background job: periodically refreshes mint accounts cache via RPC
-        tasks_set.spawn({
-            let token = token.clone();
-            let mint_service = self.mint_service.clone();
-
-            async move { mint_service.start(token).await }
-        });
+        // Background jobs.
+        for service in &self.background_services {
+            tasks_set.spawn({
+                let token = token.clone();
+                let service = service.clone();
+                async move { service.start(token).await }
+            });
+        }
 
         // Main market stream: subscribes to on-chain account updates via websocket/gRPC
         tasks_set.spawn({
@@ -74,8 +76,11 @@ impl ExchangeService {
         };
 
         Ok(Self {
+            background_services: vec![
+                Arc::new(MintService::new(rpc_client.clone())),
+                Arc::new(AmmConfigService::new(rpc_client)),
+            ],
             market_stream,
-            mint_service: Arc::new(MintService::new(rpc_client)),
         })
     }
 }

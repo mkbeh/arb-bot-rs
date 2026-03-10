@@ -2,10 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID,
-    metrics::{DEX_METEORA_DAMM_V2, DexMetrics},
-    pool::*,
-    registry::DexEntity,
+    dex::meteora_damm_v2::constants::*, metrics::*, pool::*, registry::DexEntity,
 };
 
 // Number of rewards supported by pool
@@ -100,11 +97,7 @@ impl DexPool for Pool {
     }
 
     #[allow(clippy::todo)]
-    fn quote(
-        &self,
-        _ctx: &QuoteContext,
-        _data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult> {
+    fn quote(&self, _ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         todo!()
     }
 }

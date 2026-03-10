@@ -2,10 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::raydium_amm::constants::RAYDIUM_AMM_ID,
-    metrics::{DEX_RAYDIUM_AMM, DexMetrics},
-    pool::*,
-    registry::DexEntity,
+    dex::raydium_amm::constants::*, metrics::*, pool::*, registry::DexEntity,
 };
 
 #[repr(C, packed)]
@@ -103,11 +100,7 @@ impl DexPool for AmmInfo {
     }
 
     #[allow(clippy::todo)]
-    fn quote(
-        &self,
-        _ctx: &QuoteContext,
-        _data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult> {
+    fn quote(&self, _ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         todo!()
     }
 }
