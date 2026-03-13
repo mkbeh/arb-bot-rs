@@ -1,4 +1,5 @@
 use solana_sdk::{account::Account, clock::Clock};
+use spl_token_2022::extension::StateWithExtensions;
 
 use crate::libs::solana_client::pool::{AmmConfigType, LiquidityBitmap, LiquidityMap};
 
@@ -38,6 +39,24 @@ pub struct QuoteContext<'a> {
 
     /// AMM config for the pool being quoted (contains fee rates and tick spacing).
     pub amm_config: Option<AmmConfigType>,
+}
+
+impl<'a> QuoteContext<'a> {
+    pub fn mint_in_state(
+        &self,
+    ) -> anyhow::Result<StateWithExtensions<'_, spl_token_2022::state::Mint>> {
+        Ok(StateWithExtensions::<spl_token_2022::state::Mint>::unpack(
+            self.mint_in.data.as_ref(),
+        )?)
+    }
+
+    pub fn mint_out_state(
+        &self,
+    ) -> anyhow::Result<StateWithExtensions<'_, spl_token_2022::state::Mint>> {
+        Ok(StateWithExtensions::<spl_token_2022::state::Mint>::unpack(
+            self.mint_out.data.as_ref(),
+        )?)
+    }
 }
 
 /// Result of a swap simulation.

@@ -15,7 +15,7 @@ async-trait = { version = "0.1.89" }
 axum = { version = "0.8.8" }
 base64 = { version = "0.22.1" }
 bs58 = { version = "0.5.1" }
-clap = { version = "4.5.60" }
+clap = { version = "4.6.0" }
 comfy-table = { version = "7.2.2" }
 dashmap = { version = "6.1.0" }
 futures-util = { version = "0.3.32" }
@@ -45,7 +45,7 @@ tokio-tungstenite = { version = "0.28.0" }
 tokio-util = { version = "0.7.18" }
 toml = { version = "1.0.6" }
 tracing = { version = "0.1.44", default-features = false }
-tracing-subscriber = { version = "0.3.22" }
+tracing-subscriber = { version = "0.3.23" }
 url = { version = "2.5.8" }
 uuid = { version = "1.22.0" }
 
@@ -55,10 +55,11 @@ num-integer = { version = "0.1.46" }
 num-traits = { version = "0.2.19" }
 num_enum = { version = "0.7.5" }
 ruint = { version = "1.17.2" }
-solana-client = { version = "3.1.9" }
+solana-client = { version = "3.1.10" }
 solana-sdk = { version = "3.0.0" }
 spl-token = { version = "9.0.0" }
 spl-token-2022 = { version = "10.0.0" }
+uint = { git = "https://github.com/raydium-io/parity-common" }
 yellowstone-grpc-client = { version = "12.1.0" }
 yellowstone-grpc-proto = { version = "12.1.0" }
 
