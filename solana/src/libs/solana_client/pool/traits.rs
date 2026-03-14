@@ -20,6 +20,11 @@ pub trait DexPool: DexMetrics + Send + Sync {
         (self.get_mint_a(), self.get_mint_b())
     }
 
+    /// Returns vault pubkeys (token_a_vault, token_b_vault) if pool uses external vaults.
+    fn get_vault_pubkeys(&self) -> Option<(Pubkey, Pubkey)> {
+        None
+    }
+
     /// Simulates a swap and returns a detailed quote.
     ///
     /// # Arguments

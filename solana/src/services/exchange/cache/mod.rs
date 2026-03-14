@@ -5,6 +5,7 @@ pub mod metrics;
 pub mod mint;
 pub mod pool;
 pub mod state;
+pub mod vault;
 
 pub use amm_config::*;
 pub use index::*;
@@ -13,6 +14,7 @@ pub use metrics::*;
 pub use mint::*;
 pub use pool::*;
 pub use state::*;
+pub use vault::*;
 
 /// Initializes the global market state and cache metrics.
 ///

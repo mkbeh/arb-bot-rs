@@ -1,34 +1,40 @@
-use std::sync::Arc;
-
-use tokio::sync::Mutex;
+use std::pin::Pin;
 
 use crate::libs::solana_client::models::Event;
 
-pub trait BatchEventHandler: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static {}
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-impl<F> BatchEventHandler for F where F: FnMut(Vec<Event>) -> anyhow::Result<()> + Send + 'static {}
+pub trait BatchEventHandler: Send + Sync + 'static {
+    fn call(&mut self, events: Vec<Event>) -> BoxFuture<'static, anyhow::Result<()>>;
+}
+
+impl<F, Fut> BatchEventHandler for F
+where
+    F: FnMut(Vec<Event>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = anyhow::Result<()>> + Send + 'static,
+{
+    fn call(&mut self, events: Vec<Event>) -> BoxFuture<'static, anyhow::Result<()>> {
+        Box::pin((self)(events))
+    }
+}
 
 type BatchEventCallback = Box<dyn BatchEventHandler>;
 
-#[derive(Clone)]
 pub struct BatchEventCallbackWrapper {
-    inner: Arc<Mutex<BatchEventCallback>>,
+    inner: BatchEventCallback,
 }
 
 impl BatchEventCallbackWrapper {
     pub fn new<F: BatchEventHandler>(callback: F) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Box::new(callback))),
+            inner: Box::new(callback),
         }
     }
 
-    /// Invokes the callback with the given events.
-    pub async fn call(&self, events: Vec<Event>) -> anyhow::Result<()> {
+    pub async fn call(&mut self, events: Vec<Event>) -> anyhow::Result<()> {
         if events.is_empty() {
             return Ok(());
         }
-
-        let mut guard = self.inner.lock().await;
-        guard(events)
+        self.inner.call(events).await
     }
 }

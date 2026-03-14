@@ -280,7 +280,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 7
       },
@@ -336,7 +336,7 @@
       "gridPos": {
         "h": 6,
         "w": 3,
-        "x": 4,
+        "x": 3,
         "y": 7
       },
       "id": 16,
@@ -394,8 +394,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 5,
-        "x": 7,
+        "w": 6,
+        "x": 6,
         "y": 7
       },
       "id": 17,
@@ -511,6 +511,65 @@
       ],
       "title": "Liquidity Density: Arrays per Pool Distribution",
       "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 0,
+        "y": 13
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": true,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "expr": "cache_size_vault_total",
+          "legendFormat": "Vault Cache",
+          "refId": "A"
+        }
+      ],
+      "title": "Vault Cache Activity",
+      "type": "stat"
     },
     {
       "collapsed": false,
@@ -1306,5 +1365,5 @@
   "timezone": "",
   "title": "Solana Arbitrage Bot Monitoring",
   "uid": "solana",
-  "version": 5
+  "version": 6
 }

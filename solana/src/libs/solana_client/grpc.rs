@@ -88,7 +88,7 @@ impl Default for SubscribeOptions {
 }
 
 /// Wrapper for Solana RPC gRPC client using Yellowstone Geyser protocol.
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct GrpcClient {
     config: GrpcConfig,
     callback: Option<BatchEventCallbackWrapper>,
@@ -144,7 +144,7 @@ impl GrpcClient {
         }
     }
 
-    async fn subscribe_session(&self, token: &CancellationToken) -> anyhow::Result<()> {
+    async fn subscribe_session(&mut self, token: &CancellationToken) -> anyhow::Result<()> {
         let config = self.config.clone();
         let options = self.config.options.clone().unwrap_or_default();
 
@@ -314,7 +314,11 @@ impl GrpcClient {
 
     /// Processes the gRPC stream in an optimized event loop with batching and parallel parsing
     /// support.
-    async fn handle_events<S>(&self, mut stream: S, token: &CancellationToken) -> anyhow::Result<()>
+    async fn handle_events<S>(
+        &mut self,
+        mut stream: S,
+        token: &CancellationToken,
+    ) -> anyhow::Result<()>
     where
         S: Stream<Item = Result<SubscribeUpdate, Status>> + Unpin + Send + 'static,
     {
@@ -353,7 +357,7 @@ impl GrpcClient {
             STREAM_METRICS.observe_duration(Transport::Grpc, start_time);
 
             if !events.is_empty()
-                && let Some(cb) = &self.callback
+                && let Some(ref mut cb) = self.callback
             {
                 let cb_start = Instant::now();
                 cb.call(events).await.context("callback failed")?;

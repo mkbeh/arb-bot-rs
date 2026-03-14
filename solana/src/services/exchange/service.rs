@@ -67,20 +67,16 @@ impl ExchangeService {
     pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
         cache::init(config.liquidity_depth)?;
 
-        let rpc_client = Arc::new(RpcClient::from_config(config.try_into()?));
-
-        let market_stream = {
-            let mut stream = create_stream(config, vec![SubscribeTarget::Account])?;
-            MarketService::new().bind_to(&mut stream);
-            Arc::new(Mutex::new(stream))
-        };
+        let rpc = Arc::new(RpcClient::from_config(config.try_into()?));
+        let mut stream = create_stream(config, vec![SubscribeTarget::Account])?;
+        Arc::new(MarketService::new(rpc.clone())).bind_to(&mut stream);
 
         Ok(Self {
             background_services: vec![
-                Arc::new(MintService::new(rpc_client.clone())),
-                Arc::new(AmmConfigService::new(rpc_client)),
+                Arc::new(MintService::new(rpc.clone())),
+                Arc::new(AmmConfigService::new(rpc)),
             ],
-            market_stream,
+            market_stream: Arc::new(Mutex::new(stream)),
         })
     }
 }

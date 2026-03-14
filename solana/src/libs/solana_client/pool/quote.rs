@@ -31,6 +31,9 @@ pub struct QuoteContext<'a> {
     /// Mint account of the output token (used for Token-2022 transfer fee calculation).
     pub mint_out: &'a Account,
 
+    /// Vault token amounts (amount_a, amount_b) for pools that use external vaults (CPMM, AMM).
+    pub vaults: Option<(u64, u64)>,
+
     /// Protocol-specific liquidity arrays from cache.
     pub liquidity: Option<LiquidityMap<'a>>,
 

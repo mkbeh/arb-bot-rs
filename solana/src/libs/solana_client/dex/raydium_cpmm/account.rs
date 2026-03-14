@@ -93,6 +93,13 @@ impl DexPool for PoolState {
         Pubkey::from(self.token_1_mint)
     }
 
+    fn get_vault_pubkeys(&self) -> Option<(Pubkey, Pubkey)> {
+        Some((
+            Pubkey::from(self.token_0_vault),
+            Pubkey::from(self.token_1_vault),
+        ))
+    }
+
     #[allow(clippy::todo)]
     fn quote(&self, _ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         todo!()
