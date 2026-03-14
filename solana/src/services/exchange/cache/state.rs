@@ -100,7 +100,7 @@ impl MarketState {
 
     /// Updates the vault token balances in the market state
     pub fn update_vaults(&mut self, vaults: &[Pubkey], accounts: Vec<Option<Account>>) {
-        for (pubkey, account) in vaults.iter().zip(accounts.into_iter()) {
+        for (pubkey, account) in vaults.iter().zip(accounts) {
             let Some(acc) = account else {
                 continue;
             };

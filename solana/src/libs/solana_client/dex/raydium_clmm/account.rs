@@ -333,8 +333,8 @@ impl DexPool for PoolState {
         let zero_for_one = ctx.a_to_b;
 
         // explain: mint_in = token_mint_0, mint_out = token_mint_1
-        let mint_in = ctx.mint_in_state()?;
-        let mint_out = ctx.mint_out_state()?;
+        let mint_in = ctx.unpack_mint_in()?;
+        let mint_out = ctx.unpack_mint_out()?;
 
         let transfer_fee = if base_in {
             if zero_for_one {

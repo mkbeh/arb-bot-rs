@@ -35,7 +35,7 @@ rustls = { version = "0.23" }
 serde = { version = "1.0.228", default-features = false }
 serde_json = { version = "1.0.149" }
 serde_urlencoded = { version = "0.7.1" }
-serde_with = { version = "3.17.0" }
+serde_with = { version = "3.18.0" }
 sha2 = { version = "0.10.9" }
 simd-json = { version = "0.17.0" }
 strum = { version = "0.28.0" }
