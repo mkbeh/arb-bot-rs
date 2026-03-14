@@ -39,8 +39,15 @@ pub struct MarketUpdateResult {
     pub vaults: AHashSet<Pubkey>,
 }
 
+/// Represents the result of a single pool state update.
 pub struct UpdatedPool {
+    /// The public key of the pool that was updated.
     pub pool_id: Pubkey,
+    /// Vault pubkeys requiring a balance.
+    ///
+    /// Contains `[token_a_vault, token_b_vault]` for pools that use external
+    /// vault accounts (e.g. Raydium CPMM, Raydium AMM, Orca).
+    /// `None` for pools that don't use vaults (e.g. tick array updates).
     pub vaults: Option<[Pubkey; 2]>,
 }
 
