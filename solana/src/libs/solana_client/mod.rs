@@ -11,6 +11,7 @@ pub mod utils;
 pub mod ws_stream;
 
 pub use grpc::{GrpcClient, GrpcConfig, SubscribeOptions};
+pub use models::SubscribeTarget;
 pub use rpc::{RpcClient, RpcConfig};
 pub use traits::SolanaStream;
 pub use ws_stream::{StreamClient, StreamConfig};

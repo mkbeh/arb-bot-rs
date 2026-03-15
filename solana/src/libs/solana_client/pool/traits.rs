@@ -1,9 +1,6 @@
 use solana_sdk::pubkey::Pubkey;
 
-use super::{
-    liquidity::LiquidityMap,
-    quote::{QuoteContext, QuoteResult},
-};
+use super::quote::{QuoteContext, QuoteResult};
 use crate::libs::solana_client::metrics::DexMetrics;
 
 /// Core trait for DEX pool implementations.
@@ -23,6 +20,11 @@ pub trait DexPool: DexMetrics + Send + Sync {
         (self.get_mint_a(), self.get_mint_b())
     }
 
+    /// Returns vault pubkeys (token_a_vault, token_b_vault) if pool uses external vaults.
+    fn get_vault_pubkeys(&self) -> Option<(Pubkey, Pubkey)> {
+        None
+    }
+
     /// Simulates a swap and returns a detailed quote.
     ///
     /// # Arguments
@@ -31,6 +33,5 @@ pub trait DexPool: DexMetrics + Send + Sync {
     ///
     /// # Errors
     /// Returns an error if the pool state is invalid or liquidity is insufficient.
-    fn quote(&self, ctx: &QuoteContext, data: Option<&LiquidityMap>)
-    -> anyhow::Result<QuoteResult>;
+    fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult>;
 }

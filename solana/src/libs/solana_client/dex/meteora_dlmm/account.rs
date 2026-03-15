@@ -68,12 +68,8 @@ impl DexPool for LbPair {
         Pubkey::from(self.token_y_mint)
     }
 
-    fn quote(
-        &self,
-        ctx: &QuoteContext,
-        data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult> {
-        let Some(LiquidityMap::MeteoraDlmm(bin_arrays)) = data else {
+    fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
+        let Some(LiquidityMap::MeteoraDlmm(bin_arrays)) = ctx.liquidity else {
             anyhow::bail!("Invalid data type for MeteoraDlmm");
         };
 

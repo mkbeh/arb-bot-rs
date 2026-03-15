@@ -29,6 +29,7 @@ tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 bytemuck = { workspace = true }
+num-derive = { workspace = true }
 num-integer = { workspace = true }
 num-traits = { workspace = true }
 num_enum = { workspace = true }
@@ -37,6 +38,8 @@ solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 spl-token = { workspace = true }
 spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
+thiserror = { workspace = true }
+uint = { workspace = true }
 yellowstone-grpc-client = { workspace = true }
 yellowstone-grpc-proto = { workspace = true }
 

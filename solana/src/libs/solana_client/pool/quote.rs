@@ -1,6 +1,7 @@
 use solana_sdk::{account::Account, clock::Clock};
+use spl_token_2022::extension::{PodStateWithExtensions, StateWithExtensions};
 
-use super::liquidity::LiquidityBitmap;
+use crate::libs::solana_client::pool::{AmmConfigType, LiquidityBitmap, LiquidityMap};
 
 /// Specifies the type of swap simulation to perform.
 pub enum QuoteType {
@@ -30,8 +31,57 @@ pub struct QuoteContext<'a> {
     /// Mint account of the output token (used for Token-2022 transfer fee calculation).
     pub mint_out: &'a Account,
 
+    /// Vault token amounts (amount_a, amount_b) for pools that use external vaults (CPMM, AMM).
+    pub vaults: Option<(u64, u64)>,
+
+    /// Protocol-specific liquidity arrays from cache.
+    pub liquidity: Option<LiquidityMap<'a>>,
+
     /// Optional protocol-specific bitmap extension for locating liquidity arrays.
     pub bitmap: Option<LiquidityBitmap<'a>>,
+
+    /// AMM config for the pool being quoted (contains fee rates and tick spacing).
+    pub amm_config: Option<AmmConfigType>,
+}
+
+impl<'a> QuoteContext<'a> {
+    pub fn unpack_mint_in(
+        &self,
+    ) -> anyhow::Result<StateWithExtensions<'_, spl_token_2022::state::Mint>> {
+        Self::unpack_mint(self.mint_in.data.as_ref())
+    }
+
+    pub fn unpack_mint_out(
+        &self,
+    ) -> anyhow::Result<StateWithExtensions<'_, spl_token_2022::state::Mint>> {
+        Self::unpack_mint(self.mint_out.data.as_ref())
+    }
+
+    pub fn unpack_pod_mint_in(
+        &self,
+    ) -> anyhow::Result<PodStateWithExtensions<'_, spl_token_2022::pod::PodMint>> {
+        Self::unpack_pod_mint(self.mint_in.data.as_ref())
+    }
+
+    pub fn unpack_pod_mint_out(
+        &self,
+    ) -> anyhow::Result<PodStateWithExtensions<'_, spl_token_2022::pod::PodMint>> {
+        Self::unpack_pod_mint(self.mint_out.data.as_ref())
+    }
+
+    fn unpack_mint(
+        data: &[u8],
+    ) -> anyhow::Result<StateWithExtensions<'_, spl_token_2022::state::Mint>> {
+        Ok(StateWithExtensions::<spl_token_2022::state::Mint>::unpack(
+            data,
+        )?)
+    }
+
+    fn unpack_pod_mint(
+        data: &[u8],
+    ) -> anyhow::Result<PodStateWithExtensions<'_, spl_token_2022::pod::PodMint>> {
+        Ok(PodStateWithExtensions::<spl_token_2022::pod::PodMint>::unpack(data)?)
+    }
 }
 
 /// Result of a swap simulation.

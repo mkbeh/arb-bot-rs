@@ -1,14 +1,20 @@
 use std::{collections::hash_map::Entry, sync::LazyLock, time::Instant};
 
 use ahash::AHashMap;
+use parking_lot::RwLock;
 use solana_sdk::{account::Account, pubkey::Pubkey};
-use tokio::sync::RwLock;
 
 use crate::services::exchange::cache::MINT_CACHE_METRICS;
 
 /// Global thread-safe instance of the `MintCache`.
-pub static MINT_CACHE: LazyLock<RwLock<MintCache>> =
+static MINT_CACHE: LazyLock<RwLock<MintCache>> =
     LazyLock::new(|| RwLock::new(MintCache::default()));
+
+/// Returns a global static reference to the Mint cache.
+#[must_use]
+pub fn get_mint_cache() -> &'static RwLock<MintCache> {
+    &MINT_CACHE
+}
 
 /// Represents a cached Solana account with metadata.
 #[derive(Debug, Clone)]

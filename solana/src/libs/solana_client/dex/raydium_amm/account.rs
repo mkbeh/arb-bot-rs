@@ -2,11 +2,13 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::raydium_amm::constants::RAYDIUM_AMM_ID,
-    metrics::{DEX_RAYDIUM_AMM, DexMetrics},
+    dex::raydium_amm::{constants::*, program::*},
+    metrics::*,
     pool::*,
     registry::DexEntity,
 };
+
+pub const AMM_COMPUTE_UNITS: u32 = 27_000;
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -102,13 +104,84 @@ impl DexPool for AmmInfo {
         Pubkey::from(self.pc_vault_mint)
     }
 
-    #[allow(clippy::todo)]
-    fn quote(
-        &self,
-        _ctx: &QuoteContext,
-        _data: Option<&LiquidityMap>,
-    ) -> anyhow::Result<QuoteResult> {
-        todo!()
+    fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
+        let (vault_coin, vault_pc) = ctx
+            .vaults
+            .ok_or_else(|| anyhow::anyhow!("Missing vault amounts for Raydium AMM"))?;
+
+        let (total_pc_without_take_pnl, total_coin_without_take_pnl) =
+            Calculator::calc_total_without_take_pnl_no_orderbook(vault_pc, vault_coin, self)?;
+
+        let swap_direction = SwapDirection::from(ctx.a_to_b);
+
+        match ctx.quote_type {
+            QuoteType::ExactIn(amount) => {
+                let amount_u128 = U128::from(amount);
+
+                let swap_fee = amount_u128
+                    .checked_mul(U128::from(self.fees.swap_fee_numerator))
+                    .ok_or_else(|| anyhow::anyhow!("fee overflow"))?
+                    .checked_ceil_div(U128::from(self.fees.swap_fee_denominator))
+                    .ok_or_else(|| anyhow::anyhow!("fee ceil_div overflow"))?;
+
+                let swap_in_after_deduct_fee = amount_u128
+                    .checked_sub(swap_fee)
+                    .ok_or_else(|| anyhow::anyhow!("fee exceeds amount"))?;
+
+                let amount_out = Calculator::swap_token_amount_base_in(
+                    swap_in_after_deduct_fee,
+                    total_pc_without_take_pnl.into(),
+                    total_coin_without_take_pnl.into(),
+                    swap_direction,
+                );
+
+                Ok(QuoteResult {
+                    steps: vec![],
+                    total_amount_in_gross: amount,
+                    total_amount_in_net: swap_in_after_deduct_fee.as_u64(),
+                    total_amount_out: amount_out.as_u64(),
+                    total_fee: swap_fee.as_u64(),
+                    compute_units: AMM_COMPUTE_UNITS,
+                })
+            }
+
+            QuoteType::ExactOut(amount) => {
+                let swap_in_before_add_fee = Calculator::swap_token_amount_base_out(
+                    amount.into(),
+                    total_pc_without_take_pnl.into(),
+                    total_coin_without_take_pnl.into(),
+                    swap_direction,
+                );
+
+                // swap_in_after_add_fee * (1 - 0.0025) = swap_in_before_add_fee
+                // swap_in_after_add_fee = swap_in_before_add_fee / (1 - 0.0025)
+                let swap_in_after_add_fee = swap_in_before_add_fee
+                    .checked_mul(self.fees.swap_fee_denominator.into())
+                    .ok_or_else(|| anyhow::anyhow!("fee overflow"))?
+                    .checked_ceil_div(
+                        self.fees
+                            .swap_fee_denominator
+                            .checked_sub(self.fees.swap_fee_numerator)
+                            .ok_or_else(|| anyhow::anyhow!("fee denominator underflow"))?
+                            .into(),
+                    )
+                    .ok_or_else(|| anyhow::anyhow!("fee ceil_div overflow"))?
+                    .as_u64();
+
+                let swap_fee = swap_in_after_add_fee
+                    .checked_sub(swap_in_before_add_fee.as_u64())
+                    .ok_or_else(|| anyhow::anyhow!("fee underflow"))?;
+
+                Ok(QuoteResult {
+                    steps: vec![],
+                    total_amount_in_gross: swap_in_after_add_fee,
+                    total_amount_in_net: swap_in_before_add_fee.as_u64(),
+                    total_amount_out: amount,
+                    total_fee: swap_fee,
+                    compute_units: AMM_COMPUTE_UNITS,
+                })
+            }
+        }
     }
 }
 

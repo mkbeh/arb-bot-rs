@@ -5,3 +5,4 @@ pub mod pump_fun;
 pub mod raydium_amm;
 pub mod raydium_clmm;
 pub mod raydium_cpmm;
+pub mod utils;

@@ -61,7 +61,7 @@ pub struct StreamConfig {
 }
 
 /// `Stream` manages the lifecycle of a WebSocket connection to a Solana RPC node.
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct StreamClient {
     /// Configuration for the stream
     config: StreamConfig,
