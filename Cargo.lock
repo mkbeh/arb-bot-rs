@@ -4722,6 +4722,7 @@ dependencies = [
  "futures-util",
  "metrics",
  "metrics-exporter-prometheus",
+ "num-derive",
  "num-integer",
  "num-traits",
  "num_enum",
