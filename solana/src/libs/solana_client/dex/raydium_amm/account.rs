@@ -104,6 +104,10 @@ impl DexPool for AmmInfo {
         Pubkey::from(self.pc_vault_mint)
     }
 
+    fn get_vault_pubkeys(&self) -> Option<(Pubkey, Pubkey)> {
+        Some((Pubkey::from(self.coin_vault), Pubkey::from(self.pc_vault)))
+    }
+
     fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         let (vault_coin, vault_pc) = ctx
             .vaults

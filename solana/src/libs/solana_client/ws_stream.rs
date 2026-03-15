@@ -41,7 +41,7 @@ type StreamWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Messag
 type StreamReader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
 #[derive(Clone, Debug)]
-pub struct StreamConfig {
+pub struct WebsocketStreamConfig {
     /// The gRPC endpoint URL.
     pub endpoint: String,
     /// The interval in seconds at which WebSocket 'Ping' frames are sent
@@ -61,10 +61,9 @@ pub struct StreamConfig {
 }
 
 /// `Stream` manages the lifecycle of a WebSocket connection to a Solana RPC node.
-// #[derive(Clone)]
-pub struct StreamClient {
+pub struct WebsocketStream {
     /// Configuration for the stream
-    config: StreamConfig,
+    config: WebsocketStreamConfig,
     /// Wrapper for a thread-safe callback executed on every batch
     callback: Option<BatchEventCallbackWrapper>,
     /// Tracks active requests pending server confirmation: `request_id -> TargetInfo`
@@ -74,7 +73,7 @@ pub struct StreamClient {
 }
 
 #[async_trait]
-impl SolanaStream for StreamClient {
+impl SolanaStream for WebsocketStream {
     fn set_callback(&mut self, callback: BatchEventCallbackWrapper) {
         self.callback = Some(callback);
     }
@@ -113,13 +112,13 @@ impl SolanaStream for StreamClient {
     }
 }
 
-impl StreamClient {
+impl WebsocketStream {
     /// Creates a new `Stream` instance with the provided configuration.
     ///
     /// # Arguments
     /// * `config` - Settings for connection behavior and data processing.
     #[must_use]
-    pub fn from_config(config: StreamConfig) -> Self {
+    pub fn from_config(config: WebsocketStreamConfig) -> Self {
         Self {
             config,
             callback: None,

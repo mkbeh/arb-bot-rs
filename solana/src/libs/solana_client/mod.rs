@@ -1,6 +1,6 @@
 pub mod callback;
 pub mod dex;
-pub mod grpc;
+pub mod grpc_stream;
 pub mod metrics;
 pub mod models;
 pub mod pool;
@@ -10,8 +10,8 @@ pub mod traits;
 pub mod utils;
 pub mod ws_stream;
 
-pub use grpc::{GrpcClient, GrpcConfig, SubscribeOptions};
+pub use grpc_stream::{GrpcStream, GrpcStreamConfig, SubscribeOptions};
 pub use models::SubscribeTarget;
 pub use rpc::{RpcClient, RpcConfig};
 pub use traits::SolanaStream;
-pub use ws_stream::{StreamClient, StreamConfig};
+pub use ws_stream::{WebsocketStream, WebsocketStreamConfig};

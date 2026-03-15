@@ -25,9 +25,7 @@ use crate::{
     services::exchange::cache::*,
 };
 
-// ------------------------------------------------------------------ //
-//  BackgroundService trait                                           //
-// ------------------------------------------------------------------ //
+//  --- BackgroundService trait ---
 
 #[async_trait]
 pub trait BackgroundService {
@@ -74,9 +72,7 @@ pub trait BackgroundService {
     }
 }
 
-// ------------------------------------------------------------------ //
-//  MintService                                                       //
-// ------------------------------------------------------------------ //
+//  --- MintService ---
 
 pub struct MintService {
     rpc: Arc<RpcClient>,
@@ -141,9 +137,7 @@ impl BackgroundService for MintService {
     }
 }
 
-// ------------------------------------------------------------------ //
-//  AmmConfigService                                                  //
-// ------------------------------------------------------------------ //
+//  --- AmmConfigService ---
 
 pub struct AmmConfigService {
     rpc: Arc<RpcClient>,
