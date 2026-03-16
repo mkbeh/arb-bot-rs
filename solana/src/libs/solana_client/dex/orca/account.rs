@@ -55,7 +55,7 @@ pub struct Whirlpool {
 impl DexEntity for Whirlpool {
     const PROGRAM_ID: Pubkey = ORCA_ID;
     const DISCRIMINATOR: &'static [u8] = &[63, 149, 209, 12, 225, 128, 99, 9];
-    const DATA_SIZE: usize = 653;
+    const DATA_SIZE: usize = 8 + 261 + 384; // 653
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)

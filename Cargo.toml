@@ -54,7 +54,7 @@ bytemuck = { version = "1.25.0" }
 num-derive = { version = "0.4.2" }
 num-integer = { version = "0.1.46" }
 num-traits = { version = "0.2.19" }
-num_enum = { version = "0.7.5" }
+num_enum = { version = "0.7.6" }
 ruint = { version = "1.17.2" }
 solana-client = { version = "3.1.10" }
 solana-sdk = { version = "3.0.0" }
