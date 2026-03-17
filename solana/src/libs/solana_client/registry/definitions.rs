@@ -51,6 +51,7 @@ pub fn fill_registry(reg: &mut DexRegistry) {
     reg.add_boxed::<orca::Whirlpool, _>(PoolState::WhirlpoolOrca);
     reg.add_boxed::<orca::FixedTickArray, _>(PoolState::FixedTickArrayOrca);
     reg.add_boxed::<orca::DynamicTickArray, _>(PoolState::DynamicTickArrayOrca);
+    reg.add_boxed::<orca::Oracle, _>(PoolState::OracleOrca);
     reg.add::<orca::Swap, _>(TxEvent::SwapOrca);
 
     // PumpFun Integration

@@ -158,6 +158,127 @@ impl DexEntity for PoolState {
     }
 }
 
+impl DexPool for PoolState {
+    fn get_mint_a(&self) -> Pubkey {
+        Pubkey::from(self.token_mint_0)
+    }
+
+    fn get_mint_b(&self) -> Pubkey {
+        Pubkey::from(self.token_mint_1)
+    }
+
+    fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
+        let Some(AmmConfigType::Clmm(ref amm_config)) = ctx.amm_config else {
+            anyhow::bail!("Missing AmmConfig for Raydium CLMM")
+        };
+
+        let Some(LiquidityMap::RaydiumClmm(tick_arrays)) = ctx.liquidity else {
+            anyhow::bail!("Missing liquidity map for Raydium CLMM")
+        };
+
+        let bitmap_extension = match ctx.bitmap {
+            Some(LiquidityBitmap::RaydiumClmm(b)) => b,
+            _ => None,
+        };
+
+        let (amount, base_in) = match ctx.quote_type {
+            QuoteType::ExactIn(amount) => (amount, true),
+            QuoteType::ExactOut(amount) => (amount, false),
+        };
+
+        let zero_for_one = ctx.a_to_b;
+
+        // explain: mint_in = token_mint_0, mint_out = token_mint_1
+        let mint_in = ctx.unpack_mint_in()?;
+        let mint_out = ctx.unpack_mint_out()?;
+
+        let transfer_fee = if base_in {
+            if zero_for_one {
+                get_transfer_fee(&mint_in, ctx.clock.epoch, amount)
+            } else {
+                get_transfer_fee(&mint_out, ctx.clock.epoch, amount)
+            }
+        } else {
+            0
+        };
+
+        let amount_specified = amount
+            .checked_sub(transfer_fee)
+            .ok_or_else(|| anyhow::anyhow!("transfer fee exceeds amount"))?;
+
+        // get the first valid tick array index
+        let (_, current_valid_tick_array_start_index) =
+            self.get_first_initialized_tick_array(&bitmap_extension.copied(), zero_for_one)?;
+
+        // filter tick arrays by direction
+        let mut tick_arrays: VecDeque<&TickArrayState> = if zero_for_one {
+            tick_arrays
+                .iter()
+                .rev()
+                .filter(|(_, ta)| ta.start_tick_index <= current_valid_tick_array_start_index)
+                .map(|(_, ta)| ta)
+                .collect()
+        } else {
+            tick_arrays
+                .iter()
+                .filter(|(_, ta)| ta.start_tick_index >= current_valid_tick_array_start_index)
+                .map(|(_, ta)| ta)
+                .collect()
+        };
+
+        let sqrt_price_limit_x64 = if zero_for_one {
+            MIN_SQRT_PRICE_X64 + 1
+        } else {
+            MAX_SQRT_PRICE_X64 - 1
+        };
+
+        let (amount_0, amount_1, fee_amount, compute_units) = swap_internal(
+            amm_config,
+            self,
+            &mut tick_arrays,
+            &bitmap_extension.copied(),
+            amount_specified,
+            sqrt_price_limit_x64,
+            zero_for_one,
+            base_in,
+            0,
+        )?;
+
+        let (total_amount_in_net, total_amount_out) = if zero_for_one {
+            (amount_0, amount_1)
+        } else {
+            (amount_1, amount_0)
+        };
+
+        let transfer_fee_in = if !base_in {
+            if zero_for_one {
+                get_transfer_inverse_fee(&mint_in, ctx.clock.epoch, total_amount_in_net)
+            } else {
+                get_transfer_inverse_fee(&mint_out, ctx.clock.epoch, total_amount_in_net)
+            }
+        } else {
+            transfer_fee
+        };
+
+        Ok(QuoteResult {
+            steps: vec![],
+            total_amount_in_gross: total_amount_in_net
+                .checked_add(transfer_fee_in)
+                .ok_or_else(|| anyhow::anyhow!("transfer fee overflow"))?,
+            total_amount_in_net,
+            total_amount_out,
+            total_fee: fee_amount,
+            compute_units,
+        })
+    }
+}
+
+impl DexMetrics for PoolState {
+    fn dex_name(&self) -> &'static str {
+        DEX_RAYDIUM_CLMM
+    }
+}
+
 impl PoolState {
     #[must_use]
     pub fn sqrt_price_x64(&self) -> u128 {
@@ -299,127 +420,6 @@ impl PoolState {
             min_tick_boundary = TickArrayState::get_array_start_index(MIN_TICK, self.tick_spacing);
         }
         (min_tick_boundary, max_tick_boundary)
-    }
-}
-
-impl DexPool for PoolState {
-    fn get_mint_a(&self) -> Pubkey {
-        Pubkey::from(self.token_mint_0)
-    }
-
-    fn get_mint_b(&self) -> Pubkey {
-        Pubkey::from(self.token_mint_1)
-    }
-
-    fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
-        let Some(AmmConfigType::Clmm(ref amm_config)) = ctx.amm_config else {
-            anyhow::bail!("Missing AmmConfig for Raydium CLMM")
-        };
-
-        let Some(LiquidityMap::RaydiumClmm(tick_arrays)) = ctx.liquidity else {
-            anyhow::bail!("Missing liquidity map for Raydium CLMM")
-        };
-
-        let bitmap_extension = match ctx.bitmap {
-            Some(LiquidityBitmap::RaydiumClmm(b)) => b,
-            _ => None,
-        };
-
-        let (amount, base_in) = match ctx.quote_type {
-            QuoteType::ExactIn(amount) => (amount, true),
-            QuoteType::ExactOut(amount) => (amount, false),
-        };
-
-        let zero_for_one = ctx.a_to_b;
-
-        // explain: mint_in = token_mint_0, mint_out = token_mint_1
-        let mint_in = ctx.unpack_mint_in()?;
-        let mint_out = ctx.unpack_mint_out()?;
-
-        let transfer_fee = if base_in {
-            if zero_for_one {
-                get_transfer_fee(&mint_in, ctx.clock.epoch, amount)
-            } else {
-                get_transfer_fee(&mint_out, ctx.clock.epoch, amount)
-            }
-        } else {
-            0
-        };
-
-        let amount_specified = amount
-            .checked_sub(transfer_fee)
-            .ok_or_else(|| anyhow::anyhow!("transfer fee exceeds amount"))?;
-
-        // get the first valid tick array index
-        let (_, current_valid_tick_array_start_index) =
-            self.get_first_initialized_tick_array(&bitmap_extension.copied(), zero_for_one)?;
-
-        // filter tick arrays by direction
-        let mut tick_arrays: VecDeque<&TickArrayState> = if zero_for_one {
-            tick_arrays
-                .iter()
-                .rev()
-                .filter(|(_, ta)| ta.start_tick_index <= current_valid_tick_array_start_index)
-                .map(|(_, ta)| ta)
-                .collect()
-        } else {
-            tick_arrays
-                .iter()
-                .filter(|(_, ta)| ta.start_tick_index >= current_valid_tick_array_start_index)
-                .map(|(_, ta)| ta)
-                .collect()
-        };
-
-        let sqrt_price_limit_x64 = if zero_for_one {
-            MIN_SQRT_PRICE_X64 + 1
-        } else {
-            MAX_SQRT_PRICE_X64 - 1
-        };
-
-        let (amount_0, amount_1, fee_amount, compute_units) = swap_internal(
-            amm_config,
-            self,
-            &mut tick_arrays,
-            &bitmap_extension.copied(),
-            amount_specified,
-            sqrt_price_limit_x64,
-            zero_for_one,
-            base_in,
-            0,
-        )?;
-
-        let (total_amount_in_net, total_amount_out) = if zero_for_one {
-            (amount_0, amount_1)
-        } else {
-            (amount_1, amount_0)
-        };
-
-        let transfer_fee_in = if !base_in {
-            if zero_for_one {
-                get_transfer_inverse_fee(&mint_in, ctx.clock.epoch, total_amount_in_net)
-            } else {
-                get_transfer_inverse_fee(&mint_out, ctx.clock.epoch, total_amount_in_net)
-            }
-        } else {
-            transfer_fee
-        };
-
-        Ok(QuoteResult {
-            steps: vec![],
-            total_amount_in_gross: total_amount_in_net
-                .checked_add(transfer_fee_in)
-                .ok_or_else(|| anyhow::anyhow!("transfer fee overflow"))?,
-            total_amount_in_net,
-            total_amount_out,
-            total_fee: fee_amount,
-            compute_units,
-        })
-    }
-}
-
-impl DexMetrics for PoolState {
-    fn dex_name(&self) -> &'static str {
-        DEX_RAYDIUM_CLMM
     }
 }
 

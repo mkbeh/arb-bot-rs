@@ -5,7 +5,7 @@ use engine::Validatable;
 use serde::Deserialize;
 use serde_with::{DurationMicroSeconds, serde_as};
 
-use crate::libs::solana_client::{GrpcConfig, RpcConfig, StreamConfig};
+use crate::libs::solana_client::{GrpcStreamConfig, RpcConfig, WebsocketStreamConfig};
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -67,7 +67,7 @@ impl TryFrom<&Config> for RpcConfig {
     }
 }
 
-impl TryFrom<&Config> for StreamConfig {
+impl TryFrom<&Config> for WebsocketStreamConfig {
     type Error = anyhow::Error;
 
     fn try_from(cfg: &Config) -> Result<Self, Self::Error> {
@@ -85,7 +85,7 @@ impl TryFrom<&Config> for StreamConfig {
     }
 }
 
-impl TryFrom<&Config> for GrpcConfig {
+impl TryFrom<&Config> for GrpcStreamConfig {
     type Error = anyhow::Error;
 
     fn try_from(cfg: &Config) -> Result<Self, Self::Error> {

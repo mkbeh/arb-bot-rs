@@ -27,6 +27,10 @@ pub static AMM_CONFIG_CACHE_METRICS: LazyLock<AmmConfigCacheMetrics> =
 /// Global metrics provider for the Vault Cache.
 pub static VAULT_CACHE_METRICS: LazyLock<VaultCacheMetrics> = LazyLock::new(VaultCacheMetrics::new);
 
+/// Global metrics provider for the Oracle Cache.
+pub static ORACLE_CACHE_METRICS: LazyLock<OracleCacheMetrics> =
+    LazyLock::new(OracleCacheMetrics::new);
+
 pub fn init_metrics() {
     let _ = &*INDEX_CACHE_METRICS;
     let _ = &*POOL_CACHE_METRICS;
@@ -34,6 +38,7 @@ pub fn init_metrics() {
     let _ = &*MINT_CACHE_METRICS;
     let _ = &*AMM_CONFIG_CACHE_METRICS;
     let _ = &*VAULT_CACHE_METRICS;
+    let _ = &*ORACLE_CACHE_METRICS;
 }
 
 /// Metrics manager for tracking price and tick indices.
@@ -232,5 +237,38 @@ impl VaultCacheMetrics {
     #[inline]
     pub fn set_cache_size(&self, size: usize) {
         gauge!(Self::METRIC_VAULT_CACHE_SIZE).set(size as f64);
+    }
+}
+
+/// Metrics manager for tracking oracles.
+pub struct OracleCacheMetrics;
+
+impl Default for OracleCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OracleCacheMetrics {
+    const METRIC_ORACLE_CACHE_SIZE: &str = "cache_size_oracle_total";
+
+    /// Initializes and registers descriptions for cache metrics.
+    #[must_use]
+    pub fn new() -> Self {
+        describe_gauge!(
+            Self::METRIC_ORACLE_CACHE_SIZE,
+            Unit::Count,
+            "The current total number of oracles tracked in the cache"
+        );
+
+        Self
+    }
+
+    /// Sets the current total count of elements in the cache.
+    ///
+    /// This should be called after batch updates to reflect the current state.
+    #[inline]
+    pub fn set_cache_size(&self, size: usize) {
+        gauge!(Self::METRIC_ORACLE_CACHE_SIZE).set(size as f64);
     }
 }

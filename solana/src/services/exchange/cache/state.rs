@@ -7,14 +7,12 @@ use tracing::warn;
 
 use crate::{
     libs::solana_client::{
-        dex::utils::parse_vault_amount,
+        dex::{orca::Oracle, utils::parse_vault_amount},
         metrics::DexMetrics,
         models::{Event, PoolState},
         pool::*,
     },
-    services::exchange::cache::{
-        LiquidityCache, LiquidityIndex, LiquidityIndexCache, PoolCache, VaultCache,
-    },
+    services::exchange::cache::*,
 };
 
 /// Global root state container.
@@ -57,6 +55,7 @@ pub struct MarketState {
     pub liquidity: LiquidityCache,
     pub pools: PoolCache,
     pub vaults: VaultCache,
+    pub oracles: OracleCache,
 }
 
 impl MarketState {
@@ -72,6 +71,7 @@ impl MarketState {
             liquidity: LiquidityCache::new(depth),
             pools: PoolCache::default(),
             vaults: VaultCache::default(),
+            oracles: OracleCache::new(),
         }
     }
 
@@ -141,6 +141,8 @@ impl MarketState {
             PoolState::PoolStateRaydiumCpmm(s) => self.update_pool(pool_id, s),
             PoolState::AmmInfoRaydiumAmm(s) => self.update_pool(pool_id, s),
 
+            PoolState::OracleOrca(s) => self.update_oracle(&s),
+
             PoolState::BondingCurvePumpFun(_)
             | PoolState::BinArrayBitmapExtensionMeteoraDlmm(_)
             | PoolState::TickArrayBitmapExtensionRadiumClmm(_) => None,
@@ -177,5 +179,11 @@ impl MarketState {
         let vaults = pool.get_vault_pubkeys().map(|(v0, v1)| [v0, v1]);
         self.pools.update(pool_id, pool);
         Some(UpdatedPool { pool_id, vaults })
+    }
+
+    /// Stores a new Orca Oracle account into the oracle cache.
+    fn update_oracle(&mut self, oracle: &Oracle) -> Option<UpdatedPool> {
+        self.oracles.update(oracle.pubkey(), *oracle);
+        None
     }
 }

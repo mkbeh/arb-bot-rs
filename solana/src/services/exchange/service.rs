@@ -18,8 +18,8 @@ use crate::{
 };
 
 pub struct ExchangeService {
-    background_services: Vec<Arc<dyn BackgroundService + Send + Sync>>,
     market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
+    background_services: Vec<Arc<dyn BackgroundService + Send + Sync>>,
 }
 
 impl Exchange for ExchangeService {}
@@ -72,11 +72,11 @@ impl ExchangeService {
         Arc::new(MarketService::new(rpc.clone())).bind_to(&mut stream);
 
         Ok(Self {
+            market_stream: Arc::new(Mutex::new(stream)),
             background_services: vec![
                 Arc::new(MintService::new(rpc.clone())),
                 Arc::new(AmmConfigService::new(rpc)),
             ],
-            market_stream: Arc::new(Mutex::new(stream)),
         })
     }
 }
@@ -87,14 +87,14 @@ fn create_stream(
 ) -> anyhow::Result<Box<dyn SolanaStream>> {
     match config.transport {
         Transport::Websocket => {
-            let mut cfg: StreamConfig = config.try_into()?;
+            let mut cfg: WebsocketStreamConfig = config.try_into()?;
             cfg.targets = targets;
-            Ok(Box::new(StreamClient::from_config(cfg)))
+            Ok(Box::new(WebsocketStream::from_config(cfg)))
         }
         Transport::Grpc => {
-            let mut cfg: GrpcConfig = config.try_into()?;
+            let mut cfg: GrpcStreamConfig = config.try_into()?;
             cfg.targets = targets;
-            Ok(Box::new(GrpcClient::from_config(cfg)))
+            Ok(Box::new(GrpcStream::from_config(cfg)))
         }
     }
 }

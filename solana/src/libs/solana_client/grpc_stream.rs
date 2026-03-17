@@ -32,7 +32,7 @@ use crate::libs::solana_client::{
 
 /// Configuration for the Solana RPC client.
 #[derive(Clone, Default)]
-pub struct GrpcConfig {
+pub struct GrpcStreamConfig {
     /// The gRPC endpoint URL.
     pub endpoint: String,
     /// Optional API token for authenticated endpoints.
@@ -88,14 +88,13 @@ impl Default for SubscribeOptions {
 }
 
 /// Wrapper for Solana RPC gRPC client using Yellowstone Geyser protocol.
-// #[derive(Clone)]
-pub struct GrpcClient {
-    config: GrpcConfig,
+pub struct GrpcStream {
+    config: GrpcStreamConfig,
     callback: Option<BatchEventCallbackWrapper>,
 }
 
 #[async_trait]
-impl SolanaStream for GrpcClient {
+impl SolanaStream for GrpcStream {
     fn set_callback(&mut self, callback: BatchEventCallbackWrapper) {
         self.callback = Some(callback);
     }
@@ -134,10 +133,10 @@ impl SolanaStream for GrpcClient {
     }
 }
 
-impl GrpcClient {
+impl GrpcStream {
     /// Creates a new `GrpcClient` from the provided configuration.
     #[must_use]
-    pub fn from_config(config: GrpcConfig) -> Self {
+    pub fn from_config(config: GrpcStreamConfig) -> Self {
         Self {
             config,
             callback: None,
@@ -168,7 +167,7 @@ impl GrpcClient {
     }
 
     async fn connect(
-        config: GrpcConfig,
+        config: GrpcStreamConfig,
     ) -> anyhow::Result<GeyserGrpcClient<impl Interceptor + Clone>> {
         let options = &config.options.unwrap_or_default();
         let mut builder = GeyserGrpcClient::build_from_shared(config.endpoint.clone())?

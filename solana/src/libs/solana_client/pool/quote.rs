@@ -1,7 +1,10 @@
 use solana_sdk::{account::Account, clock::Clock};
 use spl_token_2022::extension::{PodStateWithExtensions, StateWithExtensions};
 
-use crate::libs::solana_client::pool::{AmmConfigType, LiquidityBitmap, LiquidityMap};
+use crate::libs::solana_client::{
+    dex::orca,
+    pool::{AmmConfigType, LiquidityBitmap, LiquidityMap},
+};
 
 /// Specifies the type of swap simulation to perform.
 pub enum QuoteType {
@@ -42,6 +45,9 @@ pub struct QuoteContext<'a> {
 
     /// AMM config for the pool being quoted (contains fee rates and tick spacing).
     pub amm_config: Option<AmmConfigType>,
+
+    /// Orca Oracle account for adaptive fee calculation.
+    pub oracle: Option<&'a orca::Oracle>,
 }
 
 impl<'a> QuoteContext<'a> {
