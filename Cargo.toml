@@ -41,9 +41,9 @@ simd-json = { version = "0.17.0" }
 strum = { version = "0.28.0" }
 thiserror = { version = "2.0.18" }
 tokio = { version = "1.50.0", default-features = false }
-tokio-tungstenite = { version = "0.28.0" }
+tokio-tungstenite = { version = "0.29.0" }
 tokio-util = { version = "0.7.18" }
-toml = { version = "1.0.6" }
+toml = { version = "1.0.7" }
 tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23" }
 url = { version = "2.5.8" }
@@ -55,13 +55,14 @@ num-derive = { version = "0.4.2" }
 num-integer = { version = "0.1.46" }
 num-traits = { version = "0.2.19" }
 num_enum = { version = "0.7.6" }
+orca_whirlpools_core = { version = "2.1.0" }
 ruint = { version = "1.17.2" }
 solana-client = { version = "3.1.10" }
 solana-sdk = { version = "3.0.0" }
 spl-token = { version = "9.0.0" }
 spl-token-2022 = { version = "10.0.0" }
 uint = { git = "https://github.com/raydium-io/parity-common" }
-yellowstone-grpc-client = { version = "12.1.0" }
+yellowstone-grpc-client = { version = "12.2.0" }
 yellowstone-grpc-proto = { version = "12.1.0" }
 
 # dev dependencies

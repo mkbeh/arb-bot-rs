@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use ahash::AHashMap;
+use orca_whirlpools_core::TICK_ARRAY_SIZE;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
@@ -194,7 +195,7 @@ impl LiquidityUpdate for orca::FixedTickArray {
         } = index
         {
             // Calculate total ticks covered by a single array.
-            let ticks_per_array = orca::TICK_ARRAY_SIZE as i64 * *tick_spacing as i64;
+            let ticks_per_array = TICK_ARRAY_SIZE as i64 * *tick_spacing as i64;
 
             // Map absolute tick indices to "page" numbers.
             let current_page = (*tick_current_index as i64).div_euclid(ticks_per_array);
@@ -221,7 +222,7 @@ impl LiquidityUpdate for orca::DynamicTickArray {
         } = index
         {
             // Calculate total ticks covered by a single array.
-            let ticks_per_array = orca::TICK_ARRAY_SIZE as i64 * *tick_spacing as i64;
+            let ticks_per_array = TICK_ARRAY_SIZE as i64 * *tick_spacing as i64;
 
             // Map absolute tick indices to "page" numbers.
             let current_page = (*tick_current_index as i64).div_euclid(ticks_per_array);

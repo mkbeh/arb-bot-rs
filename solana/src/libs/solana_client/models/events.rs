@@ -87,6 +87,7 @@ pub enum PoolState {
     WhirlpoolOrca(Box<orca::Whirlpool>),
     FixedTickArrayOrca(Box<orca::FixedTickArray>),
     DynamicTickArrayOrca(Box<orca::DynamicTickArray>),
+    OracleOrca(Box<orca::Oracle>),
     BondingCurvePumpFun(Box<pump_fun::BondingCurve>),
     /// Fallback for unknown or unsupported account data.
     Unknown(Vec<u8>),
