@@ -13,12 +13,14 @@ use crate::{
     services::exchange::{
         background::{AmmConfigService, BackgroundService, MintService},
         cache,
+        compute::ComputeService,
         market::MarketService,
     },
 };
 
 pub struct ExchangeService {
     market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
+    compute_service: Arc<ComputeService>,
     background_services: Vec<Arc<dyn BackgroundService + Send + Sync>>,
 }
 
@@ -49,6 +51,14 @@ impl ArbitrageService for ExchangeService {
             }
         });
 
+        // Spawn the compute service task responsible for detecting
+        // and evaluating arbitrage opportunities from pool updates.
+        tasks_set.spawn({
+            let token = token.clone();
+            let compute = self.compute_service.clone();
+            async move { compute.start(token).await }
+        });
+
         // If any task finishes (either completes or errors),
         // cancel all others and propagate result
         if let Some(result) = tasks_set.join_next().await {
@@ -68,11 +78,14 @@ impl ExchangeService {
         cache::init(config.liquidity_depth)?;
 
         let rpc = Arc::new(RpcClient::from_config(config.try_into()?));
+        let compute_service = ComputeService::new();
+
         let mut stream = create_stream(config, vec![SubscribeTarget::Account])?;
-        Arc::new(MarketService::new(rpc.clone())).bind_to(&mut stream);
+        Arc::new(MarketService::new(rpc.clone(), compute_service.sender())).bind_to(&mut stream);
 
         Ok(Self {
             market_stream: Arc::new(Mutex::new(stream)),
+            compute_service: Arc::new(compute_service),
             background_services: vec![
                 Arc::new(MintService::new(rpc.clone())),
                 Arc::new(AmmConfigService::new(rpc)),

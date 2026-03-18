@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use ahash::AHashSet;
+use ahash::{AHashMap, AHashSet};
 use parking_lot::RwLock;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 use tracing::warn;
@@ -31,10 +31,18 @@ pub fn get_market_state() -> &'static RwLock<MarketState> {
 
 #[derive(Default)]
 pub struct MarketUpdateResult {
-    /// Pool IDs that were updated.
-    pub changed_pools: AHashSet<Pubkey>,
+    /// Pool IDs mapped to their most recent slot number.
+    pub changed_pools: AHashMap<Pubkey, u64>,
     /// Vault pubkeys that need amount refresh via RPC.
     pub vaults: AHashSet<Pubkey>,
+}
+
+impl MarketUpdateResult {
+    /// Records a pool update, keeping only the most recent slot for each pool.
+    fn record_pool_update(&mut self, pool_id: Pubkey, slot: u64) {
+        let entry = self.changed_pools.entry(pool_id).or_default();
+        *entry = (*entry).max(slot);
+    }
 }
 
 /// Represents the result of a single pool state update.
@@ -51,11 +59,11 @@ pub struct UpdatedPool {
 
 /// Root state container for all DEX-related data in the market.
 pub struct MarketState {
-    pub indices: LiquidityIndexCache,
-    pub liquidity: LiquidityCache,
-    pub pools: PoolCache,
-    pub vaults: VaultCache,
-    pub oracles: OracleCache,
+    indices: LiquidityIndexCache,
+    liquidity: LiquidityCache,
+    pools: PoolCache,
+    vaults: VaultCache,
+    oracles: OracleCache,
 }
 
 impl MarketState {
@@ -84,6 +92,8 @@ impl MarketState {
                 continue;
             };
 
+            let slot = acc.slot;
+
             let Some(updated) = self.update_state(acc.pubkey, acc.pool_state) else {
                 continue;
             };
@@ -92,7 +102,7 @@ impl MarketState {
                 result.vaults.extend(vaults);
             }
 
-            result.changed_pools.insert(updated.pool_id);
+            result.record_pool_update(acc.pubkey, slot);
         }
 
         result
@@ -112,6 +122,20 @@ impl MarketState {
                 }
             }
         }
+    }
+
+    /// Returns a unique list of all token mints (assets) available across all cached pools.
+    #[must_use]
+    pub fn get_pool_mints(&self) -> Vec<Pubkey> {
+        let mut mints = AHashSet::with_capacity(self.pools.len() * 2);
+
+        for pool in self.pools.values() {
+            let (mint_a, mint_b) = pool.get_mints();
+            mints.insert(mint_a);
+            mints.insert(mint_b);
+        }
+
+        mints.into_iter().collect()
     }
 
     /// Dispatches an incoming `PoolState` update to the appropriate cache.

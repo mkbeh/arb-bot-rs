@@ -24,7 +24,7 @@ use yellowstone_grpc_proto::{
 use crate::libs::solana_client::{
     SolanaStream,
     callback::BatchEventCallbackWrapper,
-    metrics::{EventType, STREAM_METRICS, Transport},
+    metrics::{EventType, STREAM_METRICS, Transport, stream::ErrorKind},
     models::{AccountEvent, BlockMetaEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
     registry::{DEX_REGISTRY, DexParser, RegistryItem, RegistryLookup},
     utils,
@@ -115,6 +115,7 @@ impl SolanaStream for GrpcStream {
 
             if let Err(e) = result {
                 error!("gRPC Session error: {e}. Reconnecting in {delay:?}...");
+                STREAM_METRICS.record_error(Transport::Ws, ErrorKind::Session);
             }
 
             tokio::select! {
@@ -353,14 +354,14 @@ impl GrpcStream {
                 .filter_map(|update| Self::parse_update(update.update_oneof.as_ref()?))
                 .collect();
 
-            STREAM_METRICS.observe_duration(Transport::Grpc, start_time);
+            STREAM_METRICS.record_duration(Transport::Grpc, start_time);
 
             if !events.is_empty()
                 && let Some(ref mut cb) = self.callback
             {
                 let cb_start = Instant::now();
                 cb.call(events).await.context("callback failed")?;
-                STREAM_METRICS.observe_handler_duration(cb_start);
+                STREAM_METRICS.record_handler_duration(cb_start);
             }
         }
 
@@ -392,7 +393,7 @@ impl GrpcStream {
 
     /// Parses a slot update to a `TxEvent`.
     fn parse_slot(slot: &SubscribeUpdateSlot) -> Option<Event> {
-        STREAM_METRICS.inc_events(Transport::Grpc, EventType::Slot, "system");
+        STREAM_METRICS.record_event(Transport::Grpc, EventType::Slot, "system");
         Some(Event::Slot(SlotEvent {
             slot: slot.slot,
             parent: slot.parent,
@@ -411,7 +412,7 @@ impl GrpcStream {
         let item = DEX_REGISTRY
             .get_account_item(&owner, payload.len(), payload)
             .or_else(|| {
-                STREAM_METRICS.inc_parse_error(Transport::Grpc, "unregistered_account");
+                STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
                 warn!(
                     "No registered parser found for program {} with data size {}",
                     owner,
@@ -420,7 +421,7 @@ impl GrpcStream {
                 None
             })?;
 
-        STREAM_METRICS.observe_bytes(
+        STREAM_METRICS.record_bytes(
             Transport::Grpc,
             EventType::Account,
             item.name,
@@ -429,7 +430,7 @@ impl GrpcStream {
 
         let pool_state = if let DexParser::Account(parser_fn) = &item.parser {
             parser_fn(payload).or_else(|| {
-                STREAM_METRICS.inc_parse_error(Transport::Grpc, item.name);
+                STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
                 error!(
                     "[{}] Failed to parse account: {}. Data size: {}",
                     item.name,
@@ -439,7 +440,7 @@ impl GrpcStream {
                 None
             })?
         } else {
-            STREAM_METRICS.inc_parse_error(Transport::Grpc, "wrong_parser_type");
+            STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
             error!(
                 "Registry integrity error: Expected Account parser for {}",
                 owner
@@ -463,7 +464,7 @@ impl GrpcStream {
             pool_state,
         };
 
-        STREAM_METRICS.inc_events(Transport::Grpc, EventType::Account, item.name);
+        STREAM_METRICS.record_event(Transport::Grpc, EventType::Account, item.name);
 
         Some(Event::Account(Box::new(event)))
     }
@@ -487,16 +488,16 @@ impl GrpcStream {
                 let data = &inst.data;
                 let item = DEX_REGISTRY.get_instruction_item(&program_id, data)?;
 
-                STREAM_METRICS.observe_bytes(Transport::Grpc, EventType::Tx, item.name, data.len());
+                STREAM_METRICS.record_bytes(Transport::Grpc, EventType::Tx, item.name, data.len());
 
                 if let DexParser::Tx(parser_fn) = &item.parser {
                     let parsed = parser_fn(data);
 
                     if let Some(event) = parsed {
-                        STREAM_METRICS.inc_events(Transport::Grpc, EventType::Tx, item.name);
+                        STREAM_METRICS.record_event(Transport::Grpc, EventType::Tx, item.name);
                         Some(event)
                     } else {
-                        STREAM_METRICS.inc_parse_error(Transport::Grpc, item.name);
+                        STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
                         error!(
                             "[{}] Failed to parse transaction event for program {}. Payload: {:?}",
                             item.name, program_id, data
@@ -504,7 +505,7 @@ impl GrpcStream {
                         None
                     }
                 } else {
-                    STREAM_METRICS.inc_parse_error(Transport::Grpc, "wrong_parser_type");
+                    STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
                     error!(
                         "Registry integrity error: Expected Tx parser for {}",
                         program_id

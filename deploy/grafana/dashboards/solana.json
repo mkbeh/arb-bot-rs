@@ -902,12 +902,160 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Errors / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line",
+              "steps": [
+                {
+                  "color": "transparent"
+                },
+                {
+                  "color": "red",
+                  "value": 5
+                }
+              ]
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(solana_client_errors_total{error=\"session\"}[1m])) by (transport)",
+          "legendFormat": "🔌 session ({{transport}})",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(solana_client_errors_total{error=\"parse\"}[1m])) by (transport)",
+          "legendFormat": "❌ parse ({{transport}})",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Errors (Rate)",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 34
       },
       "id": 4,
       "panels": [],
@@ -979,7 +1127,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 35
       },
       "id": 5,
       "options": {
@@ -1075,7 +1223,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 35
       },
       "id": 10,
       "options": {
@@ -1103,108 +1251,6 @@
         }
       ],
       "title": "Total Parser Throughput (All Events)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "red",
-            "mode": "fixed"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Errors / sec",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "always",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
-              }
-            ]
-          },
-          "unit": "pps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 0,
-        "y": 35
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(solana_client_parse_errors_total[1m])) by (program_id, transport)",
-          "legendFormat": "❌ {{program_id}} ({{transport}})",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Parsing Errors (Rate)",
       "type": "timeseries"
     },
     {
@@ -1490,5 +1536,5 @@
   "timezone": "",
   "title": "Solana Arbitrage Bot Monitoring",
   "uid": "solana",
-  "version": 8
+  "version": 11
 }

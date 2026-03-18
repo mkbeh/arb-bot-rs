@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use ahash::AHashSet;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytemuck::Pod;
@@ -89,18 +88,6 @@ impl MintService {
             refresh_interval: Duration::from_secs(60),
         }
     }
-
-    fn collect_mints(cache: &PoolCache) -> Vec<Pubkey> {
-        let mut mints = AHashSet::with_capacity(cache.len() * 2);
-
-        for pool in cache.values() {
-            let (mint_a, mint_b) = pool.get_mints();
-            mints.insert(mint_a);
-            mints.insert(mint_b);
-        }
-
-        mints.into_iter().collect()
-    }
 }
 
 #[async_trait]
@@ -112,7 +99,7 @@ impl BackgroundService for MintService {
     async fn execute(&self) -> anyhow::Result<()> {
         let mints: Vec<Pubkey> = {
             let cache = get_market_state().read();
-            Self::collect_mints(&cache.pools)
+            cache.get_pool_mints()
         };
 
         if mints.is_empty() {
