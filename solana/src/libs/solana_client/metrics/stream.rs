@@ -3,10 +3,16 @@ use std::{sync::LazyLock, time::Instant};
 use metrics::{counter, describe_counter, describe_histogram, histogram};
 
 /// Global access point for stream-related metrics.
-pub static STREAM_METRICS: LazyLock<Metrics> = LazyLock::new(Metrics::new);
+pub static STREAM_METRICS: LazyLock<Metrics> = LazyLock::new(Metrics::default);
 
 /// Metrics handle providing methods for recording various system events.
 pub struct Metrics;
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self
+    }
+}
 
 #[allow(clippy::unused_self)]
 impl Metrics {
@@ -15,6 +21,7 @@ impl Metrics {
     const LBL_PROGRAM: &'static str = "program_id";
     const LBL_ERROR: &'static str = "error";
 
+    #[must_use]
     pub fn new() -> Self {
         describe_counter!(
             "solana_client_bytes_total",
