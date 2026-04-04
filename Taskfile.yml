@@ -2,7 +2,6 @@ version: 3
 
 vars:
   RUST_IMAGE: "rustlang/rust:nightly"
-  TARP_IMAGE: "xd009642/tarpaulin:develop-nightly"
   DOCKER_RUN: >-
     docker run --rm -t --init
     -u $(id -u):$(id -g)
@@ -12,6 +11,7 @@ vars:
     -v $HOME/.cargo:/cargo:z
     -v $HOME/.rustup:/rustup:z
     -v {{.PWD}}:/src:z
+    -v {{.PWD}}/target:/src/target:z
     -w /src
     {{.RUST_IMAGE}}
 
@@ -94,13 +94,7 @@ tasks:
     run: once
     cmds:
       - >-
-        docker run --rm -t --init
-        -u $(id -u):$(id -g)
-        -e TERM=xterm-256color
-        -e RUSTUP_TOOLCHAIN=nightly
-        -v {{.PWD}}:/src
-        -v {{.PWD}}/target:/src/target
-        -w /src
-        --security-opt seccomp=unconfined
-        {{.TARP_IMAGE}}
-        sh -c "exec cargo +nightly tarpaulin --all-features --workspace --timeout 120 --out Html --output-dir target/coverage"
+        {{.DOCKER_RUN}} sh -c "
+        rustup component add llvm-tools-preview &&
+        cargo install cargo-llvm-cov &&
+        cargo llvm-cov --all-features --workspace --html --output-dir target/coverage"

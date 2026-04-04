@@ -129,4 +129,3 @@ incremental = false
 [profile.bench]
 inherits = "release"
 lto = "thin"
-codegen-units = 1
