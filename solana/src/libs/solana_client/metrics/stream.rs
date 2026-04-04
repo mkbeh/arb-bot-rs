@@ -113,7 +113,6 @@ pub enum Transport {
 pub enum EventType {
     Slot,
     Program,
-    Account,
     Tx, // For logs/transactions
 }
 
@@ -133,7 +132,6 @@ impl EventType {
         match self {
             Self::Slot => "slot",
             Self::Program => "program",
-            Self::Account => "account",
             Self::Tx => "tx",
         }
     }
