@@ -1,14 +1,14 @@
 use solana_sdk::pubkey::Pubkey;
 
 use super::quote::{QuoteContext, QuoteResult};
-use crate::libs::solana_client::metrics::DexMetrics;
+use crate::libs::solana_client::metrics::ProtocolMetrics;
 
 /// Core trait for DEX pool implementations.
 ///
 /// Any pool that supports swap simulation must implement this trait.
 /// It provides access to the pool's token mints and the ability to
 /// simulate swaps via [`quote`](DexPool::quote).
-pub trait DexPool: DexMetrics + Send + Sync {
+pub trait DexPool: ProtocolMetrics + Send + Sync {
     /// Returns the mint address of token A (input token for a→b swaps).
     fn get_mint_a(&self) -> Pubkey;
 

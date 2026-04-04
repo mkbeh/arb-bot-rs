@@ -8,7 +8,7 @@ use tracing::warn;
 use crate::{
     libs::solana_client::{
         dex::{orca::Oracle, utils::parse_vault_amount},
-        metrics::DexMetrics,
+        metrics::ProtocolMetrics,
         models::*,
         pool::*,
         protocols::kamino::*,
@@ -199,7 +199,7 @@ impl MarketState {
     }
 
     /// Stores a new pool logic provider (DexPool) into the pool cache.
-    fn update_pool<T: DexPool + DexMetrics + 'static>(
+    fn update_pool<T: DexPool + ProtocolMetrics + 'static>(
         &mut self,
         pool_id: Pubkey,
         pool: Box<T>,

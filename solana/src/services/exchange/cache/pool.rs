@@ -58,7 +58,7 @@ impl PoolCache {
 
     /// Updates or inserts a pool into the cache and refreshes the pair index.
     pub fn update(&mut self, pool_id: Pubkey, pool: Box<dyn DexPool>) -> bool {
-        let dex_name = pool.dex_name();
+        let dex_name = pool.name();
         let (a, b) = pool.get_mints();
         let is_new = self.data.insert(pool_id, pool).is_none();
 

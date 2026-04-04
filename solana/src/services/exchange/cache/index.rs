@@ -3,7 +3,7 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::{
     libs::solana_client::{
-        metrics::{DEX_METEORA_DLMM, DEX_ORCA, DEX_RAYDIUM_CLMM, DexMetrics},
+        metrics::{DEX_METEORA_DLMM, DEX_ORCA, DEX_RAYDIUM_CLMM, ProtocolMetrics},
         models::PoolState,
     },
     services::exchange::cache::INDEX_CACHE_METRICS,
@@ -59,7 +59,7 @@ impl LiquidityIndexCache {
     pub fn update(&mut self, pool_id: Pubkey, index: LiquidityIndex) {
         let prev = self.data.insert(pool_id, index);
         if prev.is_none() {
-            INDEX_CACHE_METRICS.record(index.dex_name());
+            INDEX_CACHE_METRICS.record(index.name());
         }
     }
 
@@ -70,8 +70,8 @@ impl LiquidityIndexCache {
     }
 }
 
-impl DexMetrics for LiquidityIndex {
-    fn dex_name(&self) -> &'static str {
+impl ProtocolMetrics for LiquidityIndex {
+    fn name(&self) -> &'static str {
         match self {
             Self::MeteoraDlmm { .. } => DEX_METEORA_DLMM,
             Self::Orca { .. } => DEX_ORCA,

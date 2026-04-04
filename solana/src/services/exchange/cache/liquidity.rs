@@ -7,7 +7,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::{
     libs::solana_client::{
         dex::{meteora_dlmm, orca, raydium_clmm},
-        metrics::DexMetrics,
+        metrics::ProtocolMetrics,
         pool::*,
     },
     services::exchange::cache::{LIQUIDITY_CACHE_METRICS, LiquidityIndex},
@@ -101,8 +101,8 @@ where
                 cache.len()
             };
 
-            LIQUIDITY_CACHE_METRICS.set_liquidity(index.dex_name(), self.data.len());
-            LIQUIDITY_CACHE_METRICS.record_liquidity_density(index.dex_name(), cache_size);
+            LIQUIDITY_CACHE_METRICS.set_liquidity(index.name(), self.data.len());
+            LIQUIDITY_CACHE_METRICS.record_liquidity_density(index.name(), cache_size);
         }
     }
 

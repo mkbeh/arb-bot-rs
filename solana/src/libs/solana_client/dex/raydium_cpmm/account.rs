@@ -290,8 +290,8 @@ impl DexPool for PoolState {
     }
 }
 
-impl DexMetrics for PoolState {
-    fn dex_name(&self) -> &'static str {
+impl ProtocolMetrics for PoolState {
+    fn name(&self) -> &'static str {
         DEX_RAYDIUM_CPMM
     }
 }

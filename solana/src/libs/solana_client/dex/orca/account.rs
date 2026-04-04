@@ -179,8 +179,8 @@ impl DexPool for Whirlpool {
     }
 }
 
-impl DexMetrics for Whirlpool {
-    fn dex_name(&self) -> &'static str {
+impl ProtocolMetrics for Whirlpool {
+    fn name(&self) -> &'static str {
         DEX_ORCA
     }
 }

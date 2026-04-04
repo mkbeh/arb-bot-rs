@@ -189,8 +189,8 @@ impl DexPool for AmmInfo {
     }
 }
 
-impl DexMetrics for AmmInfo {
-    fn dex_name(&self) -> &'static str {
+impl ProtocolMetrics for AmmInfo {
+    fn name(&self) -> &'static str {
         DEX_RAYDIUM_AMM
     }
 }
