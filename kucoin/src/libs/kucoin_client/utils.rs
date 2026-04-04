@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{Engine as _, engine::general_purpose};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 
 type HmacSha256 = Hmac<sha2::Sha256>;
 
