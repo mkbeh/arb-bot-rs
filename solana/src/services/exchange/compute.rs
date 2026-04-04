@@ -117,7 +117,7 @@ impl Hash for ComputePath {
 
 /// Stores pre-computed arbitrage paths indexed by pool ID.
 struct PathManager {
-    /// Single source of truth: path_hash → ArbPath.
+    /// Single source of truth: path_hash → ComputePath.
     paths: AHashMap<u64, ComputePath>,
     /// Index: pool_id → set of path hashes passing through it.
     index: AHashMap<Pubkey, Vec<u64>>,
