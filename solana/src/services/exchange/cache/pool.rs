@@ -1,4 +1,4 @@
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{libs::solana_client::pool::DexPool, services::exchange::cache::POOL_CACHE_METRICS};
@@ -57,21 +57,26 @@ impl PoolCache {
     }
 
     /// Updates or inserts a pool into the cache and refreshes the pair index.
-    pub fn update(&mut self, pool_id: Pubkey, pool: Box<dyn DexPool>) {
+    pub fn update(&mut self, pool_id: Pubkey, pool: Box<dyn DexPool>) -> bool {
+        let dex_name = pool.dex_name();
         let (a, b) = pool.get_mints();
-        let pair = TokenPair::new(a, b);
+        let is_new = self.data.insert(pool_id, pool).is_none();
 
-        // Update the index: add pool_id if it's not already tracked for this pair
-        let pool_ids = self.pair_index.entry(pair).or_default();
-        if !pool_ids.contains(&pool_id) {
-            pool_ids.push(pool_id);
+        if is_new {
+            let pair = TokenPair::new(a, b);
+            self.pair_index.entry(pair).or_default().push(pool_id);
+            POOL_CACHE_METRICS.record(dex_name);
         }
 
-        if !self.data.contains_key(&pool_id) {
-            POOL_CACHE_METRICS.inc(pool.dex_name());
-        }
+        is_new
+    }
 
-        self.data.insert(pool_id, pool);
+    /// Quickly retrieves a specific pool by its ID.
+    /// Returns None if the pool is not found in the cache.
+    #[inline]
+    #[must_use]
+    pub fn get_pool(&self, pool_id: &Pubkey) -> Option<&dyn DexPool> {
+        self.data.get(pool_id).map(|p| p.as_ref())
     }
 
     /// Returns an iterator over all pool logic providers for a given pair of mints.
@@ -84,6 +89,27 @@ impl PoolCache {
             .into_iter()
             .flat_map(|ids| ids.iter())
             .filter_map(|id| self.data.get(id).map(|p| p.as_ref()))
+    }
+
+    /// Returns all pool IDs for a given token pair.
+    #[inline]
+    #[must_use]
+    pub fn get_pair_pool_ids(&self, pair: &TokenPair) -> Option<&Vec<Pubkey>> {
+        self.pair_index.get(pair)
+    }
+
+    /// Returns a unique list of all token mints (assets) available across all cached pools.
+    #[must_use]
+    pub fn get_pool_mints(&self) -> Vec<Pubkey> {
+        let mut mints = AHashSet::with_capacity(self.len() * 2);
+
+        for pool in self.values() {
+            let (mint_a, mint_b) = pool.get_mints();
+            mints.insert(mint_a);
+            mints.insert(mint_b);
+        }
+
+        mints.into_iter().collect()
     }
 
     /// Returns an iterator over all tracked pools in the cache.

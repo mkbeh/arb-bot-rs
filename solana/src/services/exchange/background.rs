@@ -19,7 +19,7 @@ use crate::{
         RpcClient,
         dex::{raydium_clmm, raydium_cpmm},
         pool::AmmConfigEntry,
-        registry::DexEntity,
+        registry::ProtocolEntity,
     },
     services::exchange::cache::*,
 };
@@ -99,7 +99,7 @@ impl BackgroundService for MintService {
     async fn execute(&self) -> anyhow::Result<()> {
         let mints: Vec<Pubkey> = {
             let cache = get_market_state().read();
-            cache.get_pool_mints()
+            cache.pools().get_pool_mints()
         };
 
         if mints.is_empty() {
@@ -142,7 +142,7 @@ impl AmmConfigService {
 
     async fn fetch_and_cache<T>(&self) -> anyhow::Result<()>
     where
-        T: DexEntity + AmmConfigEntry + Pod + Copy + std::fmt::Debug,
+        T: ProtocolEntity + AmmConfigEntry + Pod + Copy + std::fmt::Debug,
     {
         let config = RpcProgramAccountsConfig {
             filters: Some(vec![

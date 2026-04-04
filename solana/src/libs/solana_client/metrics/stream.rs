@@ -78,7 +78,7 @@ impl Metrics {
 
     /// Records a parsing failure for a specific DEX.
     /// Essential for identifying breaking changes in on-chain program formats.
-    pub fn record_error(&self, transport: Transport, kind: ErrorKind) {
+    pub fn record_error(&self, transport: Transport, kind: StreamErrorKind) {
         let labels = [
             (Self::LBL_TRANSPORT, transport.as_str()),
             (Self::LBL_ERROR, kind.as_str()),
@@ -112,6 +112,7 @@ pub enum Transport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventType {
     Slot,
+    Program,
     Account,
     Tx, // For logs/transactions
 }
@@ -131,6 +132,7 @@ impl EventType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Slot => "slot",
+            Self::Program => "program",
             Self::Account => "account",
             Self::Tx => "tx",
         }
@@ -139,12 +141,12 @@ impl EventType {
 
 /// Error types for the Solana client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ErrorKind {
+pub enum StreamErrorKind {
     Session,
     Parse,
 }
 
-impl ErrorKind {
+impl StreamErrorKind {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {

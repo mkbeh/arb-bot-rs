@@ -42,7 +42,7 @@ impl AmmConfigCache {
         let previous = self.inner.insert(key, config.into());
 
         if previous.is_none() {
-            AMM_CONFIG_CACHE_METRICS.inc(dex)
+            AMM_CONFIG_CACHE_METRICS.record(dex)
         }
     }
 

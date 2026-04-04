@@ -2,15 +2,16 @@ use std::sync::OnceLock;
 
 use ahash::{AHashMap, AHashSet};
 use parking_lot::RwLock;
-use solana_sdk::{account::Account, pubkey::Pubkey};
+use solana_sdk::{account::Account, clock::Clock, pubkey::Pubkey};
 use tracing::warn;
 
 use crate::{
     libs::solana_client::{
         dex::{orca::Oracle, utils::parse_vault_amount},
         metrics::DexMetrics,
-        models::{Event, PoolState},
+        models::*,
         pool::*,
+        protocols::kamino::*,
     },
     services::exchange::cache::*,
 };
@@ -35,13 +36,20 @@ pub struct MarketUpdateResult {
     pub changed_pools: AHashMap<Pubkey, u64>,
     /// Vault pubkeys that need amount refresh via RPC.
     pub vaults: AHashSet<Pubkey>,
+    /// Pool IDs that were seen for the first time in this batch.
+    /// Used to trigger incremental graph reconstruction in the compute service.
+    pub new_pools: AHashSet<Pubkey>,
 }
 
 impl MarketUpdateResult {
     /// Records a pool update, keeping only the most recent slot for each pool.
-    fn record_pool_update(&mut self, pool_id: Pubkey, slot: u64) {
+    fn record_pool_update(&mut self, pool_id: Pubkey, slot: u64, is_new: bool) {
         let entry = self.changed_pools.entry(pool_id).or_default();
         *entry = (*entry).max(slot);
+
+        if is_new {
+            self.new_pools.insert(pool_id);
+        }
     }
 }
 
@@ -52,9 +60,11 @@ pub struct UpdatedPool {
     /// Vault pubkeys requiring a balance.
     ///
     /// Contains `[token_a_vault, token_b_vault]` for pools that use external
-    /// vault accounts (e.g. Raydium CPMM, Raydium AMM, Orca).
+    /// vault accounts (e.g. Raydium CPMM, Raydium AMM).
     /// `None` for pools that don't use vaults (e.g. tick array updates).
     pub vaults: Option<[Pubkey; 2]>,
+    /// Indicates whether this pool was inserted for the first time.
+    pub is_new: bool,
 }
 
 /// Root state container for all DEX-related data in the market.
@@ -64,6 +74,8 @@ pub struct MarketState {
     pools: PoolCache,
     vaults: VaultCache,
     oracles: OracleCache,
+    reserves: ReserveCache,
+    clock: Option<Clock>,
 }
 
 impl MarketState {
@@ -80,29 +92,33 @@ impl MarketState {
             pools: PoolCache::default(),
             vaults: VaultCache::default(),
             oracles: OracleCache::new(),
+            reserves: ReserveCache::new(),
+            clock: None,
         }
     }
 
     /// Processes a batch of raw on-chain account events and updates the market state.
-    pub fn update_states(&mut self, events: Vec<Event>) -> MarketUpdateResult {
+    pub fn update_events(&mut self, events: Vec<Event>) -> MarketUpdateResult {
         let mut result = MarketUpdateResult::default();
 
         for event in events {
-            let Event::Account(acc) = event else {
-                continue;
-            };
+            match event {
+                Event::Clock(clock) => self.update_clock(clock),
+                Event::Program(acc) => {
+                    let slot = acc.slot;
 
-            let slot = acc.slot;
+                    let Some(updated) = self.update_state(acc.pubkey, acc.pool_state) else {
+                        continue;
+                    };
 
-            let Some(updated) = self.update_state(acc.pubkey, acc.pool_state) else {
-                continue;
-            };
+                    if let Some(vaults) = updated.vaults {
+                        result.vaults.extend(vaults);
+                    }
 
-            if let Some(vaults) = updated.vaults {
-                result.vaults.extend(vaults);
+                    result.record_pool_update(acc.pubkey, slot, updated.is_new);
+                }
+                _ => {}
             }
-
-            result.record_pool_update(acc.pubkey, slot);
         }
 
         result
@@ -122,20 +138,6 @@ impl MarketState {
                 }
             }
         }
-    }
-
-    /// Returns a unique list of all token mints (assets) available across all cached pools.
-    #[must_use]
-    pub fn get_pool_mints(&self) -> Vec<Pubkey> {
-        let mut mints = AHashSet::with_capacity(self.pools.len() * 2);
-
-        for pool in self.pools.values() {
-            let (mint_a, mint_b) = pool.get_mints();
-            mints.insert(mint_a);
-            mints.insert(mint_b);
-        }
-
-        mints.into_iter().collect()
     }
 
     /// Dispatches an incoming `PoolState` update to the appropriate cache.
@@ -166,6 +168,7 @@ impl MarketState {
             PoolState::AmmInfoRaydiumAmm(s) => self.update_pool(pool_id, s),
 
             PoolState::OracleOrca(s) => self.update_oracle(&s),
+            PoolState::ReserveKamino(s) => self.update_reserve(&s),
 
             PoolState::BondingCurvePumpFun(_)
             | PoolState::BinArrayBitmapExtensionMeteoraDlmm(_)
@@ -188,7 +191,8 @@ impl MarketState {
             self.liquidity.update(pool_id, array, &index);
             return Some(UpdatedPool {
                 pool_id,
-                vaults: None, // Ticks never trigger vault refresh
+                vaults: None,  // Ticks never trigger vault refresh
+                is_new: false, // Liquidity updates never represent new pools
             });
         }
         None
@@ -201,13 +205,43 @@ impl MarketState {
         pool: Box<T>,
     ) -> Option<UpdatedPool> {
         let vaults = pool.get_vault_pubkeys().map(|(v0, v1)| [v0, v1]);
-        self.pools.update(pool_id, pool);
-        Some(UpdatedPool { pool_id, vaults })
+        let is_new = self.pools.update(pool_id, pool);
+        Some(UpdatedPool {
+            pool_id,
+            vaults,
+            is_new,
+        })
     }
 
-    /// Stores a new Orca Oracle account into the oracle cache.
     fn update_oracle(&mut self, oracle: &Oracle) -> Option<UpdatedPool> {
         self.oracles.update(oracle.pubkey(), *oracle);
         None
+    }
+
+    fn update_reserve(&mut self, reserve: &Reserve) -> Option<UpdatedPool> {
+        self.reserves.update(reserve);
+        None
+    }
+
+    fn update_clock(&mut self, clock: Clock) {
+        SYSTEM_CACHE_METRICS.record_clock(clock.slot, clock.unix_timestamp);
+        self.clock = Some(clock);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn pools(&self) -> &PoolCache {
+        &self.pools
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn reserves(&self) -> &ReserveCache {
+        &self.reserves
+    }
+
+    #[must_use]
+    pub fn clock(&self) -> Option<&Clock> {
+        self.clock.as_ref()
     }
 }

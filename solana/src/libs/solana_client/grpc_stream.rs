@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use futures_util::SinkExt;
 use rayon::{iter::ParallelIterator, prelude::*};
 use solana_client::rpc_response::transaction::Signature;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{clock::Clock, pubkey::Pubkey, sysvar::clock};
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn};
@@ -22,12 +22,7 @@ use yellowstone_grpc_proto::{
 };
 
 use crate::libs::solana_client::{
-    SolanaStream,
-    callback::BatchEventCallbackWrapper,
-    metrics::{EventType, STREAM_METRICS, Transport, stream::ErrorKind},
-    models::{AccountEvent, BlockMetaEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
-    registry::{DEX_REGISTRY, DexParser, RegistryItem, RegistryLookup},
-    utils,
+    SolanaStream, callback::*, metrics::*, models::*, registry::*, utils,
 };
 
 /// Configuration for the Solana RPC client.
@@ -44,8 +39,8 @@ pub struct GrpcStreamConfig {
     /// The microsecond-grade duration to wait for additional
     /// messages after the first one arrives in the stream.
     pub batch_fill_timeout: Duration,
-    /// List of Dex's programs ids.
-    pub program_ids: Vec<String>,
+    /// List of protocols.
+    pub protocols: ProtocolMap,
     /// Defines the specific data streams to subscribe to.
     pub targets: Vec<SubscribeTarget>,
     /// Options for subscription.
@@ -100,7 +95,7 @@ impl SolanaStream for GrpcStream {
     }
 
     async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
-        if self.config.program_ids.is_empty() {
+        if self.config.protocols.is_empty() {
             bail!("Program IDs cannot be empty");
         }
 
@@ -115,7 +110,7 @@ impl SolanaStream for GrpcStream {
 
             if let Err(e) = result {
                 error!("gRPC Session error: {e}. Reconnecting in {delay:?}...");
-                STREAM_METRICS.record_error(Transport::Ws, ErrorKind::Session);
+                STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Session);
             }
 
             tokio::select! {
@@ -193,9 +188,10 @@ impl GrpcStream {
         &self,
         options: &SubscribeOptions,
     ) -> anyhow::Result<SubscribeRequest> {
-        let program_ids = &self.config.program_ids;
         let targets = &self.config.targets;
-        let registry_entries = DEX_REGISTRY.get_all_from_strings(program_ids)?;
+        let protocols = &self.config.protocols;
+        let program_ids: Vec<String> = protocols.iter().map(|p| p.program_id.clone()).collect();
+        let registry_entries = PROTOCOL_REGISTRY.get_all_from_strings(&program_ids)?;
 
         let request = SubscribeRequest {
             blocks: HashMap::new(),
@@ -206,14 +202,10 @@ impl GrpcStream {
                 HashMap::new()
             },
 
-            accounts: if targets.contains(&SubscribeTarget::Account) {
-                Self::build_subscribe_accounts(&registry_entries)
-            } else {
-                HashMap::new()
-            },
+            accounts: Self::build_subscribe_accounts(targets, &registry_entries, protocols)?,
 
             transactions: if targets.contains(&SubscribeTarget::Instruction) {
-                Self::build_subscribe_transactions(program_ids, options)
+                Self::build_subscribe_transactions(&program_ids, options)
             } else {
                 HashMap::new()
             },
@@ -239,58 +231,24 @@ impl GrpcStream {
     }
 
     fn build_subscribe_accounts(
+        targets: &[SubscribeTarget],
         registry_entries: &[(&RegistryLookup, &RegistryItem)],
-    ) -> HashMap<String, SubscribeRequestFilterAccounts> {
-        registry_entries
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, (lookup, _item))| {
-                let RegistryLookup::Account {
-                    program_id,
-                    size,
-                    discriminator,
-                } = lookup
-                else {
-                    return None;
-                };
+        protocols: &ProtocolMap,
+    ) -> anyhow::Result<HashMap<String, SubscribeRequestFilterAccounts>> {
+        let mut accounts = if targets.contains(&SubscribeTarget::Program) {
+            Self::build_accounts(registry_entries, protocols)?
+        } else {
+            HashMap::new()
+        };
 
-                let filter_id = format!("acc_sub_{idx}");
+        if targets.contains(&SubscribeTarget::Clock) {
+            accounts.insert(
+                "clock_sub".to_owned(),
+                Self::build_sysvar_filter(clock::id()),
+            );
+        }
 
-                let mut filters = Vec::new();
-
-                if *size > 0 {
-                    filters.push(SubscribeRequestFilterAccountsFilter {
-                        filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
-                            *size as u64,
-                        )),
-                    })
-                }
-
-                if !discriminator.is_empty() {
-                    filters.push(SubscribeRequestFilterAccountsFilter {
-                        filter: Some(subscribe_request_filter_accounts_filter::Filter::Memcmp(
-                            SubscribeRequestFilterAccountsFilterMemcmp {
-                                offset: 0,
-                                data: Some(
-                                    subscribe_request_filter_accounts_filter_memcmp::Data::Bytes(
-                                        discriminator.to_vec(),
-                                    ),
-                                ),
-                            },
-                        )),
-                    });
-                }
-
-                let filter = SubscribeRequestFilterAccounts {
-                    account: vec![],
-                    owner: vec![program_id.to_string()],
-                    filters,
-                    ..Default::default()
-                };
-
-                Some((filter_id, filter))
-            })
-            .collect()
+        Ok(accounts)
     }
 
     fn build_subscribe_transactions(
@@ -310,6 +268,89 @@ impl GrpcStream {
                 ..Default::default()
             },
         )])
+    }
+
+    fn build_accounts(
+        registry_entries: &[(&RegistryLookup, &RegistryItem)],
+        protocol_map: &ProtocolMap,
+    ) -> anyhow::Result<HashMap<String, SubscribeRequestFilterAccounts>> {
+        registry_entries
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, (lookup, _item))| {
+                let RegistryLookup::Program {
+                    program_id,
+                    size,
+                    discriminator,
+                } = lookup
+                else {
+                    return None;
+                };
+                let protocol = protocol_map.get(&program_id.to_string())?;
+                Some((idx, program_id, size, discriminator, protocol))
+            })
+            .map(|(idx, program_id, size, discriminator, protocol)| {
+                let filter_id = format!("acc_sub_{idx}");
+                let filter = if protocol.account_ids.is_empty() {
+                    Self::build_program_filter(program_id, *size, discriminator)
+                } else {
+                    SubscribeRequestFilterAccounts {
+                        account: protocol.account_ids.clone(),
+                        owner: vec![program_id.to_string()],
+                        filters: vec![],
+                        ..Default::default()
+                    }
+                };
+                Ok((filter_id, filter))
+            })
+            .collect()
+    }
+
+    fn build_program_filter(
+        program_id: &Pubkey,
+        size: usize,
+        discriminator: &[u8],
+    ) -> SubscribeRequestFilterAccounts {
+        let mut filters = Vec::new();
+
+        if size > 0 {
+            filters.push(SubscribeRequestFilterAccountsFilter {
+                filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
+                    size as u64,
+                )),
+            });
+        }
+
+        if !discriminator.is_empty() {
+            filters.push(SubscribeRequestFilterAccountsFilter {
+                filter: Some(subscribe_request_filter_accounts_filter::Filter::Memcmp(
+                    SubscribeRequestFilterAccountsFilterMemcmp {
+                        offset: 0,
+                        data: Some(
+                            subscribe_request_filter_accounts_filter_memcmp::Data::Bytes(
+                                discriminator.to_vec(),
+                            ),
+                        ),
+                    },
+                )),
+            });
+        }
+
+        SubscribeRequestFilterAccounts {
+            account: vec![],
+            owner: vec![program_id.to_string()],
+            filters,
+            ..Default::default()
+        }
+    }
+
+    fn build_sysvar_filter(pubkey: Pubkey) -> SubscribeRequestFilterAccounts {
+        SubscribeRequestFilterAccounts {
+            account: vec![pubkey.to_string()],
+            owner: vec![],
+            filters: vec![],
+            ..Default::default()
+        }
     }
 
     /// Processes the gRPC stream in an optimized event loop with batching and parallel parsing
@@ -407,48 +448,15 @@ impl GrpcStream {
         let info = acc.account.as_ref()?;
         let owner = Pubkey::try_from(info.owner.as_slice()).ok()?;
         let pubkey = Pubkey::try_from(info.pubkey.as_slice()).ok()?;
-        let payload = &info.data;
 
-        let item = DEX_REGISTRY
-            .get_account_item(&owner, payload.len(), payload)
-            .or_else(|| {
-                STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
-                warn!(
-                    "No registered parser found for program {} with data size {}",
-                    owner,
-                    payload.len()
-                );
-                None
-            })?;
+        if pubkey == clock::id() {
+            let clock: Clock = bincode::deserialize(&info.data).ok()?;
+            return Some(Event::Clock(clock));
+        }
 
-        STREAM_METRICS.record_bytes(
-            Transport::Grpc,
-            EventType::Account,
-            item.name,
-            payload.len(),
-        );
+        let (item, pool_state) = Self::parse_account_payload(&owner, &pubkey, &info.data)?;
 
-        let pool_state = if let DexParser::Account(parser_fn) = &item.parser {
-            parser_fn(payload).or_else(|| {
-                STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
-                error!(
-                    "[{}] Failed to parse account: {}. Data size: {}",
-                    item.name,
-                    pubkey,
-                    payload.len()
-                );
-                None
-            })?
-        } else {
-            STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
-            error!(
-                "Registry integrity error: Expected Account parser for {}",
-                owner
-            );
-            return None;
-        };
-
-        let event = AccountEvent {
+        let event = ProgramEvent {
             slot: acc.slot,
             is_startup: acc.is_startup,
             pubkey,
@@ -456,7 +464,7 @@ impl GrpcStream {
             lamports: info.lamports,
             executable: info.executable,
             rent_epoch: info.rent_epoch,
-            write_version: info.write_version,
+            write_version: Some(info.write_version),
             txn_signature: info
                 .txn_signature
                 .as_ref()
@@ -464,9 +472,8 @@ impl GrpcStream {
             pool_state,
         };
 
-        STREAM_METRICS.record_event(Transport::Grpc, EventType::Account, item.name);
-
-        Some(Event::Account(Box::new(event)))
+        STREAM_METRICS.record_event(Transport::Grpc, EventType::Program, item.name);
+        Some(Event::Program(Box::new(event)))
     }
 
     /// Parses a transaction update to a `TxEvent`.
@@ -485,40 +492,83 @@ impl GrpcStream {
             .iter()
             .filter_map(|inst| {
                 let program_id = extract_program_id(inst.program_id_index as usize, message, meta)?;
-                let data = &inst.data;
-                let item = DEX_REGISTRY.get_instruction_item(&program_id, data)?;
-
-                STREAM_METRICS.record_bytes(Transport::Grpc, EventType::Tx, item.name, data.len());
-
-                if let DexParser::Tx(parser_fn) = &item.parser {
-                    let parsed = parser_fn(data);
-
-                    if let Some(event) = parsed {
-                        STREAM_METRICS.record_event(Transport::Grpc, EventType::Tx, item.name);
-                        Some(event)
-                    } else {
-                        STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
-                        error!(
-                            "[{}] Failed to parse transaction event for program {}. Payload: {:?}",
-                            item.name, program_id, data
-                        );
-                        None
-                    }
-                } else {
-                    STREAM_METRICS.record_error(Transport::Grpc, ErrorKind::Parse);
-                    error!(
-                        "Registry integrity error: Expected Tx parser for {}",
-                        program_id
-                    );
-                    None
-                }
+                Self::parse_instruction_payload(&program_id, &inst.data)
             })
             .collect();
 
         if events.is_empty() {
-            return None;
+            None
+        } else {
+            Some(Event::Tx(events))
         }
-        Some(Event::Tx(events))
+    }
+
+    fn parse_account_payload<'a>(
+        program_id: &Pubkey,
+        pubkey: &Pubkey,
+        payload: &[u8],
+    ) -> Option<(&'a RegistryItem, PoolState)> {
+        let item = PROTOCOL_REGISTRY
+            .get_account_item(program_id, payload.len(), payload)
+            .or_else(|| {
+                STREAM_METRICS.record_error(Transport::Grpc, StreamErrorKind::Parse);
+                warn!(
+                    "No registered parser found for program {} with data size {}",
+                    program_id,
+                    payload.len()
+                );
+                None
+            })?;
+
+        STREAM_METRICS.record_bytes(
+            Transport::Grpc,
+            EventType::Program,
+            item.name,
+            payload.len(),
+        );
+
+        let ProtocolParser::Program(parser_fn) = &item.parser else {
+            STREAM_METRICS.record_error(Transport::Grpc, StreamErrorKind::Parse);
+            error!("Registry integrity error: Expected Account parser for {program_id}");
+            return None;
+        };
+
+        let pool_state = parser_fn(payload).or_else(|| {
+            STREAM_METRICS.record_error(Transport::Grpc, StreamErrorKind::Parse);
+            error!(
+                "[{}] Failed to parse account: {}. Data size: {}",
+                item.name,
+                pubkey,
+                payload.len()
+            );
+            None
+        })?;
+
+        Some((item, pool_state))
+    }
+
+    fn parse_instruction_payload(program_id: &Pubkey, data: &[u8]) -> Option<TxEvent> {
+        let item = PROTOCOL_REGISTRY.get_instruction_item(program_id, data)?;
+
+        STREAM_METRICS.record_bytes(Transport::Grpc, EventType::Tx, item.name, data.len());
+
+        let ProtocolParser::Tx(parser_fn) = &item.parser else {
+            STREAM_METRICS.record_error(Transport::Grpc, StreamErrorKind::Parse);
+            error!("Registry integrity error: Expected Tx parser for {program_id}");
+            return None;
+        };
+
+        let event = parser_fn(data).or_else(|| {
+            STREAM_METRICS.record_error(Transport::Grpc, StreamErrorKind::Parse);
+            error!(
+            "[{}] Failed to parse transaction event for program {program_id}. Payload: {data:?}",
+            item.name
+        );
+            None
+        })?;
+
+        STREAM_METRICS.record_event(Transport::Grpc, EventType::Tx, item.name);
+        Some(event)
     }
 }
 
@@ -541,21 +591,23 @@ fn extract_program_id(
     message: &Message,
     meta: &TransactionStatusMeta,
 ) -> Option<Pubkey> {
+    let static_keys = &message.account_keys;
     let static_len = message.account_keys.len();
 
     if index < static_len {
         // 1. Lookup in static account keys (Legacy part)
         // message.account_keys[index] is a Vec<u8> from gRPC proto
-        Pubkey::try_from(message.account_keys[index].as_slice()).ok()
+        Pubkey::try_from(static_keys.get(index)?.as_slice()).ok()
     } else {
         // 2. Lookup in dynamic account keys (ALT part from meta)
         // Offset the index by the number of static keys
         let dynamic_index = index - static_len;
+        let writable = &meta.loaded_writable_addresses;
         let writable_len = meta.loaded_writable_addresses.len();
 
         if dynamic_index < writable_len {
             // Key is in the loaded writable addresses list
-            Pubkey::try_from(meta.loaded_writable_addresses[dynamic_index].as_slice()).ok()
+            Pubkey::try_from(writable.get(dynamic_index)?.as_slice()).ok()
         } else {
             // Key is in the loaded readonly addresses list
             let readonly_index = dynamic_index - writable_len;

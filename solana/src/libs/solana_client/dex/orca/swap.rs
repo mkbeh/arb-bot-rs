@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::orca::constants::ORCA_ID, registry::DexEntity};
+use crate::libs::solana_client::{dex::orca::constants::ORCA_ID, registry::ProtocolEntity};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -9,7 +9,7 @@ pub struct Swap {
     // todo
 }
 
-impl DexEntity for Swap {
+impl ProtocolEntity for Swap {
     const PROGRAM_ID: Pubkey = ORCA_ID;
     const DISCRIMINATOR: &'static [u8] = &[];
     const DATA_SIZE: usize = 0;

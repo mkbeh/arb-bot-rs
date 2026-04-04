@@ -5,7 +5,7 @@ use crate::libs::solana_client::{
     dex::raydium_amm::{constants::*, program::*},
     metrics::*,
     pool::*,
-    registry::DexEntity,
+    registry::ProtocolEntity,
 };
 
 pub const AMM_COMPUTE_UNITS: u32 = 27_000;
@@ -85,7 +85,7 @@ pub struct AmmInfo {
     pub padding2: u64,
 }
 
-impl DexEntity for AmmInfo {
+impl ProtocolEntity for AmmInfo {
     const PROGRAM_ID: Pubkey = RAYDIUM_AMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[];
     const DATA_SIZE: usize = 752;

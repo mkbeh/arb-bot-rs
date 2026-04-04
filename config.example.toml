@@ -132,24 +132,8 @@ min_ticker_qty_24h = 0
 symbol = "ETH-USDT"
 
 [solana]
-# Type of transport for connecting to Solana RPC.
-# Possible values:
-# - "websocket"
-# - "grpc": low-latency streams via Yellowstone
-transport = "websocket"
-
 # Solana RPC endpoint.
 rpc_endpoint = "https://api.mainnet-beta.solana.com"
-
-# Solana gRPC endpoint
-# grpc_endpoint = ""
-
-# X-Token (or API key): For authentication in private RPC/gRPC
-# x_token = ""
-
-# WebSocket URL.
-# This is the URL for WebSocket connection to a Solana RPC provider.
-# ws_endpoint = ""
 
 # [System] The maximum number of gRPC messages to accumulate in a single processing burst.
 # This parameter applies to both gRPC and WebSocket transports.
@@ -164,6 +148,19 @@ stream_wait_timeout_us = 500
 ## A value of 1 means the bot will store the active array plus 1 array
 ## on each side of the current price (Total: 3 arrays per pool).
 liquidity_depth = 1
+
+[solana.transport]
+# Type of transport for connecting to Solana RPC.
+# Possible values:
+# - "websocket"
+# - "grpc": low-latency streams via Yellowstone
+type = "websocket"
+
+# WebSocket URL / gRPC endpoint
+url = "wss://<YOUR_URL>"
+
+# X-Token (or API key): For authentication in private gRPC
+# x_token = ""
 
 [[solana.exchanges]]
 # The Public Key of the DEX smart contract (Program ID).
@@ -186,3 +183,50 @@ program_id = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" # orca
 
 [[solana.exchanges]]
 program_id = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" # pumpfun
+
+# Configuration for a specific base mint (inventory token).
+#
+# This struct is used to define tokens that the bot is allowed to use
+# as a starting or ending point for arbitrage cycles (e.g., SOL, USDC).
+# Also determines which reserve accounts are tracked across flash loan
+# providers — only reserves matching these mints will be monitored.
+
+[[solana.base_mints]]
+mint_addr = "So11111111111111111111111111111111111111112" # SOL
+reserve_addr = "d4A2prbA2whesmvHaL88BH6Ewn5N4bTSU2Ze8P6Bc4Q" # Kamino SOL
+
+[[solana.base_mints]]
+mint_addr = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" # USDC
+reserve_addr = "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59" # Kamino USDC
+
+[[solana.base_mints]]
+mint_addr = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" # USDT
+reserve_addr = "H3t6qZ1JkguCNTi9uzVKqQ7dvt2cum4XiXWom6Gn5e5S" # Kamino USDT
+
+[[solana.base_mints]]
+mint_addr = "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo" # PYUSD
+reserve_addr = "2gc9Dm1eB6UgVYFBUN9bWks6Kes9PbWSaPaa9DqyvEiN" # Kamino PYUSD
+
+[[solana.base_mints]]
+mint_addr = "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs" # ETH (Wormhole)
+reserve_addr = "febGYTnFX4GbSGoFHFeJXUHgNaK53fB23uDins9Jp1E" # Kamino ETH
+
+[[solana.base_mints]]
+mint_addr = "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij" # cbBTC
+reserve_addr = "37Jk2zkz23vkAYBT66HM2gaqJuNg2nYLsCreQAVt5MWK" # Kamino cbBTC
+
+[[solana.base_mints]]
+mint_addr = "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn" # JitoSOL
+reserve_addr = "EVbyPKrHG6WBfm4dLxLMJpUDY43cCAcHSpV3KYjKsktW" # Kamino JitoSOL
+
+[[solana.base_mints]]
+mint_addr = "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So" # mSOL
+reserve_addr = "FBSyPnxtHKLBZ4UeeUyAnbtFuAmTHLtso9YtsqRDRWpM" # Kamino mSOL
+
+[[solana.base_mints]]
+mint_addr = "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v" # JupSOL
+reserve_addr = "DGQZWCY17gGtBUgdaFs1VreJWsodkjFxndPsskwFKGpp" # Kamino JupSOL
+
+[[solana.base_mints]]
+mint_addr = "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1" # bSOL
+reserve_addr = "H9vmCVd77N1HZa36eBn3UnftYmg4vQzPfm1RxabHAMER" # Kamino bSOL

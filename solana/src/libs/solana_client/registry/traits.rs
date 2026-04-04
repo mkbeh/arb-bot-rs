@@ -2,13 +2,13 @@ use bytemuck::Pod;
 use solana_sdk::pubkey::Pubkey;
 use tracing::error;
 
-use crate::libs::solana_client::models::{PoolState, TxEvent};
+use crate::libs::solana_client::models::*;
 
 /// Defines the criteria used to locate a specific parser in the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RegistryLookup {
     /// Lookup for account data based on the owning program and expected data size.
-    Account {
+    Program {
         program_id: Pubkey,
         size: usize,
         discriminator: &'static [u8],
@@ -26,7 +26,7 @@ impl RegistryLookup {
     #[must_use]
     pub fn program_id(&self) -> Pubkey {
         match self {
-            Self::Account { program_id, .. } | Self::Instruction { program_id, .. } => *program_id,
+            Self::Program { program_id, .. } | Self::Instruction { program_id, .. } => *program_id,
         }
     }
 }
@@ -36,30 +36,30 @@ impl RegistryLookup {
 pub type ParserFn<T> = Box<dyn Fn(&[u8]) -> Option<T> + Send + Sync + 'static>;
 
 /// Container for different types of DEX parsers.
-pub enum DexParser {
-    Account(ParserFn<PoolState>),
+pub enum ProtocolParser {
+    Program(ParserFn<PoolState>),
     Tx(ParserFn<TxEvent>),
 }
 
-/// A bridge trait that links a raw DEX entity (from a specific protocol)
+/// A bridge trait that links a raw Protocol entity (from a specific protocol)
 /// to the internal registry's parsing system.
 ///
-/// - `T`: The raw entity type (must implement `DexEntity`)
-pub trait ToDexParser<T: DexEntity>: Sized {
+/// - `T`: The raw entity type (must implement `ProtocolEntity`)
+pub trait ToProtocolParser<T: ProtocolEntity>: Sized {
     /// Generates the appropriate `RegistryLookup` for the given entity.
     fn create_lookup() -> RegistryLookup;
 
     /// Wraps a specialized parsing closure into a generic `DexParser` enum.
-    fn wrap_parser<F>(f: F) -> DexParser
+    fn wrap_parser<F>(f: F) -> ProtocolParser
     where
         F: Fn(&[u8]) -> Option<Self> + Send + Sync + 'static;
 }
 
-/// A core trait that defines the interface for any DEX-related blockchain entity.
+/// A core trait that defines the interface for any Protocol-related blockchain entity.
 ///
 /// This trait provides constants for identification and unified methods for
 /// deserializing raw Solana data into structured types.
-pub trait DexEntity: Sized {
+pub trait ProtocolEntity: Sized {
     /// The unique public key of the Solana program that owns this entity.
     const PROGRAM_ID: Pubkey;
 

@@ -5,9 +5,7 @@ use tokio::{sync::mpsc, task::JoinSet, time::timeout};
 use tracing::warn;
 
 use crate::{
-    libs::solana_client::{
-        RpcClient, SolanaStream, callback::BatchEventCallbackWrapper, models::Event,
-    },
+    libs::solana_client::*,
     services::exchange::{cache::get_market_state, compute::PoolUpdate},
 };
 
@@ -44,7 +42,7 @@ impl MarketService {
     async fn handle_events(&self, events: Vec<Event>) -> anyhow::Result<()> {
         let result = {
             let mut market = get_market_state().write();
-            market.update_states(events)
+            market.update_events(events)
         };
 
         if !result.vaults.is_empty() {
@@ -55,6 +53,7 @@ impl MarketService {
         if !result.changed_pools.is_empty() {
             let update = PoolUpdate {
                 changed_pools: result.changed_pools.into_iter().collect(),
+                new_pools: result.new_pools.into_iter().collect(),
             };
 
             if let Err(e) = self.compute_tx.send(update).await {
