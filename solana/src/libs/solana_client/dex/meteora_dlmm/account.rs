@@ -2,13 +2,10 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_dlmm::{
-        constants::*,
-        quote::{quote_exact_in, quote_exact_out},
-    },
+    dex::meteora_dlmm::{constants::*, quote::*},
     metrics::*,
     pool::*,
-    registry::DexEntity,
+    registry::ProtocolEntity,
 };
 
 #[repr(C)]
@@ -49,7 +46,7 @@ pub struct LbPair {
     pub _reserved: [u8; 22],
 }
 
-impl DexEntity for LbPair {
+impl ProtocolEntity for LbPair {
     const PROGRAM_ID: Pubkey = METEORA_DLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[33, 11, 49, 98, 181, 101, 177, 13];
     const DATA_SIZE: usize = 904;
@@ -165,7 +162,7 @@ pub struct BinArrayBitmapExtension {
     pub negative_bin_array_bitmap: [[u64; BIN_ARRAY_BITMAP_COL_COUNT]; BIN_ARRAY_BITMAP_ROW_COUNT],
 }
 
-impl DexEntity for BinArrayBitmapExtension {
+impl ProtocolEntity for BinArrayBitmapExtension {
     const PROGRAM_ID: Pubkey = METEORA_DLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[80, 111, 124, 113, 55, 237, 18, 5];
     const DATA_SIZE: usize = 1576;
@@ -187,7 +184,7 @@ pub struct BinArray {
     pub bins_3: [Bin; 6],
 }
 
-impl DexEntity for BinArray {
+impl ProtocolEntity for BinArray {
     const PROGRAM_ID: Pubkey = METEORA_DLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[92, 142, 92, 220, 5, 148, 70, 181];
     const DATA_SIZE: usize = 10136;

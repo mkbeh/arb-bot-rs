@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use simd_json::OwnedValue;
 use solana_client::client_error::reqwest::Url;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{clock::Clock, pubkey::Pubkey, sysvar::clock};
 use tokio::{
     net::TcpStream,
     time::{interval, sleep},
@@ -26,21 +26,13 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 use crate::libs::solana_client::{
-    SolanaStream,
-    callback::BatchEventCallbackWrapper,
-    metrics::{EventType, STREAM_METRICS, Transport},
-    models::{AccountEvent, Event, SlotEvent, SubscribeTarget, TxEvent},
-    registry::{
-        DEX_REGISTRY,
-        traits::{DexParser, RegistryLookup},
-    },
-    utils,
+    SolanaStream, callback::*, metrics::*, models::*, registry::*, utils,
 };
 
 type StreamWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 type StreamReader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct WebsocketStreamConfig {
     /// The gRPC endpoint URL.
     pub endpoint: String,
@@ -54,8 +46,8 @@ pub struct WebsocketStreamConfig {
     /// The microsecond-grade duration to wait for additional
     /// messages after the first one arrives in the stream.
     pub batch_fill_timeout: Duration,
-    /// List of Dex's programs ids.
-    pub program_ids: Vec<String>,
+    /// List of protocols.
+    pub protocols: ProtocolMap,
     /// Defines the specific data streams to subscribe to.
     pub targets: Vec<SubscribeTarget>,
 }
@@ -79,7 +71,7 @@ impl SolanaStream for WebsocketStream {
     }
 
     async fn subscribe(&mut self, token: CancellationToken) -> anyhow::Result<()> {
-        if self.config.program_ids.is_empty() {
+        if self.config.protocols.is_empty() {
             bail!("Program IDs cannot be empty");
         }
 
@@ -94,6 +86,7 @@ impl SolanaStream for WebsocketStream {
 
             if let Err(e) = result {
                 error!("Websocket Session error: {e}. Reconnecting in {delay:?}...");
+                STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Session);
             }
 
             tokio::select! {
@@ -186,7 +179,7 @@ impl WebsocketStream {
         W: SinkExt<Message, Error = Error> + Unpin,
     {
         let requests =
-            Self::build_subscribe_requests(&self.config.program_ids, &self.config.targets)?;
+            Self::build_subscribe_requests(&self.config.protocols, &self.config.targets)?;
         for (json_val, target_info) in requests {
             // Track the request ID to match it with the server's subscription ID later
             self.pending_requests
@@ -201,45 +194,108 @@ impl WebsocketStream {
 
     /// Constructs a list of JSON-RPC subscription requests and their associated metadata.
     fn build_subscribe_requests(
-        program_ids: &[String],
+        protocol_map: &ProtocolMap,
         targets: &[SubscribeTarget],
     ) -> anyhow::Result<Vec<(Value, SubscriptionInfo)>> {
+        let program_ids: Vec<String> = protocol_map.iter().map(|p| p.program_id.clone()).collect();
+        let registry_entries = PROTOCOL_REGISTRY.get_all_from_strings(&program_ids)?;
+
         let mut requests = Vec::new();
-        let mut id_gen = 1..;
-        let registry_entries = DEX_REGISTRY.get_all_from_strings(program_ids)?;
+        let mut id_gen = 1u64..;
 
         for target in targets {
-            match target {
-                SubscribeTarget::Slot => {
-                    let id = id_gen.next().unwrap();
-                    requests.push(build_request(id, *target, None, &json!([])));
+            let new_requests = match target {
+                SubscribeTarget::Clock => Self::build_sysvar_requests(&mut id_gen, clock::id()),
+                SubscribeTarget::Slot => Self::build_slot_requests(&mut id_gen),
+                SubscribeTarget::Program => {
+                    Self::build_program_requests(&mut id_gen, &registry_entries, protocol_map)?
                 }
-
-                SubscribeTarget::Account => {
-                    for (lookup, _) in registry_entries
-                        .iter()
-                        .filter(|(l, _)| matches!(l, RegistryLookup::Account { .. }))
-                    {
-                        let id = id_gen.next().unwrap();
-                        let params = build_params(lookup);
-                        requests.push(build_request(id, *target, Some(**lookup), &params));
-                    }
-                }
-
                 SubscribeTarget::Instruction => {
-                    for (lookup, _) in registry_entries
-                        .iter()
-                        .filter(|(l, _)| matches!(l, RegistryLookup::Instruction { .. }))
-                    {
-                        let id = id_gen.next().unwrap();
-                        let params = build_params(lookup);
-                        requests.push(build_request(id, *target, Some(**lookup), &params));
-                    }
+                    Self::build_instruction_requests(&mut id_gen, &registry_entries)
+                }
+            };
+            requests.extend(new_requests);
+        }
+
+        Ok(requests)
+    }
+
+    fn build_slot_requests(
+        id_gen: &mut impl Iterator<Item = u64>,
+    ) -> Vec<(Value, SubscriptionInfo)> {
+        let id = id_gen.next().unwrap();
+        vec![build_request(id, SubscribeMethod::Slot, None, &json!([]))]
+    }
+
+    fn build_program_requests(
+        id_gen: &mut impl Iterator<Item = u64>,
+        registry_entries: &[(&RegistryLookup, &RegistryItem)],
+        protocol_map: &ProtocolMap,
+    ) -> anyhow::Result<Vec<(Value, SubscriptionInfo)>> {
+        let mut requests = Vec::new();
+
+        for (lookup, _) in registry_entries
+            .iter()
+            .filter(|(l, _)| matches!(l, RegistryLookup::Program { .. }))
+        {
+            let program_id_str = lookup.program_id().to_string();
+            let protocol = protocol_map
+                .get(&program_id_str)
+                .with_context(|| format!("No protocol config found for {program_id_str}"))?;
+
+            if protocol.account_ids.is_empty() {
+                let id = id_gen.next().unwrap();
+                let params = build_params(lookup);
+                requests.push(build_request(
+                    id,
+                    SubscribeMethod::Program,
+                    Some(**lookup),
+                    &params,
+                ));
+            } else {
+                for account_id in &protocol.account_ids {
+                    let id = id_gen.next().unwrap();
+                    let pubkey: Pubkey = account_id
+                        .parse()
+                        .with_context(|| format!("Invalid pubkey: {account_id}"))?;
+                    let params =
+                        json!([account_id, { "encoding": "base64", "commitment": "confirmed" }]);
+                    let (json_val, mut info) =
+                        build_request(id, SubscribeMethod::Account, Some(**lookup), &params);
+                    info.account_pubkey = Some(pubkey);
+                    requests.push((json_val, info));
                 }
             }
         }
 
         Ok(requests)
+    }
+
+    fn build_instruction_requests(
+        id_gen: &mut impl Iterator<Item = u64>,
+        registry_entries: &[(&RegistryLookup, &RegistryItem)],
+    ) -> Vec<(Value, SubscriptionInfo)> {
+        registry_entries
+            .iter()
+            .filter(|(l, _)| matches!(l, RegistryLookup::Instruction { .. }))
+            .map(|(lookup, _)| {
+                let id = id_gen.next().unwrap();
+                let params = build_params(lookup);
+                build_request(id, SubscribeMethod::Logs, Some(**lookup), &params)
+            })
+            .collect()
+    }
+
+    fn build_sysvar_requests(
+        id_gen: &mut impl Iterator<Item = u64>,
+        pubkey: Pubkey,
+    ) -> Vec<(Value, SubscriptionInfo)> {
+        let id = id_gen.next().unwrap();
+        let opts = json!({ "encoding": "base64", "commitment": "processed" });
+        let params = json!([pubkey.to_string(), opts]);
+        let (json_val, mut info) = build_request(id, SubscribeMethod::Account, None, &params);
+        info.account_pubkey = Some(pubkey);
+        vec![(json_val, info)]
     }
 
     /// Handles an incoming WebSocket message and manages subscription state.
@@ -286,14 +342,14 @@ impl WebsocketStream {
             .filter_map(|msg| Self::parse_notification(msg, &self.subscriptions))
             .collect();
 
-        STREAM_METRICS.observe_duration(Transport::Ws, start_time);
+        STREAM_METRICS.record_duration(Transport::Ws, start_time);
 
         if !events.is_empty()
             && let Some(ref mut cb) = self.callback
         {
             let cb_start = Instant::now();
             cb.call(events).await.context("callback failed")?;
-            STREAM_METRICS.observe_handler_duration(cb_start);
+            STREAM_METRICS.record_handler_duration(cb_start);
         }
 
         Ok(())
@@ -309,170 +365,169 @@ impl WebsocketStream {
 
         let method = msg.method?;
         let params = msg.params?;
-
-        let info = subscriptions.get(&params.subscription)?;
-        let sub_id = params.subscription;
+        let sub_info = subscriptions.get(&params.subscription)?;
 
         match method {
-            NotificationMethod::Slot => deserialize_and_parse(params.result, |result| {
-                Self::parse_slot(&NotificationParams {
-                    subscription: sub_id,
-                    result,
-                })
-            }),
-            NotificationMethod::Program => deserialize_and_parse(params.result, |result| {
-                Self::parse_program(
-                    NotificationParams {
-                        subscription: sub_id,
-                        result,
-                    },
-                    info,
-                )
-            }),
-            NotificationMethod::Logs => deserialize_and_parse(params.result, |result| {
-                Self::parse_logs(
-                    &NotificationParams {
-                        subscription: sub_id,
-                        result,
-                    },
-                    info,
-                )
-            }),
+            NotificationMethod::Slot => {
+                deserialize_and_parse(params.result, |r| Self::parse_slot(&r))
+            }
+            NotificationMethod::Program => {
+                deserialize_and_parse(params.result, |r| Self::parse_program(r, sub_info))
+            }
+            NotificationMethod::Account => {
+                deserialize_and_parse(params.result, |r| Self::parse_account(r, sub_info))
+            }
+            NotificationMethod::Logs => {
+                deserialize_and_parse(params.result, |r| Self::parse_logs(&r, sub_info))
+            }
         }
     }
 
-    fn parse_slot(update: &NotificationParams<SlotResult>) -> Option<Event> {
-        STREAM_METRICS.inc_events(Transport::Ws, EventType::Slot, "system");
+    fn parse_slot(update: &SlotResult) -> Option<Event> {
+        STREAM_METRICS.record_event(Transport::Ws, EventType::Slot, "system");
         Some(Event::Slot(SlotEvent {
-            slot: update.result.slot,
-            parent: Some(update.result.parent),
+            slot: update.slot,
+            parent: Some(update.parent),
             status: 0,
             received_at: utils::get_timestamp_ms(),
         }))
     }
 
-    fn parse_program(
-        update: NotificationParams<ProgramResult>,
-        info: &SubscriptionInfo,
-    ) -> Option<Event> {
+    fn parse_program(update: ProgramResult, info: &SubscriptionInfo) -> Option<Event> {
         let program_id = info.program_id?;
-        let result = update.result;
-        let account = result.value.account;
-
+        let pubkey = update.value.pubkey.parse().ok()?;
+        let account = update.value.account;
         let payload = general_purpose::STANDARD.decode(&account.data[0]).ok()?;
-        let registry_item = DEX_REGISTRY.get_account_item(&program_id, payload.len(), &payload);
 
-        let Some(item) = registry_item else {
-            STREAM_METRICS.inc_parse_error(Transport::Ws, "unregistered_account");
-            warn!(
-                "No registered parser found for program {} with data size {}. Payload: {:?}",
-                program_id,
-                payload.len(),
-                payload,
-            );
-            return None;
-        };
+        let (item, pool_state) = Self::parse_account_payload(&program_id, &pubkey, &payload)?;
 
-        STREAM_METRICS.observe_bytes(Transport::Ws, EventType::Account, item.name, payload.len());
-
-        let pool_state = if let DexParser::Account(parser_fn) = &item.parser {
-            if let Some(state) = parser_fn(&payload) {
-                state
-            } else {
-                STREAM_METRICS.inc_parse_error(Transport::Ws, item.name);
-                error!(
-                    "[{}] Failed to parse account: {}. Data size: {}. Payload: {:?}",
-                    item.name,
-                    result.value.pubkey,
-                    payload.len(),
-                    payload
-                );
-                return None;
-            }
-        } else {
-            STREAM_METRICS.inc_parse_error(Transport::Ws, "wrong_parser_type");
-            error!(
-                "Registry integrity error: Expected Account parser for {}",
-                program_id
-            );
-            return None;
-        };
-
-        let event = AccountEvent {
-            slot: result.context.slot,
+        let event = ProgramEvent {
+            slot: update.context.slot,
             is_startup: false,
-            pubkey: result.value.pubkey.parse().ok()?,
+            pubkey,
             lamports: account.lamports,
             owner: account.owner.parse().ok()?,
             executable: account.executable,
             rent_epoch: account.rent_epoch,
-            write_version: 0,
+            write_version: None,
             txn_signature: None,
             pool_state,
         };
 
-        STREAM_METRICS.inc_events(Transport::Ws, EventType::Account, item.name);
-
-        Some(Event::Account(Box::new(event)))
+        STREAM_METRICS.record_event(Transport::Ws, EventType::Program, item.name);
+        Some(Event::Program(Box::new(event)))
     }
 
-    fn parse_logs(
-        update: &NotificationParams<LogsResult>,
-        info: &SubscriptionInfo,
-    ) -> Option<Event> {
-        let value = &update.result.value;
+    fn parse_account(update: AccountResult, info: &SubscriptionInfo) -> Option<Event> {
+        let pubkey = info.account_pubkey?;
+        let account = update.value;
+        let payload = general_purpose::STANDARD.decode(&account.data[0]).ok()?;
 
-        if value.err.is_some() {
+        if pubkey == clock::id() {
+            let clock: Clock = bincode::deserialize(&payload).ok()?;
+            return Some(Event::Clock(clock));
+        }
+
+        let program_id = account.owner.parse().ok()?;
+        let (item, pool_state) = Self::parse_account_payload(&program_id, &pubkey, &payload)?;
+
+        let event = ProgramEvent {
+            slot: update.context.slot,
+            is_startup: false,
+            pubkey,
+            lamports: account.lamports,
+            owner: account.owner.parse().ok()?,
+            executable: account.executable,
+            rent_epoch: account.rent_epoch,
+            write_version: None,
+            txn_signature: None,
+            pool_state,
+        };
+
+        STREAM_METRICS.record_event(Transport::Ws, EventType::Program, item.name);
+        Some(Event::Program(Box::new(event)))
+    }
+
+    fn parse_logs(update: &LogsResult, info: &SubscriptionInfo) -> Option<Event> {
+        if update.value.err.is_some() {
             return None;
         }
 
         let program_id = info.program_id?;
-
-        let events: Vec<TxEvent> = value
+        let events: Vec<TxEvent> = update
+            .value
             .logs
             .iter()
             .filter_map(|log| log.strip_prefix("Program data: "))
-            .filter_map(|data_b64| {
-                let payload = general_purpose::STANDARD.decode(data_b64).ok()?;
-                let item = DEX_REGISTRY.get_instruction_item(&program_id, &payload)?;
-
-                STREAM_METRICS.observe_bytes(
-                    Transport::Ws,
-                    EventType::Tx,
-                    item.name,
-                    payload.len(),
-                );
-
-                if let DexParser::Tx(parser_fn) = &item.parser {
-                    let parsed = parser_fn(&payload);
-
-                    if let Some(event) = parsed {
-                        STREAM_METRICS.inc_events(Transport::Ws, EventType::Tx, item.name);
-                        Some(event)
-                    } else {
-                        STREAM_METRICS.inc_parse_error(Transport::Ws, item.name);
-                        error!(
-                            "[{}] Failed to parse transaction event for program {}. Payload: {:?}",
-                            item.name, program_id, payload
-                        );
-                        None
-                    }
-                } else {
-                    STREAM_METRICS.inc_parse_error(Transport::Ws, "wrong_parser_type");
-                    error!(
-                        "Registry integrity error: Expected Tx parser for {}",
-                        program_id
-                    );
-                    None
-                }
-            })
+            .filter_map(|data_b64| Self::parse_log_payload(data_b64, &program_id))
             .collect();
 
         if events.is_empty() {
-            return None;
+            None
+        } else {
+            Some(Event::Tx(events))
         }
+    }
 
-        Some(Event::Tx(events))
+    fn parse_account_payload<'a>(
+        program_id: &Pubkey,
+        pubkey: &Pubkey,
+        payload: &[u8],
+    ) -> Option<(&'a RegistryItem, PoolState)> {
+        let item = PROTOCOL_REGISTRY
+            .get_account_item(program_id, payload.len(), payload)
+            .or_else(|| {
+                STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Parse);
+                warn!(
+                    "No registered parser found for program {} with data size {}",
+                    program_id,
+                    payload.len()
+                );
+                None
+            })?;
+
+        STREAM_METRICS.record_bytes(Transport::Ws, EventType::Program, item.name, payload.len());
+
+        let ProtocolParser::Program(parser_fn) = &item.parser else {
+            STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Parse);
+            error!("Registry integrity error: Expected Account parser for {program_id}");
+            return None;
+        };
+
+        let pool_state = parser_fn(payload).or_else(|| {
+            STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Parse);
+            error!(
+                "[{}] Failed to parse account: {}. Data size: {}",
+                item.name,
+                pubkey,
+                payload.len()
+            );
+            None
+        })?;
+
+        Some((item, pool_state))
+    }
+
+    fn parse_log_payload(data_b64: &str, program_id: &Pubkey) -> Option<TxEvent> {
+        let payload = general_purpose::STANDARD.decode(data_b64).ok()?;
+        let item = PROTOCOL_REGISTRY.get_instruction_item(program_id, &payload)?;
+
+        STREAM_METRICS.record_bytes(Transport::Ws, EventType::Tx, item.name, payload.len());
+
+        let ProtocolParser::Tx(parser_fn) = &item.parser else {
+            STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Parse);
+            error!("Registry integrity error: Expected Tx parser for {program_id}");
+            return None;
+        };
+
+        let event = parser_fn(&payload).or_else(|| {
+            STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Parse);
+            error!("[{}] Failed to parse transaction event for program {program_id}. Payload: {payload:?}", item.name);
+            None
+        })?;
+
+        STREAM_METRICS.record_event(Transport::Ws, EventType::Tx, item.name);
+        Some(event)
     }
 
     /// Manages the WebSocket keep-alive mechanism (L7 Pings).
@@ -506,7 +561,7 @@ impl WebsocketStream {
 
 fn build_params(lookup: &RegistryLookup) -> Value {
     match lookup {
-        RegistryLookup::Account {
+        RegistryLookup::Program {
             program_id,
             size,
             discriminator,
@@ -546,14 +601,14 @@ fn build_params(lookup: &RegistryLookup) -> Value {
 
 fn build_request(
     id: u64,
-    target: SubscribeTarget,
+    method: SubscribeMethod,
     lookup: Option<RegistryLookup>,
     params: &Value,
 ) -> (Value, SubscriptionInfo) {
     let value = json!({
         "jsonrpc": "2.0",
         "id": id,
-        "method": target.method(),
+        "method": method,
         "params": params,
     });
     let program_id = lookup.map(|l| l.program_id());
@@ -575,6 +630,8 @@ enum SubscribeMethod {
     Slot,
     #[serde(rename = "programSubscribe")]
     Program,
+    #[serde(rename = "accountSubscribe")]
+    Account,
     #[serde(rename = "logsSubscribe")]
     Logs,
 }
@@ -585,6 +642,8 @@ pub enum NotificationMethod {
     Slot,
     #[serde(rename = "programNotification")]
     Program,
+    #[serde(rename = "accountNotification")]
+    Account,
     #[serde(rename = "logsNotification")]
     Logs,
 }
@@ -594,6 +653,7 @@ pub struct SubscriptionInfo {
     pub request_id: u64,
     pub server_sub_id: Option<u64>,
     pub program_id: Option<Pubkey>,
+    pub account_pubkey: Option<Pubkey>,
 }
 
 impl SubscriptionInfo {
@@ -602,6 +662,7 @@ impl SubscriptionInfo {
             request_id: id,
             server_sub_id: None,
             program_id: pk,
+            account_pubkey: None,
         }
     }
 }
@@ -620,18 +681,6 @@ pub struct RawParams {
     pub result: OwnedValue,
 }
 
-pub enum Notification {
-    SlotNotification(NotificationParams<SlotResult>),
-    ProgramNotification(NotificationParams<ProgramResult>),
-    LogsNotification(NotificationParams<LogsResult>),
-}
-
-#[derive(Deserialize, Debug)]
-pub struct NotificationParams<T> {
-    pub subscription: u64,
-    pub result: T,
-}
-
 #[derive(Deserialize, Debug)]
 pub struct SlotResult {
     pub slot: u64,
@@ -648,16 +697,22 @@ pub struct ProgramResult {
 #[derive(Deserialize, Debug)]
 pub struct ProgramValue {
     pub pubkey: String,
-    pub account: AccountData,
+    pub account: AccountUpdate,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AccountResult {
+    pub context: RpcContext,
+    pub value: AccountUpdate,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct AccountData {
+pub struct AccountUpdate {
     pub data: [String; 2],
+    pub executable: bool,
     pub lamports: u64,
     pub owner: String,
-    pub executable: bool,
     pub rent_epoch: u64,
     pub space: u64,
 }
@@ -678,14 +733,4 @@ pub struct LogsValue {
 #[derive(Deserialize, Debug)]
 pub struct RpcContext {
     pub slot: u64,
-}
-
-impl SubscribeTarget {
-    fn method(self) -> SubscribeMethod {
-        match self {
-            Self::Slot => SubscribeMethod::Slot,
-            Self::Account => SubscribeMethod::Program,
-            Self::Instruction => SubscribeMethod::Logs,
-        }
-    }
 }

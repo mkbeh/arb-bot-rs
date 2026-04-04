@@ -2,29 +2,26 @@ use ahash::AHashMap;
 use anyhow::anyhow;
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::registry::{
-    DexEntity,
-    traits::{DexParser, RegistryLookup, ToDexParser},
-};
+use crate::libs::solana_client::registry::*;
 
 /// Represents a single entry in the registry, combining a human-readable name
 /// and the corresponding parser logic.
 pub struct RegistryItem {
     pub name: &'static str,
-    pub parser: DexParser,
+    pub parser: ProtocolParser,
 }
 
-pub struct DexRegistry {
+pub struct ProtocolRegistry {
     pub map: AHashMap<RegistryLookup, RegistryItem>,
 }
 
-impl Default for DexRegistry {
+impl Default for ProtocolRegistry {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DexRegistry {
+impl ProtocolRegistry {
     /// Creates a new, empty registry instance.
     #[must_use]
     pub fn new() -> Self {
@@ -36,8 +33,8 @@ impl DexRegistry {
     /// Registers a new entity and its parser into the registry.
     pub fn add<T, Out>(&mut self, wrap: fn(T) -> Out)
     where
-        T: DexEntity + 'static,
-        Out: ToDexParser<T> + 'static,
+        T: ProtocolEntity + 'static,
+        Out: ToProtocolParser<T> + 'static,
     {
         let lookup = Out::create_lookup();
         let parse_fn =
@@ -55,8 +52,8 @@ impl DexRegistry {
     /// Registers a new entity and its parser into the registry.
     pub fn add_boxed<T, Out>(&mut self, wrap: fn(Box<T>) -> Out)
     where
-        T: DexEntity + 'static,
-        Out: ToDexParser<T> + 'static,
+        T: ProtocolEntity + 'static,
+        Out: ToProtocolParser<T> + 'static,
     {
         let lookup = Out::create_lookup();
         let parse_fn = move |data: &[u8]| -> Option<Out> { T::parse_into(data, wrap) };
@@ -79,7 +76,7 @@ impl DexRegistry {
         payload: &[u8],
     ) -> Option<&RegistryItem> {
         self.map.iter().find_map(|(lookup, item)| {
-            let RegistryLookup::Account {
+            let RegistryLookup::Program {
                 program_id: reg_id,
                 size: reg_size,
                 discriminator,
@@ -140,7 +137,7 @@ impl DexRegistry {
         self.map
             .iter()
             .filter(|(lookup, _)| match lookup {
-                RegistryLookup::Account {
+                RegistryLookup::Program {
                     program_id: pid, ..
                 }
                 | RegistryLookup::Instruction {

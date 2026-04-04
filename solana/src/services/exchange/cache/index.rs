@@ -57,11 +57,10 @@ impl LiquidityIndexCache {
 
     /// Updates or inserts the latest liquidity index for a specific pool.
     pub fn update(&mut self, pool_id: Pubkey, index: LiquidityIndex) {
-        if !self.data.contains_key(&pool_id) {
-            INDEX_CACHE_METRICS.inc(index.dex_name());
+        let prev = self.data.insert(pool_id, index);
+        if prev.is_none() {
+            INDEX_CACHE_METRICS.record(index.dex_name());
         }
-
-        self.data.insert(pool_id, index);
     }
 
     /// Retrieves the current liquidity index for a given pool ID.

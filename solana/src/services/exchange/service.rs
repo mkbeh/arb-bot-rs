@@ -8,17 +8,19 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     Config,
-    config::Transport,
-    libs::solana_client::*,
+    config::TransportConfig,
+    libs::solana_client::{protocols::kamino::KAMINO_ID, *},
     services::exchange::{
         background::{AmmConfigService, BackgroundService, MintService},
         cache,
+        compute::ComputeService,
         market::MarketService,
     },
 };
 
 pub struct ExchangeService {
     market_stream: Arc<Mutex<Box<dyn SolanaStream>>>,
+    compute_service: Arc<Mutex<ComputeService>>,
     background_services: Vec<Arc<dyn BackgroundService + Send + Sync>>,
 }
 
@@ -42,10 +44,20 @@ impl ArbitrageService for ExchangeService {
         tasks_set.spawn({
             let token = token.clone();
             let stream = self.market_stream.clone();
-
             async move {
                 let mut stream = stream.lock().await;
                 stream.subscribe(token).await
+            }
+        });
+
+        // Spawn the compute service task responsible for detecting
+        // and evaluating arbitrage opportunities from pool updates.
+        tasks_set.spawn({
+            let token = token.clone();
+            let compute = self.compute_service.clone();
+            async move {
+                let mut compute = compute.lock().await;
+                compute.start(token).await
             }
         });
 
@@ -68,11 +80,15 @@ impl ExchangeService {
         cache::init(config.liquidity_depth)?;
 
         let rpc = Arc::new(RpcClient::from_config(config.try_into()?));
-        let mut stream = create_stream(config, vec![SubscribeTarget::Account])?;
-        Arc::new(MarketService::new(rpc.clone())).bind_to(&mut stream);
+        let compute_service = ComputeService::new(config.get_mints_addrs());
+
+        let mut market_stream = build_market_stream(config)?;
+        Arc::new(MarketService::new(rpc.clone(), compute_service.sender()))
+            .bind_to(&mut market_stream);
 
         Ok(Self {
-            market_stream: Arc::new(Mutex::new(stream)),
+            market_stream: Arc::new(Mutex::new(market_stream)),
+            compute_service: Arc::new(Mutex::new(compute_service)),
             background_services: vec![
                 Arc::new(MintService::new(rpc.clone())),
                 Arc::new(AmmConfigService::new(rpc)),
@@ -81,20 +97,45 @@ impl ExchangeService {
     }
 }
 
-fn create_stream(
-    config: &Config,
-    targets: Vec<SubscribeTarget>,
-) -> anyhow::Result<Box<dyn SolanaStream>> {
+fn build_market_stream(config: &Config) -> anyhow::Result<Box<dyn SolanaStream>> {
+    let targets = vec![SubscribeTarget::Clock, SubscribeTarget::Program];
+    let protocols = build_market_protocols(config);
+
     match config.transport {
-        Transport::Websocket => {
-            let mut cfg: WebsocketStreamConfig = config.try_into()?;
-            cfg.targets = targets;
+        TransportConfig::Websocket { .. } => {
+            let cfg = WebsocketStreamConfig {
+                targets,
+                protocols,
+                ..config.try_into()?
+            };
             Ok(Box::new(WebsocketStream::from_config(cfg)))
         }
-        Transport::Grpc => {
-            let mut cfg: GrpcStreamConfig = config.try_into()?;
-            cfg.targets = targets;
+        TransportConfig::Grpc { .. } => {
+            let cfg = GrpcStreamConfig {
+                targets,
+                protocols,
+                ..config.try_into()?
+            };
             Ok(Box::new(GrpcStream::from_config(cfg)))
         }
     }
+}
+
+fn build_market_protocols(config: &Config) -> ProtocolMap {
+    config
+        .get_dex_addrs()
+        .into_iter()
+        .map(|addr| ProtocolConfig {
+            program_id: addr,
+            account_ids: vec![],
+        })
+        .chain(std::iter::once(ProtocolConfig {
+            program_id: KAMINO_ID.to_string(),
+            account_ids: config
+                .get_reserves_addrs()
+                .iter()
+                .map(|p| p.to_string())
+                .collect(),
+        }))
+        .collect()
 }

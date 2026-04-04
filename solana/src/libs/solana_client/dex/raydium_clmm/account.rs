@@ -9,7 +9,7 @@ use crate::libs::solana_client::{
     },
     metrics::*,
     pool::*,
-    registry::DexEntity,
+    registry::ProtocolEntity,
 };
 
 // Number of rewards Token
@@ -50,7 +50,7 @@ pub struct AmmConfig {
     pub padding: [u64; 3],
 }
 
-impl DexEntity for AmmConfig {
+impl ProtocolEntity for AmmConfig {
     const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[218, 244, 33, 104, 203, 203, 43, 111];
     const DATA_SIZE: usize = 8 + 1 + 2 + 32 + 4 + 4 + 2 + 64; // 117
@@ -148,7 +148,7 @@ pub struct PoolState {
     pub _padding2: [u64; 32],
 }
 
-impl DexEntity for PoolState {
+impl ProtocolEntity for PoolState {
     const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[247, 237, 227, 245, 215, 195, 222, 70];
     const DATA_SIZE: usize = 1544;
@@ -483,7 +483,7 @@ pub struct TickArrayBitmapExtension {
     pub negative_tick_array_bitmap: [[u64; 8]; EXTENSION_TICKARRAY_BITMAP_SIZE],
 }
 
-impl DexEntity for TickArrayBitmapExtension {
+impl ProtocolEntity for TickArrayBitmapExtension {
     const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[60, 150, 36, 219, 97, 128, 139, 153];
     const DATA_SIZE: usize = 8 + 32 + 64 * EXTENSION_TICKARRAY_BITMAP_SIZE * 2; // 1832
@@ -674,7 +674,7 @@ pub struct TickArrayState {
     pub _padding_3: [u8; 11],
 }
 
-impl DexEntity for TickArrayState {
+impl ProtocolEntity for TickArrayState {
     const PROGRAM_ID: Pubkey = RAYDIUM_CLMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[192, 155, 85, 205, 49, 249, 129, 42];
     const DATA_SIZE: usize = 10240;

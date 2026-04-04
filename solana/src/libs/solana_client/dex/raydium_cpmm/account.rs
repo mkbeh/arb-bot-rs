@@ -13,7 +13,7 @@ use crate::libs::solana_client::{
     },
     metrics::*,
     pool::*,
-    registry::DexEntity,
+    registry::ProtocolEntity,
 };
 
 const CPMM_COMPUTE_UNITS: u32 = 41_250;
@@ -77,7 +77,7 @@ pub struct AmmConfig {
     pub padding: [u64; 15],
 }
 
-impl DexEntity for AmmConfig {
+impl ProtocolEntity for AmmConfig {
     const PROGRAM_ID: Pubkey = RAYDIUM_CPMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[218, 244, 33, 104, 203, 203, 43, 111];
     const DATA_SIZE: usize = 8 + 1 + 1 + 2 + 4 * 8 + 32 * 2 + 8 + 8 * 15; // 236
@@ -154,7 +154,7 @@ pub struct PoolState {
     pub padding: [u64; 28],
 }
 
-impl DexEntity for PoolState {
+impl ProtocolEntity for PoolState {
     const PROGRAM_ID: Pubkey = RAYDIUM_CPMM_ID;
     const DISCRIMINATOR: &'static [u8] = &[247, 237, 227, 245, 215, 195, 222, 70];
     const DATA_SIZE: usize = 8 + 10 * 32 + 1 * 5 + 8 * 7 + 1 * 2 + 6 * 1 + 2 * 8 + 8 * 28; // 637

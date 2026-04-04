@@ -1,13 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
 use solana_sdk::{account::Account, pubkey::Pubkey};
-use tokio::{task::JoinSet, time::timeout};
+use tokio::{sync::mpsc, task::JoinSet, time::timeout};
+use tracing::warn;
 
 use crate::{
-    libs::solana_client::{
-        RpcClient, SolanaStream, callback::BatchEventCallbackWrapper, models::Event,
-    },
-    services::exchange::cache::get_market_state,
+    libs::solana_client::*,
+    services::exchange::{cache::get_market_state, compute::PoolUpdate},
 };
 
 /// Processes incoming on-chain account events and updates the global market state.
@@ -15,16 +14,18 @@ pub struct MarketService {
     rpc: Arc<RpcClient>,
     vault_rpc_timeout: Duration,
     vault_rpc_chunk_size: usize,
+    compute_tx: mpsc::Sender<PoolUpdate>,
 }
 
 impl MarketService {
     /// Creates a new `MarketService` instance.
     #[must_use]
-    pub fn new(rpc: Arc<RpcClient>) -> Self {
+    pub fn new(rpc: Arc<RpcClient>, compute_tx: mpsc::Sender<PoolUpdate>) -> Self {
         Self {
             rpc,
             vault_rpc_timeout: Duration::from_millis(500),
             vault_rpc_chunk_size: 100,
+            compute_tx,
         }
     }
 
@@ -41,7 +42,7 @@ impl MarketService {
     async fn handle_events(&self, events: Vec<Event>) -> anyhow::Result<()> {
         let result = {
             let mut market = get_market_state().write();
-            market.update_states(events)
+            market.update_events(events)
         };
 
         if !result.vaults.is_empty() {
@@ -50,7 +51,14 @@ impl MarketService {
         }
 
         if !result.changed_pools.is_empty() {
-            // todo: other logic
+            let update = PoolUpdate {
+                changed_pools: result.changed_pools.into_iter().collect(),
+                new_pools: result.new_pools.into_iter().collect(),
+            };
+
+            if let Err(e) = self.compute_tx.send(update).await {
+                warn!("Failed to send pool update to compute service: {e}");
+            }
         }
 
         Ok(())

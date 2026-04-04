@@ -1,10 +1,7 @@
 use solana_client::rpc_response::transaction::Signature;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{clock::Clock, pubkey::Pubkey};
 
-use crate::libs::solana_client::{
-    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, raydium_amm, raydium_clmm, raydium_cpmm},
-    registry::{DexEntity, DexParser, RegistryLookup, ToDexParser},
-};
+use crate::libs::solana_client::{dex::*, protocols::*, registry::*};
 
 /// Defines the types of Solana blockchain data that
 /// can be subscribed to via RPC/WebSocket.
@@ -12,10 +9,12 @@ use crate::libs::solana_client::{
 pub enum SubscribeTarget {
     /// Subscription to new slot updates.
     Slot,
+    /// Subscription to program/account data changes.
+    Program,
     /// Subscription to transaction logs/instructions.
     Instruction,
-    /// Subscription to account data changes.
-    Account,
+    /// System
+    Clock,
 }
 
 /// A top-level container for all processed blockchain events.
@@ -25,10 +24,12 @@ pub enum Event {
     BlockMeta(BlockMetaEvent),
     /// Information about a new slot.
     Slot(SlotEvent),
-    /// Update of a tracked DEX account state.
-    Account(Box<AccountEvent>),
+    /// Update of a tracked account owned by the given program or account public key.
+    Program(Box<ProgramEvent>),
     /// A collection of DEX-related transaction events (e.g., Swaps).
     Tx(Vec<TxEvent>),
+    /// System
+    Clock(Clock),
 }
 
 /// Detailed metadata for a confirmed Solana block.
@@ -54,7 +55,7 @@ pub struct SlotEvent {
 /// Describes an update to a specific Solana account,
 /// including its metadata and parsed DEX state.
 #[derive(Debug, Clone)]
-pub struct AccountEvent {
+pub struct ProgramEvent {
     pub slot: u64,
     /// Indicates if this event was generated during the
     /// initial state synchronization.
@@ -64,7 +65,7 @@ pub struct AccountEvent {
     pub owner: Pubkey,
     pub executable: bool,
     pub rent_epoch: u64,
-    pub write_version: u64,
+    pub write_version: Option<u64>,
     /// The signature of the transaction that last modified this account.
     pub txn_signature: Option<Signature>,
     /// The high-level parsed state of the pool.
@@ -89,6 +90,8 @@ pub enum PoolState {
     DynamicTickArrayOrca(Box<orca::DynamicTickArray>),
     OracleOrca(Box<orca::Oracle>),
     BondingCurvePumpFun(Box<pump_fun::BondingCurve>),
+    /// Reserves
+    ReserveKamino(Box<kamino::Reserve>),
     /// Fallback for unknown or unsupported account data.
     Unknown(Vec<u8>),
 }
@@ -110,24 +113,24 @@ pub enum TxEvent {
 
 // --- Registry Integration Implementations ---
 
-impl<T: DexEntity + 'static> ToDexParser<T> for PoolState {
+impl<T: ProtocolEntity + 'static> ToProtocolParser<T> for PoolState {
     fn create_lookup() -> RegistryLookup {
-        RegistryLookup::Account {
+        RegistryLookup::Program {
             program_id: T::PROGRAM_ID,
             size: T::DATA_SIZE,
             discriminator: T::DISCRIMINATOR,
         }
     }
 
-    fn wrap_parser<F>(f: F) -> DexParser
+    fn wrap_parser<F>(f: F) -> ProtocolParser
     where
         F: Fn(&[u8]) -> Option<Self> + Send + Sync + 'static,
     {
-        DexParser::Account(Box::new(f))
+        ProtocolParser::Program(Box::new(f))
     }
 }
 
-impl<T: DexEntity + 'static> ToDexParser<T> for TxEvent {
+impl<T: ProtocolEntity + 'static> ToProtocolParser<T> for TxEvent {
     fn create_lookup() -> RegistryLookup {
         RegistryLookup::Instruction {
             program_id: T::PROGRAM_ID,
@@ -135,10 +138,10 @@ impl<T: DexEntity + 'static> ToDexParser<T> for TxEvent {
         }
     }
 
-    fn wrap_parser<F>(f: F) -> DexParser
+    fn wrap_parser<F>(f: F) -> ProtocolParser
     where
         F: Fn(&[u8]) -> Option<Self> + Send + Sync + 'static,
     {
-        DexParser::Tx(Box::new(f))
+        ProtocolParser::Tx(Box::new(f))
     }
 }

@@ -20,7 +20,7 @@ use crate::libs::solana_client::{
     },
     metrics::*,
     pool::*,
-    registry::DexEntity,
+    registry::ProtocolEntity,
 };
 
 const DAMM_V2_COMPUTE_UNITS: u32 = 48_000;
@@ -131,7 +131,7 @@ pub struct Pool {
     pub reward_infos: [RewardInfo; NUM_REWARDS],
 }
 
-impl DexEntity for Pool {
+impl ProtocolEntity for Pool {
     const PROGRAM_ID: Pubkey = METEORA_DAMM_V2_ID;
     const DISCRIMINATOR: &'static [u8] = &[241, 154, 109, 4, 17, 177, 109, 188];
     const DATA_SIZE: usize = 1112;

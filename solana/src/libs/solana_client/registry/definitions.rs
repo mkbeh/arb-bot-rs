@@ -1,10 +1,6 @@
-use crate::libs::solana_client::{
-    dex::{meteora_damm_v2, meteora_dlmm, orca, pump_fun, raydium_amm, raydium_clmm, raydium_cpmm},
-    models::{PoolState, TxEvent},
-    registry::core::DexRegistry,
-};
+use crate::libs::solana_client::{dex::*, models::*, protocols::*, registry::*};
 
-/// Populates the provided [DexRegistry] with protocol-specific parsers.
+/// Populates the provided [ProtocolRegistry] with protocol-specific parsers.
 ///
 /// This function acts as a centralized configuration point for all supported
 /// DEX integrations. It maps low-level protocol structs (e.g., Meteora or Raydium types)
@@ -18,7 +14,8 @@ use crate::libs::solana_client::{
 /// - **Raydium CLMM**: Pool state and Swap events.
 /// - **Orca**: Pool state and Swap events.
 /// - **PumpFun**: Pool state and Swap events.
-pub fn fill_registry(reg: &mut DexRegistry) {
+/// - **Kamino**: Kamino reserves.
+pub fn fill_registry(reg: &mut ProtocolRegistry) {
     // Meteora DLMM Integration
     reg.add_boxed::<meteora_dlmm::LbPair, _>(PoolState::LbPairMeteoraDlmm);
     reg.add_boxed::<meteora_dlmm::BinArrayBitmapExtension, _>(
@@ -57,4 +54,7 @@ pub fn fill_registry(reg: &mut DexRegistry) {
     // PumpFun Integration
     reg.add_boxed::<pump_fun::BondingCurve, _>(PoolState::BondingCurvePumpFun);
     reg.add::<pump_fun::Swap, _>(TxEvent::SwapPumpFun);
+
+    // Kamino Integration
+    reg.add_boxed::<kamino::Reserve, _>(PoolState::ReserveKamino);
 }

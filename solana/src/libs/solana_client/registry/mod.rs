@@ -2,16 +2,17 @@ pub mod core;
 pub mod definitions;
 pub mod traits;
 
-pub use core::{DexRegistry, RegistryItem};
+pub use core::*;
 
-pub use traits::{DexEntity, DexParser, RegistryLookup, ToDexParser};
+pub use traits::*;
 
 /// Global, thread-safe registry that stores all supported DEX protocol parsers.
-pub static DEX_REGISTRY: std::sync::LazyLock<DexRegistry> = std::sync::LazyLock::new(|| {
-    let mut reg = DexRegistry::default();
+pub static PROTOCOL_REGISTRY: std::sync::LazyLock<ProtocolRegistry> =
+    std::sync::LazyLock::new(|| {
+        let mut reg = ProtocolRegistry::default();
 
-    // Fill the registry with protocol-specific entities and their wrappers
-    definitions::fill_registry(&mut reg);
+        // Fill the registry with protocol-specific entities and their wrappers
+        definitions::fill_registry(&mut reg);
 
-    reg
-});
+        reg
+    });

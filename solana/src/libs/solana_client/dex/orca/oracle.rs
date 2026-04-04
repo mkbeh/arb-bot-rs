@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use orca_whirlpools_core::{AdaptiveFeeConstantsFacade, AdaptiveFeeVariablesFacade, OracleFacade};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::orca::ORCA_ID, registry::DexEntity};
+use crate::libs::solana_client::{dex::orca::ORCA_ID, registry::ProtocolEntity};
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -15,7 +15,7 @@ pub struct Oracle {
     pub reserved: [u8; 128],
 }
 
-impl DexEntity for Oracle {
+impl ProtocolEntity for Oracle {
     const PROGRAM_ID: Pubkey = ORCA_ID;
     const DISCRIMINATOR: &'static [u8] = &[139, 194, 131, 179, 140, 179, 229, 244];
     const DATA_SIZE: usize =

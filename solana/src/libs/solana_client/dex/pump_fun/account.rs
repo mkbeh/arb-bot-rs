@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{dex::pump_fun::constants::PUMP_FUN_ID, registry::DexEntity};
+use crate::libs::solana_client::{dex::pump_fun::constants::PUMP_FUN_ID, registry::ProtocolEntity};
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -16,7 +16,7 @@ pub struct BondingCurve {
     pub creator: [u8; 32],
 }
 
-impl DexEntity for BondingCurve {
+impl ProtocolEntity for BondingCurve {
     const PROGRAM_ID: Pubkey = PUMP_FUN_ID;
     const DISCRIMINATOR: &'static [u8] = &[23, 183, 248, 55, 96, 216, 172, 96];
     const DATA_SIZE: usize = 82;

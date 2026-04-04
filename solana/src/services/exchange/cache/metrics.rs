@@ -3,9 +3,10 @@ use std::sync::LazyLock;
 use metrics::{
     Unit, counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram,
 };
+use solana_sdk::pubkey::Pubkey;
 use tools::http::metrics::HttpMetrics;
 
-use crate::libs::solana_client::metrics::LBL_DEX;
+use crate::libs::solana_client::{metrics::LBL_DEX, utils};
 
 /// Global metrics provider for the Liquidity Index Cache.
 pub static INDEX_CACHE_METRICS: LazyLock<IndexCacheMetrics> = LazyLock::new(IndexCacheMetrics::new);
@@ -31,6 +32,14 @@ pub static VAULT_CACHE_METRICS: LazyLock<VaultCacheMetrics> = LazyLock::new(Vaul
 pub static ORACLE_CACHE_METRICS: LazyLock<OracleCacheMetrics> =
     LazyLock::new(OracleCacheMetrics::new);
 
+/// Global metrics provider for the Reserve Cache.
+pub static RESERVE_CACHE_METRICS: LazyLock<ReserveCacheMetrics> =
+    LazyLock::new(ReserveCacheMetrics::new);
+
+/// Global metrics provider for the System Cache.
+pub static SYSTEM_CACHE_METRICS: LazyLock<SystemCacheMetrics> =
+    LazyLock::new(SystemCacheMetrics::new);
+
 pub fn init_metrics() {
     let _ = &*INDEX_CACHE_METRICS;
     let _ = &*POOL_CACHE_METRICS;
@@ -39,6 +48,7 @@ pub fn init_metrics() {
     let _ = &*AMM_CONFIG_CACHE_METRICS;
     let _ = &*VAULT_CACHE_METRICS;
     let _ = &*ORACLE_CACHE_METRICS;
+    let _ = &*RESERVE_CACHE_METRICS;
 }
 
 /// Metrics manager for tracking price and tick indices.
@@ -60,7 +70,7 @@ impl IndexCacheMetrics {
 
     /// Increments the total count of registered pools for a specific DEX.
     #[inline]
-    pub fn inc(&self, dex: &'static str) {
+    pub fn record(&self, dex: &'static str) {
         let labels = &[(LBL_DEX, dex)];
         counter!(Self::METRIC_INDEX_CACHE_SIZE, labels).increment(1);
     }
@@ -85,7 +95,7 @@ impl PoolCacheMetrics {
 
     /// Increments the total count of registered pools for a specific DEX.
     #[inline]
-    pub fn inc(&self, dex: &'static str) {
+    pub fn record(&self, dex: &'static str) {
         let labels = &[(LBL_DEX, dex)];
         counter!(Self::METRIC_POOL_CACHE_SIZE, labels).increment(1);
     }
@@ -201,7 +211,7 @@ impl AmmConfigCacheMetrics {
 
     /// Increments the AMM configuration cache counter for a specific DEX.
     #[inline]
-    pub fn inc(&self, dex: &'static str) {
+    pub fn record(&self, dex: &'static str) {
         let labels = &[(LBL_DEX, dex)];
         counter!(Self::METRIC_AMM_CONFIG_CACHE_SIZE, labels).increment(1);
     }
@@ -270,5 +280,95 @@ impl OracleCacheMetrics {
     #[inline]
     pub fn set_cache_size(&self, size: usize) {
         gauge!(Self::METRIC_ORACLE_CACHE_SIZE).set(size as f64);
+    }
+}
+
+pub struct ReserveCacheMetrics;
+
+impl Default for ReserveCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ReserveCacheMetrics {
+    const METRIC_RESERVE_CACHE_SIZE: &str = "cache_size_reserve_total";
+    const METRIC_RESERVE_AVAILABLE_AMOUNT: &str = "cache_reserve_available_amount";
+    const METRIC_RESERVE_UPDATED_AT: &str = "cache_reserve_updated_at";
+    const LBL_MINT: &str = "mint";
+
+    #[must_use]
+    pub fn new() -> Self {
+        describe_gauge!(
+            Self::METRIC_RESERVE_CACHE_SIZE,
+            Unit::Count,
+            "Indicates whether a reserve for the given mint is present in the cache (1 = present)"
+        );
+        describe_gauge!(
+            Self::METRIC_RESERVE_AVAILABLE_AMOUNT,
+            Unit::Count,
+            "Total available liquidity amount for the given reserve"
+        );
+        describe_gauge!(
+            Self::METRIC_RESERVE_UPDATED_AT,
+            Unit::Seconds,
+            "Timestamp of the last reserve cache update in seconds"
+        );
+        Self
+    }
+
+    /// Records that a reserve for the given mint is present in the cache
+    /// and updates its available liquidity amount.
+    pub fn record(&self, mint: &Pubkey, amount: f64, updated_at: u64) {
+        gauge!(Self::METRIC_RESERVE_CACHE_SIZE, Self::LBL_MINT => mint.to_string()).set(1.0);
+        gauge!(Self::METRIC_RESERVE_AVAILABLE_AMOUNT, Self::LBL_MINT => mint.to_string())
+            .set(amount);
+        gauge!(Self::METRIC_RESERVE_UPDATED_AT, Self::LBL_MINT => mint.to_string())
+            .set(updated_at as f64);
+    }
+}
+
+pub struct SystemCacheMetrics;
+
+impl Default for SystemCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SystemCacheMetrics {
+    const METRIC_CLOCK_SLOT: &str = "cache_system_clock_slot";
+    const METRIC_CLOCK_TIMESTAMP: &str = "cache_system_clock_unix_timestamp";
+    const METRIC_NETWORK_LAG: &str = "cache_system_network_lag";
+
+    #[must_use]
+    pub fn new() -> Self {
+        describe_gauge!(
+            Self::METRIC_CLOCK_SLOT,
+            Unit::Count,
+            "Current Solana clock slot"
+        );
+        describe_gauge!(
+            Self::METRIC_CLOCK_TIMESTAMP,
+            Unit::Seconds,
+            "Current Solana clock unix timestamp"
+        );
+        describe_gauge!(
+            Self::METRIC_NETWORK_LAG,
+            Unit::Milliseconds,
+            "Observed network lag in milliseconds: difference between local time and blockchain time"
+        );
+
+        Self
+    }
+
+    pub fn record_clock(&self, slot: u64, timestamp: i64) {
+        let now_ms = utils::get_timestamp_ms();
+        let clock_ms = (timestamp as u64).saturating_mul(1000);
+        let lag_ms = now_ms.saturating_sub(clock_ms);
+
+        gauge!(Self::METRIC_CLOCK_SLOT).set(slot as f64);
+        gauge!(Self::METRIC_CLOCK_TIMESTAMP).set(timestamp as f64);
+        gauge!(Self::METRIC_NETWORK_LAG).set(lag_ms as f64);
     }
 }

@@ -4,7 +4,7 @@ use solana_client::{
     rpc_config::{CommitmentConfig, RpcProgramAccountsConfig},
     rpc_response::UiAccount,
 };
-use solana_sdk::{account::Account, hash::Hash, pubkey::Pubkey};
+use solana_sdk::{account::Account, pubkey::Pubkey};
 
 /// Configuration for the Solana RPC client.
 #[derive(Default)]
@@ -25,16 +25,6 @@ impl RpcClient {
     pub fn from_config(config: RpcConfig) -> Self {
         let client = SolanaRpcClient::new(config.url);
         Self { client }
-    }
-
-    /// Gets the latest blockhash and its validity height for transaction signing.
-    pub async fn get_recent_blockhash(&self) -> anyhow::Result<(Hash, u64)> {
-        let (blockhash, last_valid_height) = self
-            .client
-            .get_latest_blockhash_with_commitment(CommitmentConfig::processed())
-            .await
-            .context("Failed to get recent blockhash from RPC")?;
-        Ok((blockhash, last_valid_height))
     }
 
     /// Returns the account information for a list of pubkeys.

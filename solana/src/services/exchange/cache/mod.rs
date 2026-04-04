@@ -3,8 +3,9 @@ pub mod index;
 pub mod liquidity;
 pub mod metrics;
 pub mod mint;
-mod oracle;
+pub mod oracle;
 pub mod pool;
+pub mod reserve;
 pub mod state;
 pub mod vault;
 
@@ -15,6 +16,7 @@ pub use metrics::*;
 pub use mint::*;
 pub use oracle::*;
 pub use pool::*;
+pub use reserve::*;
 pub use state::*;
 pub use vault::*;
 

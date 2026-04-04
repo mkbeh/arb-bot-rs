@@ -12,7 +12,7 @@ use crate::libs::solana_client::{
     dex::orca::{constants::*, math::floor_division, token::get_epoch_transfer_fee},
     metrics::*,
     pool::*,
-    registry::DexEntity,
+    registry::ProtocolEntity,
 };
 
 const ORCA_COMPUTE_UNITS: u32 = 75_000;
@@ -61,7 +61,7 @@ pub struct Whirlpool {
     pub reward_infos: [WhirlpoolRewardInfo; NUM_REWARDS], // 384
 }
 
-impl DexEntity for Whirlpool {
+impl ProtocolEntity for Whirlpool {
     const PROGRAM_ID: Pubkey = ORCA_ID;
     const DISCRIMINATOR: &'static [u8] = &[63, 149, 209, 12, 225, 128, 99, 9];
     const DATA_SIZE: usize = 8 + 261 + 384; // 653
@@ -222,7 +222,7 @@ pub struct FixedTickArray {
     pub whirlpool: [u8; 32],
 }
 
-impl DexEntity for FixedTickArray {
+impl ProtocolEntity for FixedTickArray {
     const PROGRAM_ID: Pubkey = ORCA_ID;
     const DISCRIMINATOR: &'static [u8] = &[69, 97, 189, 190, 110, 7, 66, 187];
     const DATA_SIZE: usize = 9988;
@@ -307,7 +307,7 @@ pub struct DynamicTickArray {
     pub ticks: Vec<DynamicTickData>,
 }
 
-impl DexEntity for DynamicTickArray {
+impl ProtocolEntity for DynamicTickArray {
     const PROGRAM_ID: Pubkey = ORCA_ID;
     const DISCRIMINATOR: &'static [u8] = &[17, 216, 246, 142, 225, 199, 218, 56];
     const DATA_SIZE: usize = 0;

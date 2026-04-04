@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
-    dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID, registry::DexEntity,
+    dex::meteora_damm_v2::constants::METEORA_DAMM_V2_ID, registry::ProtocolEntity,
 };
 
 #[repr(C)]
@@ -11,7 +11,7 @@ pub struct Swap {
     // todo
 }
 
-impl DexEntity for Swap {
+impl ProtocolEntity for Swap {
     const PROGRAM_ID: Pubkey = METEORA_DAMM_V2_ID;
     const DISCRIMINATOR: &'static [u8] = &[];
     const DATA_SIZE: usize = 0;

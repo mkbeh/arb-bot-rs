@@ -5,7 +5,7 @@ pre-configured stack consisting of **Prometheus** for metrics collection and **G
 
 ## 🏗 Directory Structure
 
-- `docker-compose.infra.yml` — Orchestrates the monitoring services.
+- `docker-compose.yml` — Orchestrates the monitoring services.
 - `grafana/provisioning/` — Automated configuration for data sources and dashboards.
 - `grafana/dashboards/` — Pre-configured JSON dashboard models for HFT metrics.
 - `grafana/prometheus.yml` — Scraper configuration for metric collection targets.
@@ -17,7 +17,7 @@ pre-configured stack consisting of **Prometheus** for metrics collection and **G
 Run the following command from the project root directory:
 
 ```bash
-docker-compose -f deploy/docker-compose.infra.yml up -d
+docker-compose -f deploy/docker-compose.yml up -d
 ```
 
 ### 2. Access Interfaces
