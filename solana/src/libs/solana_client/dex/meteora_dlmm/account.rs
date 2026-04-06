@@ -100,8 +100,8 @@ impl DexPool for LbPair {
     }
 }
 
-impl DexMetrics for LbPair {
-    fn dex_name(&self) -> &'static str {
+impl ProtocolMetrics for LbPair {
+    fn name(&self) -> &'static str {
         DEX_METEORA_DLMM
     }
 }

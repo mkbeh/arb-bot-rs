@@ -1,5 +1,5 @@
-/// Trait for mandatory DEX metadata
-pub trait DexMetrics {
+/// Trait for mandatory protocol metadata
+pub trait ProtocolMetrics {
     /// Returns a unique string name of the DEX
-    fn dex_name(&self) -> &'static str;
+    fn name(&self) -> &'static str;
 }

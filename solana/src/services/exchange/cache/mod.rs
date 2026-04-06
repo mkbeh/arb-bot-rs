@@ -1,7 +1,7 @@
 pub mod amm_config;
 pub mod index;
 pub mod liquidity;
-pub mod metrics;
+mod metrics;
 pub mod mint;
 pub mod oracle;
 pub mod pool;
