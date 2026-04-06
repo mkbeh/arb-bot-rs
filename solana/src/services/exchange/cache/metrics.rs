@@ -32,6 +32,10 @@ pub static VAULT_CACHE_METRICS: LazyLock<VaultCacheMetrics> = LazyLock::new(Vaul
 pub static ORACLE_CACHE_METRICS: LazyLock<OracleCacheMetrics> =
     LazyLock::new(OracleCacheMetrics::new);
 
+/// Global metrics provider for the Bitmap Cache.
+pub static BITMAP_CACHE_METRICS: LazyLock<BitmapCacheMetrics> =
+    LazyLock::new(BitmapCacheMetrics::new);
+
 /// Global metrics provider for the Reserve Cache.
 pub static RESERVE_CACHE_METRICS: LazyLock<ReserveCacheMetrics> =
     LazyLock::new(ReserveCacheMetrics::new);
@@ -48,7 +52,9 @@ pub fn init_metrics() {
     let _ = &*AMM_CONFIG_CACHE_METRICS;
     let _ = &*VAULT_CACHE_METRICS;
     let _ = &*ORACLE_CACHE_METRICS;
+    let _ = &*BITMAP_CACHE_METRICS;
     let _ = &*RESERVE_CACHE_METRICS;
+    let _ = &*SYSTEM_CACHE_METRICS;
 }
 
 /// Metrics manager for tracking price and tick indices.
@@ -280,6 +286,40 @@ impl OracleCacheMetrics {
     #[inline]
     pub fn set_cache_size(&self, size: usize) {
         gauge!(Self::METRIC_ORACLE_CACHE_SIZE).set(size as f64);
+    }
+}
+
+pub struct BitmapCacheMetrics;
+
+impl Default for BitmapCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BitmapCacheMetrics {
+    const METRIC_BITMAP_CACHE_SIZE: &str = "cache_size_bitmap_total";
+    const LBL_POOL: &str = "pool";
+    const LBL_PROTOCOL: &str = "protocol";
+
+    #[must_use]
+    pub fn new() -> Self {
+        describe_gauge!(
+            Self::METRIC_BITMAP_CACHE_SIZE,
+            Unit::Count,
+            "Indicates whether a bitmap extension for the given pool is present in the cache (1 = present)"
+        );
+        Self
+    }
+
+    /// Records that a bitmap for the given pool is present in the cache.
+    pub fn record(&self, pool: &Pubkey, protocol: &'static str) {
+        gauge!(
+            Self::METRIC_BITMAP_CACHE_SIZE,
+            Self::LBL_POOL => pool.to_string(),
+            Self::LBL_PROTOCOL => protocol
+        )
+        .set(1.0);
     }
 }
 

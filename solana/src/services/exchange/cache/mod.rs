@@ -1,4 +1,5 @@
 pub mod amm_config;
+pub mod bitmap;
 pub mod index;
 pub mod liquidity;
 mod metrics;
@@ -10,6 +11,7 @@ pub mod state;
 pub mod vault;
 
 pub use amm_config::*;
+pub use bitmap::*;
 pub use index::*;
 pub use liquidity::*;
 pub use metrics::*;

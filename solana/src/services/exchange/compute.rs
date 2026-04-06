@@ -306,7 +306,7 @@ impl ComputeService {
                     .get_vault_pubkeys()
                     .and_then(|(a, b)| market.vaults().get_pair(&a, &b)),
                 liquidity: market.liquidity().get_map(&step0.pool_id),
-                bitmap: None,
+                bitmap: market.bitmaps().get(&step0.pool_id),
                 amm_config: pool0
                     .get_amm_config_pubkey()
                     .and_then(|key| amm_config_cache.get(&key)),
@@ -329,7 +329,7 @@ impl ComputeService {
                     .get_vault_pubkeys()
                     .and_then(|(a, b)| market.vaults().get_pair(&a, &b)),
                 liquidity: market.liquidity().get_map(&step1.pool_id),
-                bitmap: None,
+                bitmap: market.bitmaps().get(&step1.pool_id),
                 amm_config: pool1
                     .get_amm_config_pubkey()
                     .and_then(|key| amm_config_cache.get(&key)),
