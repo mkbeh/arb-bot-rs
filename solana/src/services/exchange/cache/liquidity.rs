@@ -10,7 +10,7 @@ use crate::{
         metrics::ProtocolMetrics,
         pool::*,
     },
-    services::exchange::cache::{LIQUIDITY_CACHE_METRICS, LiquidityIndex},
+    services::exchange::cache::*,
 };
 
 /// Trait for types that represent a chunk of liquidity (e.g., TickArray or BinArray).
@@ -33,10 +33,10 @@ pub trait LiquidityUpdate: Sized {
 
 /// Global cache holding liquidity arrays for different DEX protocols.
 pub struct LiquidityCache {
-    pub meteora: SubCache<i64, meteora_dlmm::BinArray>,
-    pub raydium: SubCache<i32, raydium_clmm::TickArrayState>,
-    pub orca_fixed: SubCache<i32, orca::FixedTickArray>,
-    pub orca_dynamic: SubCache<i32, orca::DynamicTickArray>,
+    meteora: SubCache<i64, meteora_dlmm::BinArray>,
+    raydium: SubCache<i32, raydium_clmm::TickArrayState>,
+    orca_fixed: SubCache<i32, orca::FixedTickArray>,
+    orca_dynamic: SubCache<i32, orca::DynamicTickArray>,
 }
 
 impl LiquidityCache {
@@ -58,6 +58,15 @@ impl LiquidityCache {
             LiquidityArray::OrcaFixed(item) => self.orca_fixed.update(pool_id, item, index),
             LiquidityArray::OrcaDynamic(item) => self.orca_dynamic.update(pool_id, item, index),
         }
+    }
+
+    #[must_use]
+    pub fn get_map(&self, pool_id: &Pubkey) -> Option<LiquidityMap<'_>> {
+        self.meteora
+            .get_liquidity(pool_id)
+            .or_else(|| self.raydium.get_liquidity(pool_id))
+            .or_else(|| self.orca_fixed.get_liquidity(pool_id))
+            .or_else(|| self.orca_dynamic.get_liquidity(pool_id))
     }
 }
 

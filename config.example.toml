@@ -1,11 +1,19 @@
 # TOML configuration for the arbitrage bot.
 
+# =============================================================================
+# General Configuration
+# =============================================================================
+
 [general]
 # Application server address.
 server_addr = "127.0.0.1:9000"
 
 # Metrics server address (for Prometheus).
 metrics_addr = "127.0.0.1:9007"
+
+# =============================================================================
+# Binance Configuration
+# =============================================================================
 
 [binance]
 # Binance REST API base URL.
@@ -70,6 +78,10 @@ min_profit_qty = 400
 max_order_qty = 4500
 min_ticker_qty_24h = 0
 
+# =============================================================================
+# Kucoin Configuration
+# =============================================================================
+
 [kucoin]
 # KuCoin REST API base URL.
 api_url = "https://api.kucoin.com"
@@ -131,6 +143,10 @@ max_order_qty = 0
 min_ticker_qty_24h = 0
 symbol = "ETH-USDT"
 
+# =============================================================================
+# Solana Configuration
+# =============================================================================
+
 [solana]
 # Solana RPC endpoint.
 rpc_endpoint = "https://api.mainnet-beta.solana.com"
@@ -143,11 +159,6 @@ stream_batch_size = 128
 # the first message, the engine will wait this many microseconds to "drain"
 # already arrived packets from the network stack.
 stream_wait_timeout_us = 500
-
-# The radius of the liquidity sliding window (number of adjacent arrays to cache).
-## A value of 1 means the bot will store the active array plus 1 array
-## on each side of the current price (Total: 3 arrays per pool).
-liquidity_depth = 1
 
 [solana.transport]
 # Type of transport for connecting to Solana RPC.
@@ -162,6 +173,22 @@ url = "wss://<YOUR_URL>"
 # X-Token (or API key): For authentication in private gRPC
 # x_token = ""
 
+[solana.strategy]
+# The radius of the liquidity sliding window (number of adjacent arrays to cache).
+## A value of 1 means the bot will store the active array plus 1 array
+## on each side of the current price (Total: 3 arrays per pool).
+liquidity_depth = 1
+
+# Minimum trade size as a fraction of available liquidity in bps (0.5% = 0.5 SOL per 100 SOL reserve).
+min_liquidity_fraction_bps = 50
+
+# Maximum trade size as a fraction of available liquidity in bps (20% = 20 SOL per 100 SOL reserve).
+max_liquidity_fraction_bps = 2000
+
+# Minimum acceptable profit as a fraction of amount_in in bps (0.1% of amount_in).
+min_profit_bps = 10
+
+# List of DEX protocols to subscribe to.
 [[solana.exchanges]]
 # The Public Key of the DEX smart contract (Program ID).
 program_id = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo" # meteora dlmm
@@ -190,7 +217,6 @@ program_id = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" # pumpfun
 # as a starting or ending point for arbitrage cycles (e.g., SOL, USDC).
 # Also determines which reserve accounts are tracked across flash loan
 # providers — only reserves matching these mints will be monitored.
-
 [[solana.base_mints]]
 mint_addr = "So11111111111111111111111111111111111111112" # SOL
 reserve_addr = "d4A2prbA2whesmvHaL88BH6Ewn5N4bTSU2Ze8P6Bc4Q" # Kamino SOL

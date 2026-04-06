@@ -34,7 +34,6 @@ impl VaultCache {
         }
     }
 
-    /// Updates or inserts a vault amount into the cache.
     pub fn update(&mut self, key: Pubkey, amount: u64) {
         match self.data.entry(key) {
             Entry::Occupied(mut entry) => {
@@ -53,7 +52,15 @@ impl VaultCache {
         VAULT_CACHE_METRICS.set_cache_size(self.data.len())
     }
 
-    /// Retrieves the cached vault amount.
+    /// Returns vault amounts for a token pair (amount_a, amount_b).
+    #[inline]
+    #[must_use]
+    pub fn get_pair(&self, vault_a: &Pubkey, vault_b: &Pubkey) -> Option<(u64, u64)> {
+        let amount_a = self.get(vault_a)?;
+        let amount_b = self.get(vault_b)?;
+        Some((amount_a, amount_b))
+    }
+
     #[inline]
     #[must_use]
     pub fn get(&self, key: &Pubkey) -> Option<u64> {

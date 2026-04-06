@@ -180,6 +180,10 @@ impl DexPool for PoolState {
         ))
     }
 
+    fn get_amm_config_pubkey(&self) -> Option<Pubkey> {
+        Some(Pubkey::from(self.amm_config))
+    }
+
     fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         let Some(AmmConfigType::Cpmm(ref amm_config)) = ctx.amm_config else {
             anyhow::bail!("Missing AmmConfig for Raydium CPMM")

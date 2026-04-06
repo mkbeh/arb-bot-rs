@@ -167,6 +167,10 @@ impl DexPool for PoolState {
         Pubkey::from(self.token_mint_1)
     }
 
+    fn get_amm_config_pubkey(&self) -> Option<Pubkey> {
+        Some(Pubkey::from(self.amm_config))
+    }
+
     fn quote(&self, ctx: &QuoteContext) -> anyhow::Result<QuoteResult> {
         let Some(AmmConfigType::Clmm(ref amm_config)) = ctx.amm_config else {
             anyhow::bail!("Missing AmmConfig for Raydium CLMM")
@@ -225,6 +229,15 @@ impl DexPool for PoolState {
                 .map(|(_, ta)| ta)
                 .collect()
         };
+
+        if tick_arrays.is_empty() {
+            tracing::debug!(
+                amount = amount_specified,
+                zero_for_one,
+                "Raydium CLMM: No tick arrays found for swap direction"
+            );
+            anyhow::bail!("No tick arrays available for Raydium CLMM swap");
+        }
 
         let sqrt_price_limit_x64 = if zero_for_one {
             MIN_SQRT_PRICE_X64 + 1

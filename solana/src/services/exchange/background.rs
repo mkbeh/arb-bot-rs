@@ -85,7 +85,7 @@ impl MintService {
         Self {
             rpc,
             chunk_size: 100,
-            refresh_interval: Duration::from_secs(60),
+            refresh_interval: Duration::from_secs(30),
         }
     }
 }

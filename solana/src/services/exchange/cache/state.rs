@@ -236,8 +236,26 @@ impl MarketState {
 
     #[inline]
     #[must_use]
+    pub fn liquidity(&self) -> &LiquidityCache {
+        &self.liquidity
+    }
+
+    #[inline]
+    #[must_use]
     pub fn reserves(&self) -> &ReserveCache {
         &self.reserves
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn vaults(&self) -> &VaultCache {
+        &self.vaults
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn oracles(&self) -> &OracleCache {
+        &self.oracles
     }
 
     #[must_use]

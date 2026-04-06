@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_with::{DisplayFromStr, DurationMicroSeconds, serde_as};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::libs::solana_client::{GrpcStreamConfig, RpcConfig, WebsocketStreamConfig};
+use crate::{libs::solana_client::*, services::exchange::compute::*};
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -16,17 +16,23 @@ pub enum TransportConfig {
     Grpc { url: String, x_token: String },
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct StrategyConfig {
+    pub liquidity_depth: i64,
+    pub min_liquidity_fraction_bps: u64,
+    pub max_liquidity_fraction_bps: u64,
+    pub min_profit_bps: u64,
+}
+
 #[serde_as]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub rpc_endpoint: String,
     pub transport: TransportConfig,
-
     pub stream_batch_size: usize,
     #[serde_as(as = "DurationMicroSeconds<u64>")]
     pub stream_wait_timeout_us: Duration,
-    pub liquidity_depth: i64,
-
+    pub strategy: StrategyConfig,
     pub exchanges: HashSet<ProtocolConfig>,
     pub base_mints: HashSet<MintConfig>,
 }
@@ -35,6 +41,12 @@ impl Validatable for Config {
     fn validate(&mut self) -> anyhow::Result<()> {
         if self.rpc_endpoint.is_empty() {
             bail!("RPC endpoint cannot be empty");
+        }
+        if self.strategy.min_liquidity_fraction_bps >= self.strategy.max_liquidity_fraction_bps {
+            bail!("min_liquidity_fraction_bps must be less than max_liquidity_fraction_bps");
+        }
+        if self.strategy.max_liquidity_fraction_bps > BPS_DENOMINATOR {
+            bail!("max_liquidity_fraction_bps cannot exceed 10000 (100%)");
         }
         Ok(())
     }
@@ -123,6 +135,19 @@ impl TryFrom<&Config> for GrpcStreamConfig {
             batch_size: cfg.stream_batch_size,
             batch_fill_timeout: cfg.stream_wait_timeout_us,
             ..Default::default()
+        })
+    }
+}
+
+impl TryFrom<&Config> for ComputeConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(cfg: &Config) -> Result<Self, Self::Error> {
+        Ok(Self {
+            base_mints: cfg.get_mints_addrs(),
+            min_liquidity_fraction_bps: cfg.strategy.min_liquidity_fraction_bps,
+            max_liquidity_fraction_bps: cfg.strategy.max_liquidity_fraction_bps,
+            min_profit_bps: cfg.strategy.min_profit_bps,
         })
     }
 }

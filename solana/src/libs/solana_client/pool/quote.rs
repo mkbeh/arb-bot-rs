@@ -91,6 +91,7 @@ impl<'a> QuoteContext<'a> {
 }
 
 /// Result of a swap simulation.
+#[derive(Debug)]
 pub struct QuoteResult {
     /// Step-by-step breakdown of each bin/tick crossed during the swap.
     pub steps: Vec<QuoteSwapResult>,
@@ -114,6 +115,7 @@ pub struct QuoteResult {
 }
 
 /// Result of a single bin or tick swap step within a quote simulation.
+#[derive(Debug)]
 pub struct QuoteSwapResult {
     /// The bin ID (Meteora DLMM) or tick index (CLMM) where this swap step occurred.
     pub pool_state_id: i32,
