@@ -74,6 +74,7 @@ pub struct MarketState {
     pools: PoolCache,
     vaults: VaultCache,
     oracles: OracleCache,
+    bitmaps: BitmapCache,
     reserves: ReserveCache,
     clock: Option<Clock>,
 }
@@ -92,6 +93,7 @@ impl MarketState {
             pools: PoolCache::default(),
             vaults: VaultCache::default(),
             oracles: OracleCache::new(),
+            bitmaps: BitmapCache::new(),
             reserves: ReserveCache::new(),
             clock: None,
         }
@@ -167,12 +169,17 @@ impl MarketState {
             PoolState::PoolStateRaydiumCpmm(s) => self.update_pool(pool_id, s),
             PoolState::AmmInfoRaydiumAmm(s) => self.update_pool(pool_id, s),
 
+            PoolState::BinArrayBitmapExtensionMeteoraDlmm(b) => {
+                self.update_bitmap(pool_id, CachedBitmap::MeteoraDlmm(b))
+            }
+            PoolState::TickArrayBitmapExtensionRadiumClmm(b) => {
+                self.update_bitmap(pool_id, CachedBitmap::RaydiumClmm(b))
+            }
+
             PoolState::OracleOrca(s) => self.update_oracle(&s),
             PoolState::ReserveKamino(s) => self.update_reserve(&s),
 
-            PoolState::BondingCurvePumpFun(_)
-            | PoolState::BinArrayBitmapExtensionMeteoraDlmm(_)
-            | PoolState::TickArrayBitmapExtensionRadiumClmm(_) => None,
+            PoolState::BondingCurvePumpFun(_) => None,
 
             PoolState::Unknown(_) => {
                 warn!("Unknown PoolState for pool: {}", pool_id);
@@ -218,6 +225,11 @@ impl MarketState {
         None
     }
 
+    fn update_bitmap(&mut self, pool_id: Pubkey, bitmap: CachedBitmap) -> Option<UpdatedPool> {
+        self.bitmaps.update(pool_id, bitmap);
+        None
+    }
+
     fn update_reserve(&mut self, reserve: &Reserve) -> Option<UpdatedPool> {
         self.reserves.update(reserve);
         None
@@ -256,6 +268,12 @@ impl MarketState {
     #[must_use]
     pub fn oracles(&self) -> &OracleCache {
         &self.oracles
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn bitmaps(&self) -> &BitmapCache {
+        &self.bitmaps
     }
 
     #[must_use]

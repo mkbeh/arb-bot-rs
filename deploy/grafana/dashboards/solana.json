@@ -509,7 +509,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 12,
         "x": 0,
         "y": 14
@@ -548,6 +548,381 @@
         }
       ],
       "title": "Cache Coverage Efficiency (Liquidity / Pools)",
+      "type": "gauge"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Available Amount"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mint"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View on Solscan",
+                    "url": "https://solscan.io/token/${__value.text}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 21,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Age"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "cache_reserve_available_amount",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - (cache_reserve_updated_at / 1000)",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Reserve Cache",
+      "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "mint"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Value": true,
+              "__name__": true,
+              "app": true,
+              "app 1": true,
+              "instance": true,
+              "instance 1": true,
+              "job": true,
+              "job 1": true
+            },
+            "indexByName": {
+              "Value #A": 1,
+              "Value #B": 2,
+              "mint": 0
+            },
+            "renameByName": {
+              "Value #A": "Available Amount",
+              "Value #B": "Age",
+              "mint": "Mint"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 0,
+        "y": 19
+      },
+      "id": 15,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(sum(cache_size_mint_total) / sum(cache_size_pool_total)) * 100",
+          "legendFormat": "Global Mint Coverage",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Unique Mints to Total Pools Ratio",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 3,
+        "y": 19
+      },
+      "id": 19,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(sum(cache_size_oracle_total) / sum(cache_size_pool_total{dex=\"orca\"})) * 100",
+          "legendFormat": "Coverage %",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Oracle Coverage (Oracles / Orca Pools)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 60
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 19
+      },
+      "id": 32,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto",
+        "text": {}
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "(sum(cache_size_bitmap_total{protocol=\"meteora_dlmm\"}) / sum(cache_size_pool_total{dex=\"meteora_dlmm\"})) * 100",
+          "instant": true,
+          "legendFormat": "Meteora DLMM",
+          "refId": "Meteora"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "(sum(cache_size_bitmap_total{protocol=\"raydium_clmm\"}) / sum(cache_size_pool_total{dex=\"raydium_clmm\"})) * 100",
+          "instant": true,
+          "legendFormat": "Raydium CLMM",
+          "refId": "Raydium"
+        }
+      ],
+      "title": "Bitmap Coverage Ratio by Protocol",
       "type": "gauge"
     },
     {
@@ -656,10 +1031,10 @@
         ]
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 19
       },
       "id": 12,
       "options": {
@@ -701,12 +1076,8 @@
     {
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
+          "color": {
+            "mode": "palette-classic"
           },
           "mappings": [],
           "thresholds": {
@@ -715,159 +1086,167 @@
               {
                 "color": "green",
                 "value": 0
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "red",
-                "value": 5
               }
             ]
-          }
+          },
+          "unit": "short"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Available Amount"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "locale"
-              },
-              {
-                "id": "custom.align",
-                "value": "right"
-              },
-              {
-                "id": "decimals",
-                "value": 2
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Age"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "custom.align",
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Mint"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "targetBlank": true,
-                    "title": "View on Solscan",
-                    "url": "https://solscan.io/token/${__value.text}"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 5,
-        "w": 12,
+        "w": 3,
         "x": 0,
-        "y": 20
+        "y": 24
       },
-      "id": 21,
+      "id": 16,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": false,
-          "fields": "",
-          "reducer": [
-            "count"
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
           ],
-          "show": true
+          "fields": "",
+          "values": false
         },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": false,
-            "displayName": "Age"
-          }
-        ]
+        "showPercentChange": true,
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
       "pluginVersion": "12.1.1",
       "targets": [
         {
-          "datasource": {
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "cache_reserve_available_amount",
-          "format": "table",
-          "instant": true,
+          "expr": "sum(cache_size_mint_total)",
+          "legendFormat": "Current Size",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "uid": "PBFA97CFB590B2093"
+        }
+      ],
+      "title": "Mint Cache Activity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
           },
-          "expr": "time() - (cache_reserve_updated_at / 1000)",
-          "format": "table",
-          "instant": true,
-          "refId": "B"
-        }
-      ],
-      "title": "Reserve Cache",
-      "transformations": [
-        {
-          "id": "seriesToColumns",
-          "options": {
-            "byField": "mint"
-          }
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 3,
+        "y": 24
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": true,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
         {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Time 1": true,
-              "Value": true,
-              "__name__": true,
-              "app": true,
-              "app 1": true,
-              "instance": true,
-              "instance 1": true,
-              "job": true,
-              "job 1": true
-            },
-            "indexByName": {
-              "Value #A": 1,
-              "Value #B": 2,
-              "mint": 0
-            },
-            "renameByName": {
-              "Value #A": "Available Amount",
-              "Value #B": "Age",
-              "mint": "Mint"
-            }
-          }
+          "expr": "cache_size_oracle_total",
+          "legendFormat": "Oracle Cache",
+          "refId": "A"
         }
       ],
-      "type": "table"
+      "title": "Oracle Cache Activity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 24
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "cache_size_amm_config_total",
+          "legendFormat": "{{dex}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "AMM Config Cache",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -890,10 +1269,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 17,
+        "h": 15,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 24
       },
       "id": 13,
       "options": {
@@ -959,327 +1338,28 @@
       },
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
           "mappings": [],
-          "max": 100,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "semi-dark-green",
+                "color": "green",
                 "value": 0
               }
             ]
           },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 3,
         "x": 0,
-        "y": 25
-      },
-      "id": 15,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "(sum(cache_size_mint_total) / sum(cache_size_pool_total)) * 100",
-          "legendFormat": "Global Mint Coverage",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Unique Mints to Total Pools Ratio",
-      "type": "gauge"
-    },
-    {
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 3,
-        "x": 3,
-        "y": 25
-      },
-      "id": 16,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": true,
-        "textMode": "value_and_name",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "expr": "sum(cache_size_mint_total)",
-          "legendFormat": "Current Size",
-          "refId": "A"
-        }
-      ],
-      "title": "Mint Cache Activity",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 6,
-        "y": 25
-      },
-      "id": 17,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "value_and_name",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "cache_size_amm_config_total",
-          "legendFormat": "{{dex}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "AMM Config Cache",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 50
-              },
-              {
-                "color": "green",
-                "value": 85
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 3,
-        "x": 0,
-        "y": 31
-      },
-      "id": 19,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "(sum(cache_size_oracle_total) / sum(cache_size_pool_total{dex=\"orca\"})) * 100",
-          "legendFormat": "Coverage %",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Oracle Coverage (Oracles / Orca Pools)",
-      "type": "gauge"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 3,
-        "x": 3,
-        "y": 31
-      },
-      "id": 20,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": true,
-        "textMode": "value_and_name",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "expr": "cache_size_oracle_total",
-          "legendFormat": "Oracle Cache",
-          "refId": "A"
-        }
-      ],
-      "title": "Oracle Cache Activity",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 3,
-        "x": 6,
-        "y": 31
+        "y": 29
       },
       "id": 18,
       "options": {
@@ -1311,12 +1391,96 @@
       "type": "stat"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 3,
+        "y": 29
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": true,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "sum(cache_size_bitmap_total)",
+          "instant": false,
+          "legendFormat": "Total",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "sum(cache_size_bitmap_total{protocol=\"meteora_dlmm\"})",
+          "instant": false,
+          "legendFormat": "Meteora",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "sum(cache_size_bitmap_total{protocol=\"raydium_clmm\"})",
+          "instant": false,
+          "legendFormat": "Raydium",
+          "refId": "C"
+        }
+      ],
+      "title": "Bitmap Cache Activity",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 39
       },
       "id": 1,
       "panels": [],
@@ -1388,7 +1552,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 40
       },
       "id": 2,
       "options": {
@@ -1479,7 +1643,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 40
       },
       "id": 3,
       "options": {
@@ -1630,7 +1794,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 47
       },
       "id": 6,
       "options": {
@@ -1676,7 +1840,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 52
+        "y": 54
       },
       "id": 4,
       "panels": [],
@@ -1748,7 +1912,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 53
+        "y": 55
       },
       "id": 5,
       "options": {
@@ -1844,7 +2008,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 53
+        "y": 55
       },
       "id": 10,
       "options": {
@@ -1880,7 +2044,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 62
       },
       "id": 7,
       "panels": [],
@@ -1956,7 +2120,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 61
+        "y": 63
       },
       "id": 8,
       "options": {
@@ -2056,7 +2220,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 61
+        "y": 63
       },
       "id": 9,
       "options": {
@@ -2157,5 +2321,5 @@
   "timezone": "",
   "title": "Solana Arbitrage Bot Monitoring",
   "uid": "solana",
-  "version": 1
+  "version": 4
 }
