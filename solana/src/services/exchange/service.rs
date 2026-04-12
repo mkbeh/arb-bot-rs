@@ -77,7 +77,7 @@ impl ArbitrageService for ExchangeService {
 
 impl ExchangeService {
     pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        cache::init(config.strategy.liquidity_depth)?;
+        cache::init()?;
 
         let rpc = Arc::new(RpcClient::from_config(config.try_into()?));
         let compute_service = ComputeService::new(config.try_into()?);

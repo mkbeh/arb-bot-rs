@@ -190,8 +190,8 @@ impl DexPool for AmmInfo {
 }
 
 impl ProtocolMetrics for AmmInfo {
-    fn name(&self) -> &'static str {
-        DEX_RAYDIUM_AMM
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumAmm
     }
 }
 

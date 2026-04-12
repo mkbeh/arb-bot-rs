@@ -252,8 +252,8 @@ impl DexPool for Pool {
 }
 
 impl ProtocolMetrics for Pool {
-    fn name(&self) -> &'static str {
-        DEX_METEORA_DAMM_V2
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::MeteoraDammV2
     }
 }
 

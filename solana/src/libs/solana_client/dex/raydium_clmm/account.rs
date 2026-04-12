@@ -230,6 +230,7 @@ impl DexPool for PoolState {
                 .collect()
         };
 
+        // note: custom validation
         if tick_arrays.is_empty() {
             tracing::debug!(
                 amount = amount_specified,
@@ -287,8 +288,8 @@ impl DexPool for PoolState {
 }
 
 impl ProtocolMetrics for PoolState {
-    fn name(&self) -> &'static str {
-        DEX_RAYDIUM_CLMM
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumClmm
     }
 }
 
@@ -694,6 +695,12 @@ impl ProtocolEntity for TickArrayState {
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl ProtocolMetrics for TickArrayState {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumClmm
     }
 }
 

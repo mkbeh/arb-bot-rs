@@ -51,7 +51,7 @@ pub trait BackgroundService {
                         Err(e) => {
                             let delay = backoff.next_delay();
                             error!(
-                                "[{}] Failed to execute: {e}. Retrying in {delay:?}...",
+                                "[{}] Failed to execute: {e:#?}. Retrying in {delay:?}...",
                                 std::any::type_name::<Self>()
                             );
 
@@ -194,5 +194,35 @@ impl BackgroundService for AmmConfigService {
         self.fetch_and_cache::<raydium_clmm::AmmConfig>().await?;
         self.fetch_and_cache::<raydium_cpmm::AmmConfig>().await?;
         Ok(())
+    }
+}
+
+//  --- LazySyncService ---
+
+pub struct LazySyncService {
+    rpc: Arc<RpcClient>,
+    chunk_size: usize,
+    refresh_interval: Duration,
+}
+
+impl LazySyncService {
+    #[must_use]
+    pub fn new(rpc: Arc<RpcClient>) -> Self {
+        Self {
+            rpc,
+            chunk_size: 100,
+            refresh_interval: Duration::from_secs(5),
+        }
+    }
+}
+
+#[async_trait]
+impl BackgroundService for LazySyncService {
+    fn execute_interval(&self) -> Duration {
+        self.refresh_interval
+    }
+
+    async fn execute(&self) -> anyhow::Result<()> {
+        todo!()
     }
 }

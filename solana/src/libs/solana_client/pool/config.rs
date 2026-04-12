@@ -52,14 +52,14 @@ pub trait AmmConfigEntry: ProtocolMetrics + Into<AmmConfigType> + Copy {
 }
 
 impl ProtocolMetrics for RaydiumClmmAmmConfig {
-    fn name(&self) -> &'static str {
-        DEX_RAYDIUM_CLMM
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumClmm
     }
 }
 
 impl ProtocolMetrics for RaydiumCpmmAmmConfig {
-    fn name(&self) -> &'static str {
-        DEX_RAYDIUM_CPMM
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumCpmm
     }
 }
 

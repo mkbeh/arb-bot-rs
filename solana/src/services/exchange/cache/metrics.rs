@@ -1,15 +1,9 @@
 use std::sync::LazyLock;
 
-use metrics::{
-    Unit, counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram,
-};
+use metrics::{Unit, counter, describe_counter, describe_gauge, gauge};
 use solana_sdk::pubkey::Pubkey;
-use tools::http::metrics::HttpMetrics;
 
 use crate::libs::solana_client::{metrics::LBL_DEX, utils};
-
-/// Global metrics provider for the Liquidity Index Cache.
-pub static INDEX_CACHE_METRICS: LazyLock<IndexCacheMetrics> = LazyLock::new(IndexCacheMetrics::new);
 
 /// Global metrics provider for the Pool Logic Cache.
 pub static POOL_CACHE_METRICS: LazyLock<PoolCacheMetrics> = LazyLock::new(PoolCacheMetrics::new);
@@ -44,8 +38,11 @@ pub static RESERVE_CACHE_METRICS: LazyLock<ReserveCacheMetrics> =
 pub static SYSTEM_CACHE_METRICS: LazyLock<SystemCacheMetrics> =
     LazyLock::new(SystemCacheMetrics::new);
 
-pub fn init_metrics() {
-    let _ = &*INDEX_CACHE_METRICS;
+/// Global metrics provider for the Pool Sync Cache.
+pub static POOL_SYNC_CACHE_METRICS: LazyLock<PoolSyncCacheMetrics> =
+    LazyLock::new(PoolSyncCacheMetrics::new);
+
+pub fn init_cache_metrics() {
     let _ = &*POOL_CACHE_METRICS;
     let _ = &*LIQUIDITY_CACHE_METRICS;
     let _ = &*MINT_CACHE_METRICS;
@@ -55,31 +52,7 @@ pub fn init_metrics() {
     let _ = &*BITMAP_CACHE_METRICS;
     let _ = &*RESERVE_CACHE_METRICS;
     let _ = &*SYSTEM_CACHE_METRICS;
-}
-
-/// Metrics manager for tracking price and tick indices.
-pub struct IndexCacheMetrics;
-
-impl IndexCacheMetrics {
-    const METRIC_INDEX_CACHE_SIZE: &str = "cache_size_index_total";
-
-    /// Initializes and registers descriptions for index-related metrics.
-    fn new() -> Self {
-        describe_counter!(
-            Self::METRIC_INDEX_CACHE_SIZE,
-            Unit::Count,
-            "Total price indices tracked in cache"
-        );
-
-        Self
-    }
-
-    /// Increments the total count of registered pools for a specific DEX.
-    #[inline]
-    pub fn record(&self, dex: &'static str) {
-        let labels = &[(LBL_DEX, dex)];
-        counter!(Self::METRIC_INDEX_CACHE_SIZE, labels).increment(1);
-    }
+    let _ = &*POOL_SYNC_CACHE_METRICS;
 }
 
 /// Metrics manager for tracking DEX pool implementations.
@@ -112,13 +85,6 @@ pub struct LiquidityCacheMetrics;
 
 impl LiquidityCacheMetrics {
     const METRIC_LIQUIDITY_CACHE_SIZE: &str = "cache_size_liquidity_total";
-    const METRIC_LIQUIDITY_DENSITY: &str = "cache_size_liquidity_arrays_per_pool";
-
-    /// Buckets for liquidity density histogram (count of arrays/bins per pool).
-    /// Focuses on integer values from 1 to 10, with steps up to 50 for deep caches.
-    pub const LIQUIDITY_DENSITY_BUCKETS: &[f64] = &[
-        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0, 50.0,
-    ];
 
     /// Initializes and registers descriptions for liquidity-related metrics.
     fn new() -> Self {
@@ -127,17 +93,6 @@ impl LiquidityCacheMetrics {
             Unit::Count,
             "Current liquidity arrays in memory"
         );
-        describe_histogram!(
-            Self::METRIC_LIQUIDITY_DENSITY,
-            Unit::Count,
-            "Distribution of cached liquidity arrays count per single pool"
-        );
-
-        HttpMetrics::register_buckets(
-            metrics_exporter_prometheus::Matcher::Full(Self::METRIC_LIQUIDITY_DENSITY.to_owned()),
-            Self::LIQUIDITY_DENSITY_BUCKETS.to_vec(),
-        );
-
         Self
     }
 
@@ -146,15 +101,6 @@ impl LiquidityCacheMetrics {
     pub fn set_liquidity(&self, dex: &'static str, value: usize) {
         let labels = &[(LBL_DEX, dex)];
         gauge!(Self::METRIC_LIQUIDITY_CACHE_SIZE, labels).set(value as f64);
-    }
-
-    /// Records the current array count for a specific pool.
-    /// Helps analyze how many arrays are typically cached per pool relative to the configured
-    /// depth.
-    #[inline]
-    pub fn record_liquidity_density(&self, dex: &'static str, count: usize) {
-        let labels = &[(LBL_DEX, dex)];
-        histogram!(Self::METRIC_LIQUIDITY_DENSITY, labels).record(count as f64);
     }
 }
 
@@ -410,5 +356,41 @@ impl SystemCacheMetrics {
         gauge!(Self::METRIC_CLOCK_SLOT).set(slot as f64);
         gauge!(Self::METRIC_CLOCK_TIMESTAMP).set(timestamp as f64);
         gauge!(Self::METRIC_NETWORK_LAG).set(lag_ms as f64);
+    }
+}
+
+pub struct PoolSyncCacheMetrics;
+
+impl Default for PoolSyncCacheMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PoolSyncCacheMetrics {
+    const METRIC_POOL_SYNC_COUNT: &str = "cache_pool_sync_count";
+    const LBL_STATUS: &str = "status";
+    const STATUS_PENDING: &str = "pending";
+    const STATUS_READY: &str = "ready";
+
+    #[must_use]
+    pub fn new() -> Self {
+        describe_gauge!(
+            Self::METRIC_POOL_SYNC_COUNT,
+            Unit::Count,
+            "Number of pools in each sync status"
+        );
+        Self
+    }
+
+    pub fn set_pending(&self) {
+        gauge!(Self::METRIC_POOL_SYNC_COUNT, Self::LBL_STATUS => Self::STATUS_PENDING)
+            .increment(1.0);
+    }
+
+    pub fn set_ready(&self) {
+        gauge!(Self::METRIC_POOL_SYNC_COUNT, Self::LBL_STATUS => Self::STATUS_PENDING)
+            .decrement(1.0);
+        gauge!(Self::METRIC_POOL_SYNC_COUNT, Self::LBL_STATUS => Self::STATUS_READY).increment(1.0);
     }
 }

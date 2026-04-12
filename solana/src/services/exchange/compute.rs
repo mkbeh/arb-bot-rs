@@ -116,7 +116,12 @@ impl ComputeService {
                     // todo: send opportunity to executor
                 }
                 Ok(None) => {}
-                Err(e) => error!("evaluate_path error: {e}"),
+                Err(e) => match e {
+                    EvaluateError::InvalidLiquidityRange { min, max } => {
+                        error!("CONFIG ERROR: Invalid range min:{min} >= max:{max}")
+                    }
+                    _ => {}
+                },
             }
         });
 
@@ -129,33 +134,33 @@ impl ComputeService {
         market: &MarketState,
         mint_cache: &MintCache,
         amm_config_cache: &AmmConfigCache,
-    ) -> anyhow::Result<Option<ArbOpportunity>> {
+    ) -> Result<Option<ArbOpportunity>, EvaluateError> {
         let step0 = &path.steps[0];
         let step1 = &path.steps[1];
 
         let mint_in0 = mint_cache
             .get(&step0.mint_in)
-            .ok_or_else(|| anyhow::anyhow!("Mint not found: {}", step0.mint_in))?;
+            .ok_or(EvaluateError::MintNotFound(step0.mint_in))?;
         let mint_out0 = mint_cache
             .get(&step0.mint_out)
-            .ok_or_else(|| anyhow::anyhow!("Mint not found: {}", step0.mint_out))?;
+            .ok_or(EvaluateError::MintNotFound(step0.mint_out))?;
         let mint_out1 = mint_cache
             .get(&step1.mint_out)
-            .ok_or_else(|| anyhow::anyhow!("Mint not found: {}", step1.mint_out))?;
+            .ok_or(EvaluateError::MintNotFound(step1.mint_out))?;
 
         let pool0 = market
             .pools()
             .get_pool(&step0.pool_id)
-            .ok_or_else(|| anyhow::anyhow!("Pool not found: {}", step0.pool_id))?;
+            .ok_or(EvaluateError::PoolNotFound(step0.pool_id))?;
         let pool1 = market
             .pools()
             .get_pool(&step1.pool_id)
-            .ok_or_else(|| anyhow::anyhow!("Pool not found: {}", step1.pool_id))?;
+            .ok_or(EvaluateError::PoolNotFound(step1.pool_id))?;
 
         let reserve = market
             .reserves()
             .get(&path.base_token)
-            .ok_or_else(|| anyhow::anyhow!("No reserve found for mint: {}", path.base_token))?;
+            .ok_or(EvaluateError::ReserveNotFound(path.base_token))?;
 
         let min_amount = reserve
             .total_available_amount
@@ -168,7 +173,10 @@ impl ComputeService {
             / BPS_DENOMINATOR;
 
         if min_amount >= max_amount {
-            return Ok(None);
+            return Err(EvaluateError::InvalidLiquidityRange {
+                min: min_amount,
+                max: max_amount,
+            });
         }
 
         let Some((amount_in, profit, quote0, quote1)) = self.find_best_opportunity(
@@ -305,7 +313,7 @@ impl ComputeService {
                 vaults: pool0
                     .get_vault_pubkeys()
                     .and_then(|(a, b)| market.vaults().get_pair(&a, &b)),
-                liquidity: market.liquidity().get_map(&step0.pool_id),
+                liquidity: market.liquidity().get_map(&step0.pool_id, pool0.protocol()),
                 bitmap: market.bitmaps().get(&step0.pool_id),
                 amm_config: pool0
                     .get_amm_config_pubkey()
@@ -328,7 +336,7 @@ impl ComputeService {
                 vaults: pool1
                     .get_vault_pubkeys()
                     .and_then(|(a, b)| market.vaults().get_pair(&a, &b)),
-                liquidity: market.liquidity().get_map(&step1.pool_id),
+                liquidity: market.liquidity().get_map(&step1.pool_id, pool0.protocol()),
                 bitmap: market.bitmaps().get(&step1.pool_id),
                 amm_config: pool1
                     .get_amm_config_pubkey()
@@ -340,6 +348,21 @@ impl ComputeService {
         let profit = quote1.total_amount_out.checked_sub(amount_in)?;
         Some((profit, quote0, quote1))
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvaluateError {
+    #[error("Mint not found in cache: {0}")]
+    MintNotFound(Pubkey),
+
+    #[error("Pool not found in market: {0}")]
+    PoolNotFound(Pubkey),
+
+    #[error("No reserve found for mint: {0}")]
+    ReserveNotFound(Pubkey),
+
+    #[error("Invalid liquidity range: min_amount ({min}) >= max_amount ({max})")]
+    InvalidLiquidityRange { min: u64, max: u64 },
 }
 
 /// A single swap step within an arbitrage path.

@@ -18,7 +18,6 @@ pub enum TransportConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct StrategyConfig {
-    pub liquidity_depth: i64,
     pub min_liquidity_fraction_bps: u64,
     pub max_liquidity_fraction_bps: u64,
     pub min_profit_bps: u64,
@@ -44,6 +43,9 @@ impl Validatable for Config {
         }
         if self.strategy.min_liquidity_fraction_bps >= self.strategy.max_liquidity_fraction_bps {
             bail!("min_liquidity_fraction_bps must be less than max_liquidity_fraction_bps");
+        }
+        if self.strategy.min_liquidity_fraction_bps > BPS_DENOMINATOR {
+            bail!("min_liquidity_fraction_bps cannot exceed 10000 (100%)");
         }
         if self.strategy.max_liquidity_fraction_bps > BPS_DENOMINATOR {
             bail!("max_liquidity_fraction_bps cannot exceed 10000 (100%)");

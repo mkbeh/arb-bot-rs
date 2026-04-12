@@ -362,8 +362,11 @@ pub fn get_next_sqrt_price_from_input(
     amount_in: u64,
     a_for_b: bool,
 ) -> anyhow::Result<u128> {
-    assert!(sqrt_price > 0);
-    assert!(liquidity > 0);
+    anyhow::ensure!(sqrt_price > 0, "meteora_damm_v2: Price is zero");
+    anyhow::ensure!(
+        liquidity > 0,
+        "meteora_damm_v2: Liquidity is zero (pool exhausted or price out of range)"
+    );
 
     if amount_in == 0 {
         return Ok(sqrt_price);

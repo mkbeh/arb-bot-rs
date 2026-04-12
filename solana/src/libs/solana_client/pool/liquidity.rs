@@ -14,17 +14,15 @@ pub enum LiquidityBitmap<'a> {
 /// A single liquidity array from any supported DEX protocol.
 pub enum LiquidityArray {
     MeteoraDlmm(meteora_dlmm::BinArray),
-    OrcaFixed(orca::FixedTickArray),
-    OrcaDynamic(orca::DynamicTickArray),
+    Orca(orca::OrcaTickArray),
     RaydiumClmm(raydium_clmm::TickArrayState),
 }
 
 /// A reference to a sorted collection of liquidity arrays for a specific DEX protocol.
 pub enum LiquidityMap<'a> {
     MeteoraDlmm(&'a BTreeMap<i64, meteora_dlmm::BinArray>),
+    Orca(&'a BTreeMap<i32, orca::OrcaTickArray>),
     RaydiumClmm(&'a BTreeMap<i32, raydium_clmm::TickArrayState>),
-    OrcaFixed(&'a BTreeMap<i32, orca::FixedTickArray>),
-    OrcaDynamic(&'a BTreeMap<i32, orca::DynamicTickArray>),
 }
 
 /// Converts a protocol-specific liquidity array type into a [`LiquidityMap`] variant.
@@ -49,23 +47,16 @@ impl<'a> IntoLiquidityMap<'a> for meteora_dlmm::BinArray {
     }
 }
 
+impl<'a> IntoLiquidityMap<'a> for orca::OrcaTickArray {
+    type Key = i32;
+    fn wrap_to_map(map: &'a BTreeMap<Self::Key, Self>) -> LiquidityMap<'a> {
+        LiquidityMap::Orca(map)
+    }
+}
+
 impl<'a> IntoLiquidityMap<'a> for raydium_clmm::TickArrayState {
     type Key = i32;
     fn wrap_to_map(map: &'a BTreeMap<Self::Key, Self>) -> LiquidityMap<'a> {
         LiquidityMap::RaydiumClmm(map)
-    }
-}
-
-impl<'a> IntoLiquidityMap<'a> for orca::FixedTickArray {
-    type Key = i32;
-    fn wrap_to_map(map: &'a BTreeMap<Self::Key, Self>) -> LiquidityMap<'a> {
-        LiquidityMap::OrcaFixed(map)
-    }
-}
-
-impl<'a> IntoLiquidityMap<'a> for orca::DynamicTickArray {
-    type Key = i32;
-    fn wrap_to_map(map: &'a BTreeMap<Self::Key, Self>) -> LiquidityMap<'a> {
-        LiquidityMap::OrcaDynamic(map)
     }
 }

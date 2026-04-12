@@ -85,7 +85,7 @@ impl SolanaStream for WebsocketStream {
             session_token.cancel();
 
             if let Err(e) = result {
-                error!("Websocket Session error: {e}. Reconnecting in {delay:?}...");
+                error!("Websocket Session error: {e:#?}. Reconnecting in {delay:?}...");
                 STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Session);
             }
 

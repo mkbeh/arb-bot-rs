@@ -96,8 +96,7 @@ impl DexPool for Whirlpool {
         let facades: Vec<TickArrayFacade> = start_indexes
             .iter()
             .filter_map(|&idx| match liquidity {
-                LiquidityMap::OrcaFixed(map) => map.get(&idx).map(TickArrayFacade::from),
-                LiquidityMap::OrcaDynamic(map) => map.get(&idx).map(TickArrayFacade::from),
+                LiquidityMap::Orca(map) => map.get(&idx).map(TickArrayFacade::from),
                 _ => None,
             })
             .collect();
@@ -180,8 +179,8 @@ impl DexPool for Whirlpool {
 }
 
 impl ProtocolMetrics for Whirlpool {
-    fn name(&self) -> &'static str {
-        DEX_ORCA
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::Orca
     }
 }
 
@@ -213,6 +212,21 @@ pub enum OrcaTickArray {
     Dynamic(DynamicTickArray),
 }
 
+impl From<&OrcaTickArray> for TickArrayFacade {
+    fn from(array: &OrcaTickArray) -> Self {
+        match array {
+            OrcaTickArray::Fixed(a) => Self::from(a.as_ref()),
+            OrcaTickArray::Dynamic(a) => Self::from(a),
+        }
+    }
+}
+
+impl ProtocolMetrics for OrcaTickArray {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::Orca
+    }
+}
+
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct FixedTickArray {
@@ -229,6 +243,12 @@ impl ProtocolEntity for FixedTickArray {
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl ProtocolMetrics for FixedTickArray {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::Orca
     }
 }
 
@@ -394,6 +414,12 @@ impl ProtocolEntity for DynamicTickArray {
             tick_bitmap,
             ticks,
         })
+    }
+}
+
+impl ProtocolMetrics for DynamicTickArray {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::Orca
     }
 }
 

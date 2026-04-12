@@ -101,8 +101,8 @@ impl DexPool for LbPair {
 }
 
 impl ProtocolMetrics for LbPair {
-    fn name(&self) -> &'static str {
-        DEX_METEORA_DLMM
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::MeteoraDlmm
     }
 }
 
@@ -191,6 +191,12 @@ impl ProtocolEntity for BinArray {
 
     fn deserialize(data: &[u8]) -> Option<Self> {
         Self::deserialize_bytemuck(data)
+    }
+}
+
+impl ProtocolMetrics for BinArray {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::MeteoraDlmm
     }
 }
 

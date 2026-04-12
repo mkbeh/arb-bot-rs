@@ -109,7 +109,7 @@ impl SolanaStream for GrpcStream {
             session_token.cancel();
 
             if let Err(e) = result {
-                error!("gRPC Session error: {e}. Reconnecting in {delay:?}...");
+                error!("gRPC Session error: {e:#?}. Reconnecting in {delay:?}...");
                 STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Session);
             }
 
