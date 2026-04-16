@@ -1,11 +1,13 @@
+use std::collections::hash_map::Entry;
+
 use ahash::AHashMap;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
     libs::solana_client::{
-        dex::{meteora_dlmm::*, raydium_clmm::*},
         metrics::*,
         pool::*,
+        protocols::{meteora_dlmm::*, raydium_clmm::*},
     },
     services::exchange::cache::BITMAP_CACHE_METRICS,
 };
@@ -27,6 +29,7 @@ impl CachedBitmap {
 
 pub struct BitmapCache {
     data: AHashMap<Pubkey, CachedBitmap>,
+    slots: AHashMap<Pubkey, u64>,
 }
 
 impl Default for BitmapCache {
@@ -40,14 +43,27 @@ impl BitmapCache {
     pub fn new() -> Self {
         Self {
             data: AHashMap::with_capacity(1024),
+            slots: AHashMap::with_capacity(1024),
         }
     }
 
-    pub fn update(&mut self, pubkey: Pubkey, bitmap: CachedBitmap) {
+    pub fn update(&mut self, pubkey: Pubkey, slot: u64, bitmap: CachedBitmap) {
         let protocol_name = bitmap.protocol_name();
+        match self.slots.entry(pubkey) {
+            Entry::Occupied(mut occupied) => {
+                if slot <= *occupied.get() {
+                    return;
+                }
+                occupied.insert(slot);
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(slot);
+            }
+        }
+
         let prev = self.data.insert(pubkey, bitmap);
         if prev.is_none() {
-            BITMAP_CACHE_METRICS.record(&pubkey, protocol_name);
+            BITMAP_CACHE_METRICS.record(protocol_name);
         }
     }
 

@@ -98,10 +98,16 @@ impl ComputeService {
                 .add_pools(&update.new_pools, &self.config.base_mints, market.pools());
         }
 
-        let paths: Vec<&ComputePath> = self
-            .path_manager
-            .get_paths_for_pools(&update.changed_pools)
-            .collect();
+        let paths: Vec<&ComputePath> = {
+            let sync_cache = get_pool_sync_cache().read();
+            self.path_manager
+                .get_paths_for_pools(&update.changed_pools)
+                .filter(|path| {
+                    sync_cache.is_ready(&path.steps[0].pool_id)
+                        && sync_cache.is_ready(&path.steps[1].pool_id)
+                })
+                .collect()
+        };
 
         if paths.is_empty() {
             return Ok(());
@@ -112,8 +118,9 @@ impl ComputeService {
 
         paths.par_iter().for_each(|path| {
             match self.evaluate_path(path, &market, &mint_cache, &amm_config_cache) {
-                Ok(Some(_opportunity)) => {
+                Ok(Some(opportunity)) => {
                     // todo: send opportunity to executor
+                    tracing::debug!("profit: {:?}", opportunity)
                 }
                 Ok(None) => {}
                 Err(e) => match e {

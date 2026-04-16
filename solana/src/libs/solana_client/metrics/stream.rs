@@ -1,6 +1,6 @@
 use std::{sync::LazyLock, time::Instant};
 
-use metrics::{counter, describe_counter, describe_histogram, histogram};
+use metrics::{Unit, counter, describe_counter, describe_histogram, histogram};
 
 /// Global access point for stream-related metrics.
 pub static STREAM_METRICS: LazyLock<Metrics> = LazyLock::new(Metrics::default);
@@ -10,35 +10,69 @@ pub struct Metrics;
 
 impl Default for Metrics {
     fn default() -> Self {
-        Self
+        Self::new()
     }
 }
 
 #[allow(clippy::unused_self)]
 impl Metrics {
+    // Labels
     const LBL_TRANSPORT: &'static str = "transport";
     const LBL_TYPE: &'static str = "type";
     const LBL_PROGRAM: &'static str = "program_id";
     const LBL_ERROR: &'static str = "error";
 
+    // Metric Names
+    const METRIC_BYTES: &'static str = "solana_client_bytes_total";
+    const METRIC_EVENTS: &'static str = "solana_client_events_total";
+    const METRIC_ERRORS: &'static str = "solana_client_errors_total";
+    const METRIC_LATENCY: &'static str = "solana_client_processing_duration_seconds";
+    const METRIC_HANDLER: &'static str = "solana_client_handler_duration_seconds";
+    const METRIC_BATCH_SIZE: &'static str = "solana_client_stream_batch_size";
+
+    /// Buckets for incoming message batch sizes.
+    /// Covers small updates (1-100) and heavy spikes up to 10k messages.
+    pub const STREAM_BATCH_SIZE_BUCKETS: &[f64] = &[
+        // Active workload zone: High granularity for typical batch sizes (1 to 500).
+        1.0, 10.0, 25.0, 50.0, 75.0, 100.0, 150.0, 200.0, 250.0, 350.0, 500.0,
+        // Scalability zone: Moderate granularity for increased throughput and load growth.
+        750.0, 1000.0, 2000.0, 3500.0, 5000.0,
+        // Extreme spike zone: Low granularity for capturing anomalous bursts up to 10k.
+        7500.0, 10000.0,
+    ];
+
     #[must_use]
     pub fn new() -> Self {
         describe_counter!(
-            "solana_client_bytes_total",
+            Self::METRIC_BYTES,
+            Unit::Bytes,
             "Total data throughput by transport and program"
         );
-        describe_counter!("solana_client_events_total", "Successfully parsed events");
-        describe_counter!("solana_client_errors_total", "Total errors by type");
+        describe_counter!(
+            Self::METRIC_EVENTS,
+            Unit::Count,
+            "Successfully parsed events"
+        );
+        describe_counter!(Self::METRIC_ERRORS, Unit::Count, "Total errors by type");
+        describe_histogram!(Self::METRIC_LATENCY, Unit::Seconds, "Processing latency");
         describe_histogram!(
-            "solana_client_processing_duration_seconds",
-            "Processing latency"
+            Self::METRIC_HANDLER,
+            Unit::Seconds,
+            "Time taken by the callback/handler to process events"
         );
         describe_histogram!(
-            "solana_client_handler_duration_seconds",
-            "Time taken by the callback/handler to process events"
+            Self::METRIC_BATCH_SIZE,
+            Unit::Count,
+            "Distribution of incoming message batch sizes before parsing"
         );
 
         Self
+    }
+
+    /// Returns buckets and metric name for external registration.
+    #[must_use]
+    pub fn batch_size_buckets() -> (&'static str, &'static [f64]) {
+        (Self::METRIC_BATCH_SIZE, Self::STREAM_BATCH_SIZE_BUCKETS)
     }
 
     // === Transport Layer (WS / gRPC / RPC) ===
@@ -56,7 +90,7 @@ impl Metrics {
             (Self::LBL_TYPE, event_type.as_str()),
             (Self::LBL_PROGRAM, program_id),
         ];
-        counter!("solana_client_bytes_total", &labels).increment(len as u64);
+        counter!(Self::METRIC_BYTES, &labels).increment(len as u64);
     }
 
     // === Parsing Layer ===
@@ -73,7 +107,7 @@ impl Metrics {
             (Self::LBL_TYPE, event_type.as_str()),
             (Self::LBL_PROGRAM, program_id),
         ];
-        counter!("solana_client_events_total", &labels).increment(1);
+        counter!(Self::METRIC_EVENTS, &labels).increment(1);
     }
 
     /// Records a parsing failure for a specific DEX.
@@ -83,7 +117,7 @@ impl Metrics {
             (Self::LBL_TRANSPORT, transport.as_str()),
             (Self::LBL_ERROR, kind.as_str()),
         ];
-        counter!("solana_client_errors_total", &labels).increment(1);
+        counter!(Self::METRIC_ERRORS, &labels).increment(1);
     }
 
     // === Performance ===
@@ -91,13 +125,17 @@ impl Metrics {
     /// Measures the total time spent in the processing pipeline.
     pub fn record_duration(&self, transport: Transport, start: Instant) {
         let labels = [(Self::LBL_TRANSPORT, transport.as_str())];
-        histogram!("solana_client_processing_duration_seconds", &labels)
-            .record(start.elapsed().as_secs_f64());
+        histogram!(Self::METRIC_LATENCY, &labels).record(start.elapsed().as_secs_f64());
     }
 
     /// Measures the execution time of the arbitrage/business logic.
     pub fn record_handler_duration(&self, start: Instant) {
-        histogram!("solana_client_handler_duration_seconds").record(start.elapsed().as_secs_f64());
+        histogram!(Self::METRIC_HANDLER).record(start.elapsed().as_secs_f64());
+    }
+
+    /// Records the number of messages in a single processed batch.
+    pub fn record_batch_size(&self, size: usize) {
+        histogram!(Self::METRIC_BATCH_SIZE).record(size as f64);
     }
 }
 

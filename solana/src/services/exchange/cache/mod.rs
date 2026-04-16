@@ -25,7 +25,7 @@ pub use vault::*;
 /// Initializes the global market state and cache metrics.
 ///
 /// Must be called once at application startup before any cache access.
-pub fn init() -> anyhow::Result<()> {
+pub fn init_local_cache() -> anyhow::Result<()> {
     init_market_state()?;
     init_cache_metrics();
     Ok(())

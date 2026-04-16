@@ -7,11 +7,9 @@ use tracing::warn;
 
 use crate::{
     libs::solana_client::{
-        dex::{orca::*, utils::*},
-        metrics::*,
         models::*,
         pool::*,
-        protocols::kamino::*,
+        protocols::{kamino::*, orca::*, utils::*},
     },
     services::exchange::cache::*,
 };
@@ -173,13 +171,12 @@ impl MarketState {
             PoolState::PoolMeteoraDammV2(s) => self.update_pool(pool_id, s),
             PoolState::PoolStateRaydiumCpmm(s) => self.update_pool(pool_id, s),
             PoolState::AmmInfoRaydiumAmm(s) => self.update_pool(pool_id, s),
-            PoolState::BondingCurvePumpFun(_) => None,
 
             PoolState::BinArrayBitmapExtensionMeteoraDlmm(b) => {
-                self.update_bitmap(pool_id, CachedBitmap::MeteoraDlmm(b))
+                self.update_bitmap(b.pubkey(), slot, CachedBitmap::MeteoraDlmm(b))
             }
             PoolState::TickArrayBitmapExtensionRadiumClmm(b) => {
-                self.update_bitmap(pool_id, CachedBitmap::RaydiumClmm(b))
+                self.update_bitmap(b.pubkey(), slot, CachedBitmap::RaydiumClmm(b))
             }
 
             PoolState::OracleOrca(s) => self.update_oracle(&s),
@@ -212,7 +209,7 @@ impl MarketState {
     }
 
     /// Stores a new pool logic provider (DexPool) into the pool cache.
-    fn update_pool<T: DexPool + ProtocolMetrics + 'static>(
+    fn update_pool<T: DexPool + ProtocolIdentity + 'static>(
         &mut self,
         pool_id: Pubkey,
         pool: Box<T>,
@@ -238,8 +235,13 @@ impl MarketState {
         None
     }
 
-    fn update_bitmap(&mut self, pool_id: Pubkey, bitmap: CachedBitmap) -> Option<UpdatedPool> {
-        self.bitmaps.update(pool_id, bitmap);
+    fn update_bitmap(
+        &mut self,
+        pool_id: Pubkey,
+        slot: u64,
+        bitmap: CachedBitmap,
+    ) -> Option<UpdatedPool> {
+        self.bitmaps.update(pool_id, slot, bitmap);
         None
     }
 

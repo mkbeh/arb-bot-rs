@@ -4,7 +4,7 @@ use ahash::AHashMap;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
-    libs::solana_client::{dex::*, metrics::*, pool::*},
+    libs::solana_client::{models::*, pool::*, protocols::*},
     services::exchange::cache::*,
 };
 
@@ -72,7 +72,7 @@ pub struct SubCache<K, T> {
 impl<K, T> Default for SubCache<K, T>
 where
     K: Ord + Copy + std::hash::Hash,
-    T: LiquidityUpdate<Key = K> + ProtocolMetrics,
+    T: LiquidityUpdate<Key = K> + ProtocolIdentity,
 {
     fn default() -> Self {
         Self::new()
@@ -82,7 +82,7 @@ where
 impl<K, T> SubCache<K, T>
 where
     K: Ord + Copy + std::hash::Hash,
-    T: LiquidityUpdate<Key = K> + ProtocolMetrics,
+    T: LiquidityUpdate<Key = K> + ProtocolIdentity,
 {
     #[must_use]
     pub fn new() -> Self {

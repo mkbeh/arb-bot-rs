@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
-use crate::libs::solana_client::dex::{meteora_dlmm, orca, raydium_clmm};
+use crate::libs::solana_client::protocols::{meteora_dlmm, orca, raydium_clmm};
 
 /// Protocol-specific bitmap extension for locating liquidity arrays.
 ///
 /// Used during swap simulation to skip empty bin/tick arrays efficiently
 /// without iterating over each one individually.
+#[derive(Debug)]
 pub enum LiquidityBitmap<'a> {
     MeteoraDlmm(Option<&'a meteora_dlmm::BinArrayBitmapExtension>),
     RaydiumClmm(Option<&'a raydium_clmm::TickArrayBitmapExtension>),
@@ -19,6 +20,7 @@ pub enum LiquidityArray {
 }
 
 /// A reference to a sorted collection of liquidity arrays for a specific DEX protocol.
+#[derive(Debug)]
 pub enum LiquidityMap<'a> {
     MeteoraDlmm(&'a BTreeMap<i64, meteora_dlmm::BinArray>),
     Orca(&'a BTreeMap<i32, orca::OrcaTickArray>),

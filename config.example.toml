@@ -203,9 +203,6 @@ program_id = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK" # radium clmm
 [[solana.exchanges]]
 program_id = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" # orca
 
-[[solana.exchanges]]
-program_id = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" # pumpfun
-
 # Configuration for a specific base mint (inventory token).
 #
 # This struct is used to define tokens that the bot is allowed to use

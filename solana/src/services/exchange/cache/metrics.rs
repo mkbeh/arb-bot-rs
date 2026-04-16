@@ -245,27 +245,24 @@ impl Default for BitmapCacheMetrics {
 
 impl BitmapCacheMetrics {
     const METRIC_BITMAP_CACHE_SIZE: &str = "cache_size_bitmap_total";
-    const LBL_POOL: &str = "pool";
     const LBL_PROTOCOL: &str = "protocol";
 
     #[must_use]
     pub fn new() -> Self {
-        describe_gauge!(
+        describe_counter!(
             Self::METRIC_BITMAP_CACHE_SIZE,
             Unit::Count,
-            "Indicates whether a bitmap extension for the given pool is present in the cache (1 = present)"
+            "Total number of bitmaps added to the cache for the given protocol"
         );
         Self
     }
 
-    /// Records that a bitmap for the given pool is present in the cache.
-    pub fn record(&self, pool: &Pubkey, protocol: &'static str) {
-        gauge!(
+    pub fn record(&self, protocol: &'static str) {
+        counter!(
             Self::METRIC_BITMAP_CACHE_SIZE,
-            Self::LBL_POOL => pool.to_string(),
             Self::LBL_PROTOCOL => protocol
         )
-        .set(1.0);
+        .increment(1);
     }
 }
 

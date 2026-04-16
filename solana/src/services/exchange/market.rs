@@ -76,12 +76,15 @@ impl MarketService {
             let vault_rpc_timeout = self.vault_rpc_timeout;
 
             set.spawn(async move {
-                let accounts = timeout(vault_rpc_timeout, rpc.get_multiple_accounts(&chunk_vec))
+                let response = timeout(vault_rpc_timeout, rpc.get_multiple_accounts(&chunk_vec))
                     .await
                     .map_err(|_| {
                         anyhow::anyhow!("RPC timeout for chunk of {}", chunk_vec.len())
                     })??;
-                Ok::<(Vec<Pubkey>, Vec<Option<Account>>), anyhow::Error>((chunk_vec, accounts))
+                Ok::<(Vec<Pubkey>, Vec<Option<Account>>), anyhow::Error>((
+                    chunk_vec,
+                    response.value,
+                ))
             });
         }
 

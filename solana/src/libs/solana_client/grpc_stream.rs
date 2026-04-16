@@ -386,9 +386,13 @@ impl GrpcStream {
                 }
             }
 
-            let start_time = Instant::now();
+            if batch.is_empty() {
+                return Ok(());
+            }
 
-            // Parallel parsing of the batch
+            let start_time = Instant::now();
+            let batch_size = batch.len();
+
             let events: Vec<Event> = batch
                 .into_par_iter()
                 .filter_map(|res| res.ok())
@@ -396,6 +400,7 @@ impl GrpcStream {
                 .collect();
 
             STREAM_METRICS.record_duration(Transport::Grpc, start_time);
+            STREAM_METRICS.record_batch_size(batch_size);
 
             if !events.is_empty()
                 && let Some(ref mut cb) = self.callback

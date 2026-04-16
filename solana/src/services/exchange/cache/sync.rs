@@ -5,7 +5,7 @@ use parking_lot::RwLock;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
-    libs::solana_client::metrics::ProtocolKind, services::exchange::cache::POOL_SYNC_CACHE_METRICS,
+    libs::solana_client::ProtocolKind, services::exchange::cache::POOL_SYNC_CACHE_METRICS,
 };
 
 static POOL_SYNC_CACHE: LazyLock<RwLock<PoolSyncCache>> =
@@ -16,6 +16,7 @@ pub fn get_pool_sync_cache() -> &'static RwLock<PoolSyncCache> {
     &POOL_SYNC_CACHE
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum PoolSyncStatus {
     NotRequired,
     Pending {
@@ -39,7 +40,7 @@ impl PoolSyncStatus {
     }
 
     pub fn mark_ready(&mut self, ts: u64) {
-        *self = PoolSyncStatus::Ready { synced_at: ts }
+        *self = Self::Ready { synced_at: ts }
     }
 }
 
@@ -94,11 +95,33 @@ impl PoolSyncCache {
     }
 
     #[must_use]
-    pub fn get_pending_pools(&self) -> Vec<(Pubkey, &PoolSyncStatus)> {
+    pub fn get_pending_pools(&self, limit: usize) -> Vec<(Pubkey, PoolSyncStatus)> {
         self.statuses
             .iter()
             .filter(|(_, s)| matches!(s, PoolSyncStatus::Pending { .. }))
-            .map(|(pool_id, status)| (*pool_id, status))
+            .take(limit)
+            .map(|(pool_id, status)| (*pool_id, *status))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn get_ready_pools(&self, max_age_ms: u64, limit: usize) -> Vec<Pubkey> {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        self.statuses
+            .iter()
+            .filter_map(|(pool_id, status)| {
+                if let PoolSyncStatus::Ready { synced_at } = status
+                    && now_ms.saturating_sub(*synced_at) > max_age_ms
+                {
+                    return Some(*pool_id);
+                }
+                None
+            })
+            .take(limit)
             .collect()
     }
 }

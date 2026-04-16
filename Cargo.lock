@@ -4892,6 +4892,7 @@ dependencies = [
  "serde_with",
  "simd-json",
  "solana-client",
+ "solana-rpc-client",
  "solana-sdk",
  "spl-token",
  "spl-token-2022",

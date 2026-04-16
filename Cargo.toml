@@ -60,6 +60,7 @@ num_enum = { version = "0.7.6" }
 orca_whirlpools_core = { version = "2.1.0" }
 ruint = { version = "1.17.2" }
 solana-client = { version = "3.1.12" }
+solana-rpc-client = { version = "3.1" }
 solana-sdk = { version = "3.0.0" }
 spl-token = { version = "9.0.0" }
 spl-token-2022 = { version = "10.0.0" }
