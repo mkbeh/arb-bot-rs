@@ -85,7 +85,7 @@ impl SolanaStream for WebsocketStream {
             session_token.cancel();
 
             if let Err(e) = result {
-                error!("Websocket Session error: {e}. Reconnecting in {delay:?}...");
+                error!("Websocket Session error: {e:#?}. Reconnecting in {delay:?}...");
                 STREAM_METRICS.record_error(Transport::Ws, StreamErrorKind::Session);
             }
 
@@ -337,12 +337,15 @@ impl WebsocketStream {
         }
 
         let start_time = Instant::now();
+        let batch_size = batch.len();
+
         let events: Vec<Event> = batch
             .into_par_iter()
             .filter_map(|msg| Self::parse_notification(msg, &self.subscriptions))
             .collect();
 
         STREAM_METRICS.record_duration(Transport::Ws, start_time);
+        STREAM_METRICS.record_batch_size(batch_size);
 
         if !events.is_empty()
             && let Some(ref mut cb) = self.callback

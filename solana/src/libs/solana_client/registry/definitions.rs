@@ -1,4 +1,4 @@
-use crate::libs::solana_client::{dex::*, models::*, protocols::*, registry::*};
+use crate::libs::solana_client::{models::*, protocols::*, registry::*};
 
 /// Populates the provided [ProtocolRegistry] with protocol-specific parsers.
 ///
@@ -13,7 +13,6 @@ use crate::libs::solana_client::{dex::*, models::*, protocols::*, registry::*};
 /// - **Raydium AMM**: Pool state and Swap events.
 /// - **Raydium CLMM**: Pool state and Swap events.
 /// - **Orca**: Pool state and Swap events.
-/// - **PumpFun**: Pool state and Swap events.
 /// - **Kamino**: Kamino reserves.
 pub fn fill_registry(reg: &mut ProtocolRegistry) {
     // Meteora DLMM Integration
@@ -50,10 +49,6 @@ pub fn fill_registry(reg: &mut ProtocolRegistry) {
     reg.add_boxed::<orca::DynamicTickArray, _>(PoolState::DynamicTickArrayOrca);
     reg.add_boxed::<orca::Oracle, _>(PoolState::OracleOrca);
     reg.add::<orca::Swap, _>(TxEvent::SwapOrca);
-
-    // PumpFun Integration
-    reg.add_boxed::<pump_fun::BondingCurve, _>(PoolState::BondingCurvePumpFun);
-    reg.add::<pump_fun::Swap, _>(TxEvent::SwapPumpFun);
 
     // Kamino Integration
     reg.add_boxed::<kamino::Reserve, _>(PoolState::ReserveKamino);

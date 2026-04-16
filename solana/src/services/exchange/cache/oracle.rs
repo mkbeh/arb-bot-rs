@@ -2,7 +2,7 @@ use ahash::AHashMap;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
-    libs::solana_client::dex::orca::Oracle, services::exchange::cache::ORACLE_CACHE_METRICS,
+    libs::solana_client::protocols::orca::Oracle, services::exchange::cache::ORACLE_CACHE_METRICS,
 };
 
 /// Cache for Orca Oracle accounts keyed by whirlpool pubkey.

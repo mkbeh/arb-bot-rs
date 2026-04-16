@@ -38,7 +38,7 @@ impl AmmConfigCache {
     /// Inserts a protocol-specific configuration into the cache.
     #[inline]
     pub fn insert<T: AmmConfigEntry>(&mut self, key: Pubkey, config: T) {
-        let dex = config.name();
+        let dex = config.protocol_name();
         let previous = self.inner.insert(key, config.into());
 
         if previous.is_none() {

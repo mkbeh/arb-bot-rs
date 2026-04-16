@@ -2,11 +2,12 @@ use solana_sdk::{account::Account, clock::Clock};
 use spl_token_2022::extension::{PodStateWithExtensions, StateWithExtensions};
 
 use crate::libs::solana_client::{
-    dex::orca,
     pool::{AmmConfigType, LiquidityBitmap, LiquidityMap},
+    protocols::orca,
 };
 
 /// Specifies the type of swap simulation to perform.
+#[derive(Debug)]
 pub enum QuoteType {
     /// Simulate a swap with an exact input amount.
     /// Returns the maximum output amount achievable for the given input.
@@ -18,6 +19,7 @@ pub enum QuoteType {
 }
 
 /// Input parameters for a swap simulation.
+#[derive(Debug)]
 pub struct QuoteContext<'a> {
     /// The type and amount of the swap (exact in or exact out).
     pub quote_type: QuoteType,

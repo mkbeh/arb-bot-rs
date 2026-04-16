@@ -3,8 +3,10 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use engine::{Exchange, service::traits::ArbitrageService};
+use metrics_exporter_prometheus::Matcher;
 use tokio::{sync::Mutex, task::JoinSet};
 use tokio_util::sync::CancellationToken;
+use tools::http::http_metrics::HttpMetrics;
 
 use crate::{
     Config,
@@ -77,7 +79,8 @@ impl ArbitrageService for ExchangeService {
 
 impl ExchangeService {
     pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        cache::init(config.strategy.liquidity_depth)?;
+        cache::init_local_cache()?;
+        init_client_metrics();
 
         let rpc = Arc::new(RpcClient::from_config(config.try_into()?));
         let compute_service = ComputeService::new(config.try_into()?);
@@ -94,10 +97,18 @@ impl ExchangeService {
     }
 }
 
+fn init_client_metrics() {
+    for (name, buckets) in metrics::histogram_buckets() {
+        HttpMetrics::register_buckets(Matcher::Full(name.to_owned()), buckets.to_vec());
+    }
+}
+
 fn build_background_services(rpc: Arc<RpcClient>) -> Vec<Arc<dyn BackgroundService + Send + Sync>> {
     vec![
         Arc::new(MintService::new(rpc.clone())),
-        Arc::new(AmmConfigService::new(rpc)),
+        Arc::new(AmmConfigService::new(rpc.clone())),
+        Arc::new(LazySyncService::new(rpc.clone())),
+        Arc::new(ReSyncService::new(rpc)),
     ]
 }
 

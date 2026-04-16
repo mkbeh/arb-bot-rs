@@ -1,5 +1,4 @@
 pub mod callback;
-pub mod dex;
 pub mod grpc_stream;
 pub mod metrics;
 pub mod models;

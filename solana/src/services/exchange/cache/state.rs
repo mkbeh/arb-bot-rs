@@ -7,11 +7,9 @@ use tracing::warn;
 
 use crate::{
     libs::solana_client::{
-        dex::{orca::Oracle, utils::parse_vault_amount},
-        metrics::ProtocolMetrics,
         models::*,
         pool::*,
-        protocols::kamino::*,
+        protocols::{kamino::*, orca::*, utils::*},
     },
     services::exchange::cache::*,
 };
@@ -19,8 +17,8 @@ use crate::{
 /// Global root state container.
 static MARKET_STATE: OnceLock<RwLock<MarketState>> = OnceLock::new();
 
-pub fn init_market_state(depth: i64) -> anyhow::Result<()> {
-    let state = RwLock::new(MarketState::new(depth));
+pub fn init_market_state() -> anyhow::Result<()> {
+    let state = RwLock::new(MarketState::new());
     MARKET_STATE
         .set(state)
         .map_err(|_| anyhow::anyhow!("MarketState already initialized"))
@@ -69,7 +67,6 @@ pub struct UpdatedPool {
 
 /// Root state container for all DEX-related data in the market.
 pub struct MarketState {
-    indices: LiquidityIndexCache,
     liquidity: LiquidityCache,
     pools: PoolCache,
     vaults: VaultCache,
@@ -79,22 +76,22 @@ pub struct MarketState {
     clock: Option<Clock>,
 }
 
+impl Default for MarketState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MarketState {
-    /// Initializes a new MarketState with a specific depth for liquidity caching.
-    ///
-    /// # Arguments
-    /// * `depth` - The number of "pages" (arrays) to keep in memory on either side of the current
-    ///   price.
     #[must_use]
-    pub fn new(depth: i64) -> Self {
+    pub fn new() -> Self {
         Self {
-            indices: LiquidityIndexCache::default(),
-            liquidity: LiquidityCache::new(depth),
+            liquidity: LiquidityCache::default(),
             pools: PoolCache::default(),
             vaults: VaultCache::default(),
-            oracles: OracleCache::new(),
-            bitmaps: BitmapCache::new(),
-            reserves: ReserveCache::new(),
+            oracles: OracleCache::default(),
+            bitmaps: BitmapCache::default(),
+            reserves: ReserveCache::default(),
             clock: None,
         }
     }
@@ -107,9 +104,10 @@ impl MarketState {
             match event {
                 Event::Clock(clock) => self.update_clock(clock),
                 Event::Program(acc) => {
+                    let pubkey = acc.pubkey;
                     let slot = acc.slot;
 
-                    let Some(updated) = self.update_state(acc.pubkey, acc.pool_state) else {
+                    let Some(updated) = self.update_state(pubkey, slot, acc.pool_state) else {
                         continue;
                     };
 
@@ -117,7 +115,7 @@ impl MarketState {
                         result.vaults.extend(vaults);
                     }
 
-                    result.record_pool_update(acc.pubkey, slot, updated.is_new);
+                    result.record_pool_update(pubkey, slot, updated.is_new);
                 }
                 _ => {}
             }
@@ -143,23 +141,28 @@ impl MarketState {
     }
 
     /// Dispatches an incoming `PoolState` update to the appropriate cache.
-    fn update_state(&mut self, pool_id: Pubkey, state: PoolState) -> Option<UpdatedPool> {
-        if let Ok(idx) = LiquidityIndex::try_from(&state) {
-            self.indices.update(pool_id, idx);
-        }
-
+    fn update_state(
+        &mut self,
+        pool_id: Pubkey,
+        slot: u64,
+        state: PoolState,
+    ) -> Option<UpdatedPool> {
         match state {
             PoolState::BinArrayMeteoraDlmm(s) => {
-                self.update_liquidity(s.pubkey(), LiquidityArray::MeteoraDlmm(*s))
+                self.update_liquidity(s.pubkey(), slot, LiquidityArray::MeteoraDlmm(*s))
             }
-            PoolState::FixedTickArrayOrca(s) => {
-                self.update_liquidity(s.pubkey(), LiquidityArray::OrcaFixed(*s))
-            }
-            PoolState::DynamicTickArrayOrca(s) => {
-                self.update_liquidity(s.pubkey(), LiquidityArray::OrcaDynamic(*s))
-            }
+            PoolState::FixedTickArrayOrca(s) => self.update_liquidity(
+                s.pubkey(),
+                slot,
+                LiquidityArray::Orca(OrcaTickArray::Fixed(s)),
+            ),
+            PoolState::DynamicTickArrayOrca(s) => self.update_liquidity(
+                s.pubkey(),
+                slot,
+                LiquidityArray::Orca(OrcaTickArray::Dynamic(*s)),
+            ),
             PoolState::TickArrayStateRaydiumClmm(s) => {
-                self.update_liquidity(s.pubkey(), LiquidityArray::RaydiumClmm(*s))
+                self.update_liquidity(s.pubkey(), slot, LiquidityArray::RaydiumClmm(*s))
             }
 
             PoolState::LbPairMeteoraDlmm(s) => self.update_pool(pool_id, s),
@@ -170,16 +173,14 @@ impl MarketState {
             PoolState::AmmInfoRaydiumAmm(s) => self.update_pool(pool_id, s),
 
             PoolState::BinArrayBitmapExtensionMeteoraDlmm(b) => {
-                self.update_bitmap(pool_id, CachedBitmap::MeteoraDlmm(b))
+                self.update_bitmap(b.pubkey(), slot, CachedBitmap::MeteoraDlmm(b))
             }
             PoolState::TickArrayBitmapExtensionRadiumClmm(b) => {
-                self.update_bitmap(pool_id, CachedBitmap::RaydiumClmm(b))
+                self.update_bitmap(b.pubkey(), slot, CachedBitmap::RaydiumClmm(b))
             }
 
             PoolState::OracleOrca(s) => self.update_oracle(&s),
             PoolState::ReserveKamino(s) => self.update_reserve(&s),
-
-            PoolState::BondingCurvePumpFun(_) => None,
 
             PoolState::Unknown(_) => {
                 warn!("Unknown PoolState for pool: {}", pool_id);
@@ -193,26 +194,35 @@ impl MarketState {
     /// This method acts as a coordinator: it first retrieves the current price index
     /// for the given pool to determine if the new liquidity data is within the
     /// required depth before storing it in the liquidity cache.
-    fn update_liquidity(&mut self, pool_id: Pubkey, array: LiquidityArray) -> Option<UpdatedPool> {
-        if let Some(index) = self.indices.get(&pool_id).copied() {
-            self.liquidity.update(pool_id, array, &index);
-            return Some(UpdatedPool {
-                pool_id,
-                vaults: None,  // Ticks never trigger vault refresh
-                is_new: false, // Liquidity updates never represent new pools
-            });
-        }
-        None
+    fn update_liquidity(
+        &mut self,
+        pool_id: Pubkey,
+        slot: u64,
+        array: LiquidityArray,
+    ) -> Option<UpdatedPool> {
+        self.liquidity.update(pool_id, slot, array);
+        Some(UpdatedPool {
+            pool_id,
+            vaults: None,  // Ticks never trigger vault refresh
+            is_new: false, // Liquidity updates never represent new pools
+        })
     }
 
     /// Stores a new pool logic provider (DexPool) into the pool cache.
-    fn update_pool<T: DexPool + ProtocolMetrics + 'static>(
+    fn update_pool<T: DexPool + ProtocolIdentity + 'static>(
         &mut self,
         pool_id: Pubkey,
         pool: Box<T>,
     ) -> Option<UpdatedPool> {
         let vaults = pool.get_vault_pubkeys().map(|(v0, v1)| [v0, v1]);
+        let protocol = pool.protocol();
         let is_new = self.pools.update(pool_id, pool);
+
+        if is_new {
+            let sync_status = get_sync_status_by_protocol(&protocol);
+            get_pool_sync_cache().write().init(pool_id, sync_status);
+        }
+
         Some(UpdatedPool {
             pool_id,
             vaults,
@@ -225,8 +235,13 @@ impl MarketState {
         None
     }
 
-    fn update_bitmap(&mut self, pool_id: Pubkey, bitmap: CachedBitmap) -> Option<UpdatedPool> {
-        self.bitmaps.update(pool_id, bitmap);
+    fn update_bitmap(
+        &mut self,
+        pool_id: Pubkey,
+        slot: u64,
+        bitmap: CachedBitmap,
+    ) -> Option<UpdatedPool> {
+        self.bitmaps.update(pool_id, slot, bitmap);
         None
     }
 

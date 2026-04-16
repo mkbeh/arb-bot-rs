@@ -1,9 +1,9 @@
 use crate::libs::solana_client::{
-    dex::{
+    models::*,
+    protocols::{
         raydium_clmm::AmmConfig as RaydiumClmmAmmConfig,
         raydium_cpmm::AmmConfig as RaydiumCpmmAmmConfig,
     },
-    metrics::*,
 };
 
 /// A unified wrapper for various Automated Market Maker (AMM) configurations.
@@ -46,20 +46,20 @@ impl From<RaydiumCpmmAmmConfig> for AmmConfigType {
 //  --- Entry trait ---
 
 /// A marker trait for concrete AMM configuration types.
-pub trait AmmConfigEntry: ProtocolMetrics + Into<AmmConfigType> + Copy {
+pub trait AmmConfigEntry: ProtocolIdentity + Into<AmmConfigType> + Copy {
     /// Attempts to extract a reference to the concrete type from the generic [`AmmConfigType`].
     fn extract(config: &AmmConfigType) -> Option<&Self>;
 }
 
-impl ProtocolMetrics for RaydiumClmmAmmConfig {
-    fn name(&self) -> &'static str {
-        DEX_RAYDIUM_CLMM
+impl ProtocolIdentity for RaydiumClmmAmmConfig {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumClmm
     }
 }
 
-impl ProtocolMetrics for RaydiumCpmmAmmConfig {
-    fn name(&self) -> &'static str {
-        DEX_RAYDIUM_CPMM
+impl ProtocolIdentity for RaydiumCpmmAmmConfig {
+    fn protocol(&self) -> ProtocolKind {
+        ProtocolKind::RaydiumCpmm
     }
 }
 

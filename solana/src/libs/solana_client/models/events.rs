@@ -1,7 +1,7 @@
 use solana_client::rpc_response::transaction::Signature;
 use solana_sdk::{clock::Clock, pubkey::Pubkey};
 
-use crate::libs::solana_client::{dex::*, protocols::*, registry::*};
+use crate::libs::solana_client::{protocols::*, registry::*};
 
 /// Defines the types of Solana blockchain data that
 /// can be subscribed to via RPC/WebSocket.
@@ -53,7 +53,7 @@ pub struct SlotEvent {
 }
 
 /// Describes an update to a specific Solana account,
-/// including its metadata and parsed DEX state.
+/// including its metadata and parsed state.
 #[derive(Debug, Clone)]
 pub struct ProgramEvent {
     pub slot: u64,
@@ -72,8 +72,7 @@ pub struct ProgramEvent {
     pub pool_state: PoolState,
 }
 
-/// Represents the high-level parsed state of a Liquidity Pool
-/// across different DEX protocols.
+/// Represents the high-level parsed state across different protocols.
 #[derive(Debug, Clone)]
 pub enum PoolState {
     LbPairMeteoraDlmm(Box<meteora_dlmm::LbPair>),
@@ -89,7 +88,6 @@ pub enum PoolState {
     FixedTickArrayOrca(Box<orca::FixedTickArray>),
     DynamicTickArrayOrca(Box<orca::DynamicTickArray>),
     OracleOrca(Box<orca::Oracle>),
-    BondingCurvePumpFun(Box<pump_fun::BondingCurve>),
     /// Reserves
     ReserveKamino(Box<kamino::Reserve>),
     /// Fallback for unknown or unsupported account data.
@@ -106,7 +104,6 @@ pub enum TxEvent {
     SwapRaydiumAmm(raydium_amm::Swap),
     SwapRaydiumClmm(raydium_clmm::Swap),
     SwapOrca(orca::Swap),
-    SwapPumpFun(pump_fun::Swap),
     /// Fallback for unknown or unsupported transaction instructions.
     Unknown(Vec<u8>),
 }

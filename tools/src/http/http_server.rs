@@ -7,7 +7,7 @@ use tokio::{signal, task::JoinHandle, time::timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::http::metrics;
+use crate::http::http_metrics;
 
 /// Asynchronous trait for server processes that can be pre-run and run concurrently with the
 /// server.
@@ -279,7 +279,7 @@ async fn bootstrap_server(addr: &str, router: Router, server_kind: ServerKind) -
         .await
         .with_context(|| format!("Failed to bind to address: {addr}"))?;
 
-    info!(addr = addr, "🌐 [Server] Listening {server_kind}");
+    info!(addr = addr, "🌐 [Server] Listening {server_kind} server");
 
     axum::serve(
         listener,
@@ -350,6 +350,6 @@ fn get_default_router() -> Router {
 
 /// Returns an Axum router for metrics with Prometheus rendering.
 fn get_metrics_router() -> Router {
-    let recorder_handle = metrics::setup_metrics_recorder();
+    let recorder_handle = http_metrics::setup_metrics_recorder();
     get_default_router().route("/metrics", get(move || ready(recorder_handle.render())))
 }

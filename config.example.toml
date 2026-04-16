@@ -174,11 +174,6 @@ url = "wss://<YOUR_URL>"
 # x_token = ""
 
 [solana.strategy]
-# The radius of the liquidity sliding window (number of adjacent arrays to cache).
-## A value of 1 means the bot will store the active array plus 1 array
-## on each side of the current price (Total: 3 arrays per pool).
-liquidity_depth = 1
-
 # Minimum trade size as a fraction of available liquidity in bps (0.5% = 0.5 SOL per 100 SOL reserve).
 min_liquidity_fraction_bps = 50
 
@@ -207,9 +202,6 @@ program_id = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK" # radium clmm
 
 [[solana.exchanges]]
 program_id = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" # orca
-
-[[solana.exchanges]]
-program_id = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" # pumpfun
 
 # Configuration for a specific base mint (inventory token).
 #

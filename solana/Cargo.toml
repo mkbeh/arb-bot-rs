@@ -39,6 +39,7 @@ num_enum = { workspace = true }
 orca_whirlpools_core = { workspace = true }
 ruint = { workspace = true }
 solana-client = { workspace = true }
+solana-rpc-client = { workspace = true }
 solana-sdk = { workspace = true }
 spl-token = { workspace = true }
 spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
