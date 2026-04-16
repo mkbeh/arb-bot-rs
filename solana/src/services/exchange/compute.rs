@@ -123,12 +123,11 @@ impl ComputeService {
                     tracing::debug!("profit: {:?}", opportunity)
                 }
                 Ok(None) => {}
-                Err(e) => match e {
-                    EvaluateError::InvalidLiquidityRange { min, max } => {
+                Err(e) => {
+                    if let EvaluateError::InvalidLiquidityRange { min, max } = e {
                         error!("CONFIG ERROR: Invalid range min:{min} >= max:{max}")
                     }
-                    _ => {}
-                },
+                }
             }
         });
 
