@@ -232,11 +232,6 @@ impl DexPool for PoolState {
 
         // note: custom validation
         if tick_arrays.is_empty() {
-            // tracing::debug!(
-            //     amount = amount_specified,
-            //     zero_for_one,
-            //     "Raydium CLMM: No tick arrays found for swap direction"
-            // );
             anyhow::bail!("No tick arrays available for Raydium CLMM swap");
         }
 
