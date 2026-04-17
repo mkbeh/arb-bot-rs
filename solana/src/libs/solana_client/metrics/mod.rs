@@ -1,7 +1,9 @@
 pub mod labels;
+pub mod rpc;
 pub mod stream;
 
 pub use labels::*;
+pub use rpc::*;
 pub use stream::*;
 
 /// Returns all histogram bucket configurations for external registration.
