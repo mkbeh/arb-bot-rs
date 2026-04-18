@@ -1,9 +1,6 @@
 use anyhow::{Context, Result};
 use solana_sdk::account::Account;
-use spl_token_2022::extension::{
-    transfer_fee::{TransferFee, TransferFeeConfig, *},
-    *,
-};
+use spl_token_2022::extension::{transfer_fee::*, *};
 
 const ONE_IN_BASIS_POINTS: u128 = MAX_FEE_BASIS_POINTS as u128;
 
