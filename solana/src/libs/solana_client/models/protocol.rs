@@ -4,8 +4,8 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::libs::solana_client::{
     metrics::{
-        DEX_METEORA_DAMM_V2, DEX_METEORA_DLMM, DEX_ORCA, DEX_PUMP_FUN, DEX_RAYDIUM_AMM,
-        DEX_RAYDIUM_CLMM, DEX_RAYDIUM_CPMM,
+        DEX_METEORA_DAMM_V2, DEX_METEORA_DLMM, DEX_ORCA, DEX_RAYDIUM_AMM, DEX_RAYDIUM_CLMM,
+        DEX_RAYDIUM_CPMM,
     },
     protocols::{meteora_dlmm, raydium_clmm},
 };
@@ -68,7 +68,6 @@ pub enum ProtocolKind {
     RaydiumClmm,
     RaydiumCpmm,
     Orca,
-    PumpFun,
 }
 
 impl ProtocolKind {
@@ -81,7 +80,6 @@ impl ProtocolKind {
             Self::RaydiumClmm => DEX_RAYDIUM_CLMM,
             Self::RaydiumCpmm => DEX_RAYDIUM_CPMM,
             Self::Orca => DEX_ORCA,
-            Self::PumpFun => DEX_PUMP_FUN,
         }
     }
 

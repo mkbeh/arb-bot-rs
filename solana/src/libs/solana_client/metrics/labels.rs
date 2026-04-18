@@ -5,4 +5,3 @@ pub const DEX_ORCA: &str = "orca";
 pub const DEX_RAYDIUM_CLMM: &str = "raydium_clmm";
 pub const DEX_RAYDIUM_CPMM: &str = "raydium_cpmm";
 pub const DEX_RAYDIUM_AMM: &str = "raydium_amm";
-pub const DEX_PUMP_FUN: &str = "pump_fun";

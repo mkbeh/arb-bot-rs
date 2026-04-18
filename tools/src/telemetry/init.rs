@@ -50,7 +50,7 @@ pub fn setup_opentelemetry(name: &'static str) {
         .with_target(false)
         .with_line_number(false)
         .with_file(false)
-        .with_ansi(true)
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stdout()))
         .with_writer(std::io::stdout)
         .with_filter(filter_fmt);
 

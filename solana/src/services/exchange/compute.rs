@@ -342,7 +342,7 @@ impl ComputeService {
                 vaults: pool1
                     .get_vault_pubkeys()
                     .and_then(|(a, b)| market.vaults().get_pair(&a, &b)),
-                liquidity: market.liquidity().get_map(&step1.pool_id, pool0.protocol()),
+                liquidity: market.liquidity().get_map(&step1.pool_id, pool1.protocol()),
                 bitmap: market.bitmaps().get(&step1.pool_id),
                 amm_config: pool1
                     .get_amm_config_pubkey()
