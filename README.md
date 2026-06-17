@@ -92,7 +92,7 @@ in [/deploy](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy).
 
 The dashboard provides a live look at the bot's decision-making process and market impact.
 
-![img](https://github.com/user-attachments/assets/29bfa2db-cac9-4f1e-8af8-8ac1f3c5b374)
+![img](https://github.com/user-attachments/assets/7043d85f-748e-4953-b9ab-b91427ecb4e0)
 
 _Live dashboard showing market data throughput, arbitrage processing rates, and trading performance._
 
