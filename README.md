@@ -5,7 +5,7 @@
 Arbitrage bot is a high-frequency arbitrage trading system that automatically identifies and executes profitable
 arbitrage opportunities on cryptocurrency exchanges.
 
-[📖 Full Documentation](https://github.com/mkbeh/arb-bot-rs/tree/main/docs) | [📊 Live Monitoring Setup](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy)
+[📖 Full Documentation](./docs) | [📊 Live Monitoring Setup](./deploy)
 
 ***
 
@@ -22,7 +22,7 @@ Get up and running in minutes! This bot is optimized for Linux but works on macO
 
 #### 🛠 Prerequisites
 
-* **Rust**: Version 1.94.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
+* **Rust**: Version 1.95.0 or newer. Install via [rustup](https://rustup.rs/?referrer=grok.com).
 
 #### 🏗 Build from Source
 
@@ -74,7 +74,7 @@ RUST_LOG=INFO ./target/release/bot run --exchange binance --config config.toml
 ![Prometheus](https://img.shields.io/badge/-Prometheus-red?logo=prometheus&logoColor=white&style=flat)
 
 Track every tick with Prometheus + Grafana. Setup instructions
-in [/deploy](https://github.com/mkbeh/arb-bot-rs/tree/main/deploy).
+in [/deploy](./deploy).
 
 **Key Metrics Dashboard**:
 
@@ -127,7 +127,7 @@ Every satoshi, every ether – it's a step toward something greater. Thank you f
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This project is open-source under the [MIT License](https://github.com/mkbeh/arb-bot-rs/blob/main/LICENSE). Use it
+This project is open-source under the [MIT License](./LICENSE). Use it
 freely, but trade responsibly.
 
 > "Code is poetry. Share it generously!" — inspired by Richard Stallman.
